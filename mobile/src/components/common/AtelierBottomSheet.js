@@ -293,12 +293,7 @@ const AtelierBottomSheetContent = ({
         collapsable={false}
         pointerEvents="none"
         style={[styles.backdropLayer, { opacity: backdropOpacity }]}
-      >
-        <View
-          collapsable={false}
-          style={styles.backdropTint}
-        />
-      </Animated.View>
+      />
       <Pressable
         style={styles.backdropPress}
         onPress={handleDismiss}
@@ -551,30 +546,43 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   outletLayer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 9999,
     elevation: 24,
   },
   modalRoot: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     justifyContent: 'flex-end',
   },
   backdropLayer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(28, 25, 23, 0.45)',
     zIndex: 1,
   },
-  backdropTint: {
-    flex: 1,
-    backgroundColor: 'rgba(28, 25, 23, 0.45)',
-  },
   backdropPress: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 2,
   },
   positioner: {
+    flex: 1,
     justifyContent: 'flex-end',
     zIndex: 3,
-    elevation: 16,
   },
   sheet: {
     backgroundColor: theme.colors.canvas,
