@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
+  Pressable,
   RefreshControl,
   ScrollView,
   Modal,
@@ -21,6 +22,8 @@ import AtelierCard from '../../components/common/AtelierCard';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
+import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierBrandMark from '../../components/common/AtelierBrandMark';
 import CartIconBadge from '../../components/common/CartIcon';
 import {
   fetchProducts,
@@ -140,7 +143,7 @@ export const ProductListScreen = ({ navigation }) => {
     }
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
+    } catch (e) { }
 
     dispatch(
       addToCart({
@@ -157,9 +160,9 @@ export const ProductListScreen = ({ navigation }) => {
 
   const hasActiveFilter = Boolean(
     minPrice ||
-      maxPrice ||
-      minRating ||
-      (selectedBrand && selectedBrand !== 'All')
+    maxPrice ||
+    minRating ||
+    (selectedBrand && selectedBrand !== 'All')
   );
 
   const renderProductItem = ({ item }) => {
@@ -199,7 +202,7 @@ export const ProductListScreen = ({ navigation }) => {
             </AtelierText>
             <AtelierText
               variant="title2"
-              numberOfLines={1}
+              numberOfLines={2}
               style={styles.productTitle}
             >
               {item.name}
@@ -229,21 +232,33 @@ export const ProductListScreen = ({ navigation }) => {
               >
                 {formatPrice(item.price)}
               </AtelierText>
-              <TouchableOpacity
-                style={[
+              <Pressable
+                android_ripple={{
+                  color: 'rgba(28, 25, 23, 0.12)',
+                  borderless: false,
+                }}
+                style={({ pressed }) => [
                   styles.quickAddButton,
+                  pressed && item.stock > 0 && styles.quickAddPressed,
                   item.stock <= 0 && styles.quickAddDisabled,
                 ]}
                 disabled={item.stock <= 0}
-                onPress={() => handleAddToCart(item)}
+                onPress={(event) => {
+                  event.stopPropagation?.();
+                  handleAddToCart(item);
+                }}
                 accessibilityLabel={`Add ${item.name} to cart`}
               >
                 <Ionicons
                   name="add"
                   size={20}
-                  color={theme.colors.surface}
+                  color={
+                    item.stock <= 0
+                      ? theme.colors.inkMuted
+                      : theme.colors.inkPrimary
+                  }
                 />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </AtelierCard>
@@ -253,37 +268,27 @@ export const ProductListScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.openDrawer()}
-        >
-          <Ionicons
-            name="menu-outline"
-            size={26}
-            color={theme.colors.inkPrimary}
-          />
-        </TouchableOpacity>
-        <AtelierText
-          variant="title1"
-          style={styles.headerTitle}
-        >
-          The Saturation Point
-        </AtelierText>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.navigate('CartTab')}
-        >
-          <View>
-            <Ionicons
-              name="cart-outline"
-              size={24}
-              color={theme.colors.inkPrimary}
-            />
-            <CartIconBadge />
-          </View>
-        </TouchableOpacity>
-      </View>
+      <AtelierHeader
+        leftType="drawer"
+        navigation={navigation}
+        centerComponent={<AtelierBrandMark variant="header" />}
+        rightComponent={
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => navigation.navigate('CartTab')}
+            accessibilityLabel="View shopping cart"
+          >
+            <View>
+              <Ionicons
+                name="cart-outline"
+                size={24}
+                color={theme.colors.inkPrimary}
+              />
+              <CartIconBadge />
+            </View>
+          </TouchableOpacity>
+        }
+      />
 
       <View style={styles.searchSection}>
         <View style={styles.searchInputContainer}>
@@ -546,26 +551,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.canvas,
   },
-  header: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
   headerIconButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerTitle: {
-    textAlign: 'center',
-    letterSpacing: 0.2,
   },
   searchSection: {
     paddingHorizontal: theme.spacing.lg,
@@ -653,6 +643,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 15,
     lineHeight: 20,
+    minHeight: 40,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -676,13 +667,23 @@ const styles = StyleSheet.create({
   quickAddButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
-    borderRadius: theme.radii.xs,
-    backgroundColor: theme.colors.inkPrimary,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.colors.borderMedium,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  quickAddPressed: {
+    backgroundColor: '#E7E5E4',
+    borderColor: theme.colors.inkPrimary,
+    transform: [{ scale: 0.94 }],
   },
   quickAddDisabled: {
-    backgroundColor: theme.colors.borderMedium,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderColor: theme.colors.border,
+    opacity: 0.5,
   },
   skeletonContainer: {
     flexDirection: 'row',

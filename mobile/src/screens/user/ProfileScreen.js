@@ -19,6 +19,7 @@ import AtelierButton from '../../components/common/AtelierButton';
 import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import AtelierHeader from '../../components/common/AtelierHeader';
 import { updateProfile, logout } from '../../redux/authSlice';
 import { isValidRemoteOrLocalUri } from '../../utils/formatters';
 import { appendImageToFormData } from '../../utils/formDataHelper';
@@ -58,25 +59,11 @@ export const ProfileScreen = ({ navigation }) => {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => navigation.openDrawer()}
-          >
-            <Ionicons
-              name="menu-outline"
-              size={26}
-              color={theme.colors.inkPrimary}
-            />
-          </TouchableOpacity>
-          <AtelierText
-            variant="title1"
-            style={styles.headerTitle}
-          >
-            Profile
-          </AtelierText>
-          <View style={styles.headerIconButton} />
-        </View>
+        <AtelierHeader
+          title="Profile"
+          leftType="drawer"
+          navigation={navigation}
+        />
 
         <View style={styles.guestContainer}>
           <View style={styles.guestAvatarPlaceholder}>
@@ -175,25 +162,11 @@ export const ProfileScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.openDrawer()}
-        >
-          <Ionicons
-            name="menu-outline"
-            size={26}
-            color={theme.colors.inkPrimary}
-          />
-        </TouchableOpacity>
-        <AtelierText
-          variant="title1"
-          style={styles.headerTitle}
-        >
-          Profile
-        </AtelierText>
-        <View style={styles.headerIconButton} />
-      </View>
+      <AtelierHeader
+        title="Profile"
+        leftType="drawer"
+        navigation={navigation}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -374,26 +347,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  header: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    textAlign: 'center',
   },
   scrollContent: {
     padding: theme.spacing.xl,

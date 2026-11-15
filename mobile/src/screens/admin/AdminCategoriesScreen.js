@@ -28,6 +28,7 @@ import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import AtelierHeader from '../../components/common/AtelierHeader';
 
 const CategorySchema = Yup.object().shape({
   name: Yup.string()
@@ -155,35 +156,16 @@ const AdminCategoriesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.openDrawer()}
-        >
-          <Ionicons
-            name="menu-outline"
-            size={26}
-            color={theme.colors.inkPrimary}
-          />
-        </TouchableOpacity>
-        <AtelierText
-          variant="title1"
-          style={styles.headerTitle}
-        >
-          Manage Categories
-        </AtelierText>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={openCreateSheet}
-          accessibilityLabel="Add Category"
-        >
-          <Ionicons
-            name="add-outline"
-            size={28}
-            color={theme.colors.gold}
-          />
-        </TouchableOpacity>
-      </View>
+      <AtelierHeader
+        title="Manage Categories"
+        leftType="drawer"
+        navigation={navigation}
+        rightIcon="add-outline"
+        rightIconColor={theme.colors.gold}
+        rightIconSize={28}
+        rightAccessibilityLabel="Add Category"
+        onRightPress={openCreateSheet}
+      />
 
       {error ? (
         <AtelierErrorBanner
@@ -325,26 +307,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  header: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    textAlign: 'center',
   },
   errorBanner: {
     marginHorizontal: theme.spacing.lg,

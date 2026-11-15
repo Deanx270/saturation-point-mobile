@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import AtelierInput from '../../components/common/AtelierInput';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import AtelierHeader from '../../components/common/AtelierHeader';
 import { fetchProductDetails } from '../../redux/productsSlice';
 import { addToCart } from '../../redux/cartSlice';
 import {
@@ -47,6 +49,7 @@ const ReviewSchema = Yup.object().shape({
 export const ProductDetailsScreen = ({ route, navigation }) => {
   const { productId } = route.params;
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { selectedProduct, loading, error } = useSelector((state) => state.products);
   const { isEligible, submitting, submitSuccess, error: reviewError } = useSelector(
     (state) => state.reviews
@@ -80,7 +83,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     }
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {}
+    } catch (e) { }
 
     dispatch(
       addToCart({
@@ -100,20 +103,20 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     const cleanComment = values.comment.trim();
     const result = editingReview
       ? await dispatch(
-          editReview({
-            productId,
-            reviewId: editingReview._id,
-            rating: values.rating,
-            comment: cleanComment,
-          })
-        )
+        editReview({
+          productId,
+          reviewId: editingReview._id,
+          rating: values.rating,
+          comment: cleanComment,
+        })
+      )
       : await dispatch(
-          submitReview({
-            productId,
-            rating: values.rating,
-            comment: cleanComment,
-          })
-        );
+        submitReview({
+          productId,
+          rating: values.rating,
+          comment: cleanComment,
+        })
+      );
 
     if (
       submitReview.fulfilled.match(result) ||
@@ -151,18 +154,11 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   if (error && !selectedProduct) {
     return (
       <View style={styles.loadingContainer}>
-        <View style={styles.errorHeader}>
-          <TouchableOpacity
-            style={styles.errorBackButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={22}
-              color={theme.colors.inkPrimary}
-            />
-          </TouchableOpacity>
-        </View>
+        <AtelierHeader
+          title="Product Details"
+          leftType="back"
+          navigation={navigation}
+        />
         <AtelierErrorBanner
           message={error}
           onRetry={() => dispatch(fetchProductDetails(productId))}
@@ -224,7 +220,10 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
             </View>
           )}
           <TouchableOpacity
-            style={styles.backButton}
+            style={[
+              styles.backButton,
+              { top: Math.max(insets.top, theme.spacing.lg) + theme.spacing.xs },
+            ]}
             onPress={() => navigation.goBack()}
           >
             <Ionicons
@@ -631,21 +630,6 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  errorHeader: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-  },
-  errorBackButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   skeletonPadding: {
     padding: theme.spacing.xl,

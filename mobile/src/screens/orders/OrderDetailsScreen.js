@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  TouchableOpacity,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +13,7 @@ import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
+import AtelierHeader from '../../components/common/AtelierHeader';
 import { fetchOrderById } from '../../redux/ordersSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
 
@@ -35,25 +35,11 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
   if (loading && isStaleOrder) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={theme.colors.inkPrimary}
-            />
-          </TouchableOpacity>
-          <AtelierText
-            variant="title1"
-            style={styles.headerTitle}
-          >
-            Order Details
-          </AtelierText>
-          <View style={styles.headerIconButton} />
-        </View>
+        <AtelierHeader
+          title="Order Details"
+          leftType="back"
+          navigation={navigation}
+        />
         <View style={styles.skeletonPadding}>
           <AtelierSkeleton
             height={100}
@@ -72,25 +58,11 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
   if (isStaleOrder || error) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={theme.colors.inkPrimary}
-            />
-          </TouchableOpacity>
-          <AtelierText
-            variant="title1"
-            style={styles.headerTitle}
-          >
-            Order Details
-          </AtelierText>
-          <View style={styles.headerIconButton} />
-        </View>
+        <AtelierHeader
+          title="Order Details"
+          leftType="back"
+          navigation={navigation}
+        />
         <View style={styles.skeletonPadding}>
           <AtelierErrorBanner
             message={error || 'Unable to load order details.'}
@@ -107,25 +79,11 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color={theme.colors.inkPrimary}
-          />
-        </TouchableOpacity>
-        <AtelierText
-          variant="title1"
-          style={styles.headerTitle}
-        >
-          Order #{selectedOrder._id.slice(-8).toUpperCase()}
-        </AtelierText>
-        <View style={styles.headerIconButton} />
-      </View>
+      <AtelierHeader
+        title={`Order #${selectedOrder._id.slice(-8).toUpperCase()}`}
+        leftType="back"
+        navigation={navigation}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -339,26 +297,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  header: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    textAlign: 'center',
   },
   scrollContent: {
     padding: theme.spacing.lg,

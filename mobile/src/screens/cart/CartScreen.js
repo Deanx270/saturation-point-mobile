@@ -15,6 +15,7 @@ import AtelierText from '../../components/common/AtelierText';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
+import AtelierHeader from '../../components/common/AtelierHeader';
 import {
   selectCartItems,
   selectCartTotal,
@@ -170,51 +171,29 @@ export const CartScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.openDrawer()}
-        >
-          <Ionicons
-            name="menu-outline"
-            size={26}
-            color={theme.colors.inkPrimary}
-          />
-        </TouchableOpacity>
-        <AtelierText
-          variant="title1"
-          style={styles.headerTitle}
-        >
-          Cart
-        </AtelierText>
-        {items.length > 0 ? (
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() =>
-              Alert.alert(
-                'Clear Cart',
-                'Remove all items from your cart?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Clear',
-                    style: 'destructive',
-                    onPress: () => dispatch(clearCart()),
-                  },
-                ]
-              )
-            }
-          >
-            <Ionicons
-              name="trash-bin-outline"
-              size={22}
-              color={theme.colors.error}
-            />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerIconButton} />
-        )}
-      </View>
+      <AtelierHeader
+        title="Cart"
+        leftType="drawer"
+        navigation={navigation}
+        rightIcon={items.length > 0 ? 'trash-bin-outline' : undefined}
+        rightIconColor={theme.colors.error}
+        rightIconSize={22}
+        rightAccessibilityLabel="Clear shopping cart"
+        onRightPress={() =>
+          Alert.alert(
+            'Clear Cart',
+            'Remove all items from your cart?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Clear',
+                style: 'destructive',
+                onPress: () => dispatch(clearCart()),
+              },
+            ]
+          )
+        }
+      />
 
       <FlatList
         data={items}
@@ -292,26 +271,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  header: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    textAlign: 'center',
   },
   listContent: {
     padding: theme.spacing.lg,

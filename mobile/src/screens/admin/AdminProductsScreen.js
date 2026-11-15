@@ -17,6 +17,7 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
+import AtelierHeader from '../../components/common/AtelierHeader';
 import { fetchProducts, deleteProduct } from '../../redux/productsSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
 
@@ -151,36 +152,18 @@ export const AdminProductsScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.openDrawer()}
-        >
-          <Ionicons
-            name="menu-outline"
-            size={26}
-            color={theme.colors.inkPrimary}
-          />
-        </TouchableOpacity>
-        <AtelierText
-          variant="title1"
-          style={styles.headerTitle}
-        >
-          Manage Products
-        </AtelierText>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() =>
-            navigation.navigate('AdminProductForm', { isEditing: false })
-          }
-        >
-          <Ionicons
-            name="add-outline"
-            size={28}
-            color={theme.colors.gold}
-          />
-        </TouchableOpacity>
-      </View>
+      <AtelierHeader
+        title="Manage Products"
+        leftType="drawer"
+        navigation={navigation}
+        rightIcon="add-outline"
+        rightIconColor={theme.colors.gold}
+        rightIconSize={28}
+        rightAccessibilityLabel="Add Product"
+        onRightPress={() =>
+          navigation.navigate('AdminProductForm', { isEditing: false })
+        }
+      />
 
       {error ? (
         <AtelierErrorBanner
@@ -238,26 +221,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  header: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    textAlign: 'center',
   },
   errorBanner: {
     marginHorizontal: theme.spacing.lg,

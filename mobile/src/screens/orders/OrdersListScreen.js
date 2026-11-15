@@ -8,7 +8,6 @@ import {
   ScrollView,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierCard from '../../components/common/AtelierCard';
@@ -16,6 +15,7 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
+import AtelierHeader from '../../components/common/AtelierHeader';
 import { fetchMyOrders } from '../../redux/ordersSlice';
 import { formatPrice, formatDate } from '../../utils/formatters';
 
@@ -131,25 +131,11 @@ export const OrdersListScreen = ({ navigation }) => {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => navigation.openDrawer()}
-          >
-            <Ionicons
-              name="menu-outline"
-              size={26}
-              color={theme.colors.inkPrimary}
-            />
-          </TouchableOpacity>
-          <AtelierText
-            variant="title1"
-            style={styles.headerTitle}
-          >
-            Orders
-          </AtelierText>
-          <View style={styles.headerIconButton} />
-        </View>
+        <AtelierHeader
+          title="Orders"
+          leftType="drawer"
+          navigation={navigation}
+        />
         <AtelierEmptyState
           iconName="lock-closed-outline"
           title="Sign In Required"
@@ -163,25 +149,11 @@ export const OrdersListScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.openDrawer()}
-        >
-          <Ionicons
-            name="menu-outline"
-            size={26}
-            color={theme.colors.inkPrimary}
-          />
-        </TouchableOpacity>
-        <AtelierText
-          variant="title1"
-          style={styles.headerTitle}
-        >
-          Orders
-        </AtelierText>
-        <View style={styles.headerIconButton} />
-      </View>
+      <AtelierHeader
+        title="Orders"
+        leftType="drawer"
+        navigation={navigation}
+      />
 
       <View style={styles.filterWrapper}>
         <ScrollView
@@ -274,26 +246,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  header: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    textAlign: 'center',
   },
   filterWrapper: {
     paddingVertical: theme.spacing.md,

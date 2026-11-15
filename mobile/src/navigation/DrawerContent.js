@@ -8,14 +8,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import AtelierText from '../components/common/AtelierText';
 import AtelierBadge from '../components/common/AtelierBadge';
+import AtelierBrandMark from '../components/common/AtelierBrandMark';
 import { logout } from '../redux/authSlice';
 import { isValidRemoteOrLocalUri } from '../utils/formatters';
 
 export const DrawerContent = ({ navigation }) => {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { user } = useSelector((state) => state.auth);
 
   const handleLogout = () => {
@@ -32,6 +35,17 @@ export const DrawerContent = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <View
+        style={[
+          styles.brandBanner,
+          { paddingTop: Math.max(insets.top, theme.spacing.lg) + theme.spacing.sm },
+        ]}
+      >
+        <AtelierBrandMark variant="drawer" />
+      </View>
+
+      <View style={styles.divider} />
+
       <View style={styles.profileHeader}>
         <View style={styles.avatarBorder}>
           {hasAvatar ? (
@@ -281,8 +295,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.canvas,
   },
+  brandBanner: {
+    paddingHorizontal: theme.spacing.xl,
+    paddingBottom: theme.spacing.lg,
+  },
   profileHeader: {
-    paddingTop: theme.spacing.hero + 20,
+    paddingTop: theme.spacing.lg,
     paddingHorizontal: theme.spacing.xl,
     paddingBottom: theme.spacing.lg,
     flexDirection: 'row',

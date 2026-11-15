@@ -89,8 +89,8 @@ const productsData = [
     stock: 14,
     description: 'Translucent wine-red resin fountain pen with a 14k gold nib and Slip & Seal cap mechanism that prevents ink evaporation.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516791/saturation_point_new/prmetnoko79ma68107xb.jpg',
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516790/saturation_point_new/zukjdjcid9kjytrxhc0g.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758430/saturation_point_mobile/platinum_century_3776_bourgogne_1.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758432/saturation_point_mobile/platinum_century_3776_bourgogne_2.jpg',
     ],
   },
   {
@@ -101,8 +101,8 @@ const productsData = [
     stock: 9,
     description: 'Italian writing instrument in swirled dark green acrylic resin with a magnetic cap closure and ruthenium trim.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516942/saturation_point_new/xxqxf4izglguybrjt5y9.jpg',
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516942/saturation_point_new/nfcl44r28zkgfkcmvwju.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758433/saturation_point_mobile/visconti_rembrandt_dark_forest_1.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758434/saturation_point_mobile/visconti_rembrandt_dark_forest_2.jpg',
     ],
   },
   {
@@ -113,7 +113,7 @@ const productsData = [
     stock: 11,
     description: 'German piston-fill fountain pen with a warm golden quartz barrel and smooth gold-plated steel nib.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516791/saturation_point_new/prmetnoko79ma68107xb.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758434/saturation_point_mobile/pelikan_m200_golden_beryl_1.jpg',
     ],
   },
   {
@@ -124,7 +124,7 @@ const productsData = [
     stock: 18,
     description: 'Brushed stainless steel barrel paired with a rubberized grip section, interchangeable steel nib, and twisted clip.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516942/saturation_point_new/xxqxf4izglguybrjt5y9.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758435/saturation_point_mobile/lamy_studio_brushed_steel_1.jpg',
     ],
   },
   {
@@ -135,8 +135,8 @@ const productsData = [
     stock: 32,
     description: 'Warm golden-amber fountain pen ink with natural shading, bottled in a 38ml glass flacon with a brass cap.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516831/saturation_point_new/htnl0zbsn0rs9g7vnoph.webp',
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516831/saturation_point_new/zg7us3iwswiiiyobaegq.webp',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758436/saturation_point_mobile/fwp_buttered_popcorn_bottle_1.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758437/saturation_point_mobile/fwp_buttered_popcorn_swatch_2.jpg',
     ],
   },
   {
@@ -147,7 +147,7 @@ const productsData = [
     stock: 24,
     description: 'Deep matte black fountain pen ink with fine gold shimmer, balanced for medium and broad nibs.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516831/saturation_point_new/zg7us3iwswiiiyobaegq.webp',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758438/saturation_point_mobile/fwp_roaring_patina_black_1.jpg',
     ],
   },
   {
@@ -158,7 +158,8 @@ const productsData = [
     stock: 16,
     description: 'Rich black daily writing ink in an angled German shoe bottle designed for filling even when ink levels run low.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516831/saturation_point_new/htnl0zbsn0rs9g7vnoph.webp',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758439/saturation_point_mobile/montblanc_mystery_black_bottle_1.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758440/saturation_point_mobile/montblanc_mystery_black_swatch_2.jpg',
     ],
   },
   {
@@ -169,7 +170,8 @@ const productsData = [
     stock: 20,
     description: 'Cool slate-grey fountain pen ink formulated with gentle lubricants for consistent flow on coated papers.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516831/saturation_point_new/zg7us3iwswiiiyobaegq.webp',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758441/saturation_point_mobile/pelikan_edelstein_moonstone_bottle_1.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794758442/saturation_point_mobile/pelikan_edelstein_moonstone_swatch_2.jpg',
     ],
   },
   {
@@ -180,7 +182,7 @@ const productsData = [
     stock: 45,
     description: '50-sheet A5 correspondence pad featuring smooth 90gsm brushed vellum paper with zero feathering or bleedthrough.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516942/saturation_point_new/nfcl44r28zkgfkcmvwju.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794756494/saturation_point_mobile/clairefontaine_triomphe_pad.jpg',
     ],
   },
   {
@@ -191,7 +193,7 @@ const productsData = [
     stock: 26,
     description: 'Hardbound bookcloth notebook with 90gsm ivory vellum sheets suited for fountain pens and studio sketches.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516942/saturation_point_new/xxqxf4izglguybrjt5y9.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794756495/saturation_point_mobile/rhodia_heritage_notebook.jpg',
     ],
   },
   {
@@ -202,7 +204,7 @@ const productsData = [
     stock: 28,
     description: 'Thread-bound lay-flat notebook made with cream Japanese MD paper for crisp fine-nib feedback.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516942/saturation_point_new/nfcl44r28zkgfkcmvwju.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794756497/saturation_point_mobile/midori_md_journal.jpg',
     ],
   },
   {
@@ -213,7 +215,7 @@ const productsData = [
     stock: 48,
     description: '100 loose A4 sheets of 68gsm Japanese paper engineered to showcase shading and metallic ink sheen.',
     images: [
-      'https://res.cloudinary.com/dgqsfys8/image/upload/v1793516790/saturation_point_new/zukjdjcid9kjytrxhc0g.jpg',
+      'https://res.cloudinary.com/dgqsfys8/image/upload/v1794756499/saturation_point_mobile/tomoe_river_sheets.jpg',
     ],
   },
 ];

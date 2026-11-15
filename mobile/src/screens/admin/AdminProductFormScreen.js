@@ -16,6 +16,7 @@ import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import AtelierHeader from '../../components/common/AtelierHeader';
 import {
   createProduct,
   updateProduct,
@@ -152,25 +153,11 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color={theme.colors.inkPrimary}
-          />
-        </TouchableOpacity>
-        <AtelierText
-          variant="title1"
-          style={styles.headerTitle}
-        >
-          {isEditing ? 'Edit Product' : 'Add Product'}
-        </AtelierText>
-        <View style={styles.headerIconButton} />
-      </View>
+      <AtelierHeader
+        title={isEditing ? 'Edit Product' : 'Add Product'}
+        leftType="back"
+        navigation={navigation}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -430,26 +417,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  header: {
-    paddingTop: theme.spacing.hero + 16,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.canvas,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    textAlign: 'center',
   },
   scrollContent: {
     padding: theme.spacing.xl,
