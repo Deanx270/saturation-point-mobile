@@ -1,0 +1,357 @@
+import React from 'react';
+import {
+  View,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSelector, useDispatch } from 'react-redux';
+import { theme } from '../theme';
+import AtelierText from '../components/common/AtelierText';
+import AtelierBadge from '../components/common/AtelierBadge';
+import { logout } from '../redux/authSlice';
+import { isValidRemoteOrLocalUri } from '../utils/formatters';
+
+export const DrawerContent = ({ navigation }) => {
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigation.closeDrawer();
+  };
+
+  const navigateTo = (tabName, screenName) => {
+    navigation.navigate(tabName, { screen: screenName });
+    navigation.closeDrawer();
+  };
+
+  const hasAvatar = isValidRemoteOrLocalUri(user?.photoURL);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.profileHeader}>
+        <View style={styles.avatarBorder}>
+          {hasAvatar ? (
+            <Image
+              source={{ uri: user.photoURL }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons
+                name="person-outline"
+                size={26}
+                color={theme.colors.inkMuted}
+              />
+            </View>
+          )}
+        </View>
+        <View style={styles.profileDetails}>
+          <AtelierText
+            variant="title2"
+            numberOfLines={1}
+            style={styles.userName}
+          >
+            {user ? user.displayName : 'Guest'}
+          </AtelierText>
+          <AtelierText
+            variant="bodySmall"
+            color={theme.colors.inkMuted}
+            numberOfLines={2}
+            style={styles.userEmail}
+          >
+            {user ? user.email : 'Sign in to manage orders and profile'}
+          </AtelierText>
+          {user && (
+            <View style={styles.badgeRow}>
+              <AtelierBadge
+                label={user.role === 'admin' ? 'Admin' : 'Member'}
+                status={user.role === 'admin' ? 'gold' : 'default'}
+              />
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.divider} />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.menuContainer}
+      >
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateTo('HomeTab', 'ProductList')}
+        >
+          <Ionicons
+            name="home-outline"
+            size={20}
+            color={theme.colors.inkPrimary}
+          />
+          <AtelierText
+            variant="bodyMedium"
+            style={styles.menuLabel}
+          >
+            Catalog
+          </AtelierText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateTo('CartTab', 'CartScreen')}
+        >
+          <Ionicons
+            name="cart-outline"
+            size={20}
+            color={theme.colors.inkPrimary}
+          />
+          <AtelierText
+            variant="bodyMedium"
+            style={styles.menuLabel}
+          >
+            Cart
+          </AtelierText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateTo('OrdersTab', 'OrdersList')}
+        >
+          <Ionicons
+            name="receipt-outline"
+            size={20}
+            color={theme.colors.inkPrimary}
+          />
+          <AtelierText
+            variant="bodyMedium"
+            style={styles.menuLabel}
+          >
+            Orders
+          </AtelierText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigateTo('UserTab', 'Profile')}
+        >
+          <Ionicons
+            name="person-outline"
+            size={20}
+            color={theme.colors.inkPrimary}
+          />
+          <AtelierText
+            variant="bodyMedium"
+            style={styles.menuLabel}
+          >
+            Profile
+          </AtelierText>
+        </TouchableOpacity>
+
+        {user?.role === 'admin' && (
+          <>
+            <View style={styles.menuSectionHeader}>
+              <AtelierText
+                variant="caption"
+                color={theme.colors.goldText}
+              >
+                Admin
+              </AtelierText>
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateTo('AdminTab', 'AdminProducts')}
+            >
+              <Ionicons
+                name="cube-outline"
+                size={20}
+                color={theme.colors.inkPrimary}
+              />
+              <AtelierText
+                variant="bodyMedium"
+                style={styles.menuLabel}
+              >
+                Manage Products
+              </AtelierText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateTo('AdminTab', 'AdminOrders')}
+            >
+              <Ionicons
+                name="clipboard-outline"
+                size={20}
+                color={theme.colors.inkPrimary}
+              />
+              <AtelierText
+                variant="bodyMedium"
+                style={styles.menuLabel}
+              >
+                Manage Orders
+              </AtelierText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigateTo('AdminTab', 'AdminPromotions')}
+            >
+              <Ionicons
+                name="megaphone-outline"
+                size={20}
+                color={theme.colors.inkPrimary}
+              />
+              <AtelierText
+                variant="bodyMedium"
+                style={styles.menuLabel}
+              >
+                Send Promotions
+              </AtelierText>
+            </TouchableOpacity>
+          </>
+        )}
+      </ScrollView>
+
+      <View style={styles.footerContainer}>
+        <View style={styles.divider} />
+        {user ? (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons
+              name="log-out-outline"
+              size={20}
+              color={theme.colors.error}
+            />
+            <AtelierText
+              variant="button"
+              color={theme.colors.error}
+              style={styles.logoutLabel}
+            >
+              Sign Out
+            </AtelierText>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={() => navigateTo('UserTab', 'Login')}
+          >
+            <Ionicons
+              name="log-in-outline"
+              size={20}
+              color={theme.colors.goldText}
+            />
+            <AtelierText
+              variant="button"
+              color={theme.colors.goldText}
+              style={styles.logoutLabel}
+            >
+              Sign In
+            </AtelierText>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.canvas,
+  },
+  profileHeader: {
+    paddingTop: theme.spacing.hero + 20,
+    paddingHorizontal: theme.spacing.xl,
+    paddingBottom: theme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarBorder: {
+    width: 56,
+    height: 56,
+    borderRadius: theme.radii.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.borderMedium,
+    padding: 2,
+    backgroundColor: theme.colors.surface,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: theme.radii.xs,
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: theme.radii.xs,
+    backgroundColor: theme.colors.surfaceSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileDetails: {
+    marginLeft: theme.spacing.md,
+    flex: 1,
+  },
+  userName: {
+    color: theme.colors.inkPrimary,
+  },
+  userEmail: {
+    marginTop: 2,
+  },
+  badgeRow: {
+    marginTop: theme.spacing.xs,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginHorizontal: theme.spacing.lg,
+  },
+  menuContainer: {
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.sm,
+    minHeight: theme.touchTarget.minHeight,
+  },
+  menuLabel: {
+    marginLeft: theme.spacing.md,
+    fontWeight: '500',
+  },
+  menuSectionHeader: {
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.xs,
+  },
+  footerContainer: {
+    paddingBottom: theme.spacing.hero,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xl,
+    minHeight: theme.touchTarget.minHeight,
+  },
+  loginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xl,
+    minHeight: theme.touchTarget.minHeight,
+  },
+  logoutLabel: {
+    marginLeft: theme.spacing.md,
+  },
+});
+
+export default DrawerContent;
