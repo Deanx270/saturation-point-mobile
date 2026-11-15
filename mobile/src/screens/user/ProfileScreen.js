@@ -8,7 +8,6 @@ import {
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { Formik } from 'formik';
@@ -19,8 +18,14 @@ import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierCard from '../../components/common/AtelierCard';
+import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import { updateProfile, logout } from '../../redux/authSlice';
 import { isValidRemoteOrLocalUri } from '../../utils/formatters';
+import { appendImageToFormData } from '../../utils/formDataHelper';
+import {
+  pickImagesFromGallery,
+  captureImageWithCamera,
+} from '../../utils/imagePickerHelper';
 
 const ProfileSchema = Yup.object().shape({
   displayName: Yup.string().required('Display name is required'),
@@ -32,6 +37,7 @@ export const ProfileScreen = ({ navigation }) => {
   const { user, loading } = useSelector((state) => state.auth);
   const [avatarUri, setAvatarUri] = useState(user?.photoURL || null);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
 
   useEffect(() => {
     setAvatarUri(user?.photoURL || null);
@@ -109,57 +115,46 @@ export const ProfileScreen = ({ navigation }) => {
     );
   }
 
-  const handlePickFromGallery = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Gallery access is needed to change your photo.');
-      return;
+  const uploadSelectedAvatar = async (uri) => {
+    setAvatarUri(uri);
+    try {
+      const formData = new FormData();
+      await appendImageToFormData(formData, 'photo', uri, 0, 'avatar');
+      const result = await dispatch(updateProfile(formData));
+      if (updateProfile.fulfilled.match(result)) {
+        Alert.alert('Photo Updated', 'Your profile photo has been saved.');
+      } else {
+        setAvatarUri(user?.photoURL || null);
+        Alert.alert('Upload Failed', result.payload || 'Unable to upload photo.');
+      }
+    } catch (error) {
+      setAvatarUri(user?.photoURL || null);
+      Alert.alert('Upload Failed', error.message || 'Unable to upload photo.');
     }
+  };
 
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  const handlePickFromGallery = async () => {
+    const selected = await pickImagesFromGallery({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
     });
-
-    if (!pickerResult.canceled && pickerResult.assets?.length > 0) {
-      const selected = pickerResult.assets[0].uri;
-      setAvatarUri(selected);
-      dispatch(updateProfile({ photoURL: selected }));
+    if (selected.length > 0) {
+      await uploadSelectedAvatar(selected[0]);
     }
   };
 
   const handleCaptureCamera = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Camera access is needed to take a photo.');
-      return;
-    }
-
-    const cameraResult = await ImagePicker.launchCameraAsync({
+    const captured = await captureImageWithCamera({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
     });
-
-    if (!cameraResult.canceled && cameraResult.assets?.length > 0) {
-      const captured = cameraResult.assets[0].uri;
-      setAvatarUri(captured);
-      dispatch(updateProfile({ photoURL: captured }));
+    if (captured) {
+      await uploadSelectedAvatar(captured);
     }
   };
 
   const showAvatarPickerOptions = () => {
-    Alert.alert(
-      'Update Profile Photo',
-      'Choose a source for your photo:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Choose from Gallery', onPress: handlePickFromGallery },
-        { text: 'Take Photo', onPress: handleCaptureCamera },
-      ]
-    );
+    setAvatarSheetVisible(true);
   };
 
   const handleProfileSubmit = async (values) => {
@@ -344,6 +339,33 @@ export const ProfileScreen = ({ navigation }) => {
           )}
         </Formik>
       </ScrollView>
+
+      <AtelierBottomSheet
+        visible={avatarSheetVisible}
+        onClose={() => setAvatarSheetVisible(false)}
+        title="Update Profile Photo"
+        subtitle="Choose a source for your photo."
+        options={[
+          {
+            key: 'gallery',
+            label: 'Choose from Gallery',
+            icon: 'images-outline',
+            onPress: handlePickFromGallery,
+          },
+          {
+            key: 'camera',
+            label: 'Take Photo',
+            icon: 'camera-outline',
+            onPress: handleCaptureCamera,
+          },
+          {
+            key: 'cancel',
+            label: 'Cancel',
+            icon: 'close-outline',
+            onPress: () => setAvatarSheetVisible(false),
+          },
+        ]}
+      />
     </View>
   );
 };

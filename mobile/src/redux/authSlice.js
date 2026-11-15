@@ -78,11 +78,13 @@ export const socialLogin = createAsyncThunk(
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
-  async (profileData, { rejectWithValue }) => {
+  async (profileData, { getState, rejectWithValue }) => {
     try {
       const response = await apiClient.put('/users/profile', profileData);
-      await saveAuthUser(response.data);
-      return response.data;
+      const currentUser = getState().auth.user || {};
+      const mergedUser = { ...currentUser, ...response.data };
+      await saveAuthUser(mergedUser);
+      return mergedUser;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || error.message || 'Failed to update profile'

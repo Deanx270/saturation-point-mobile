@@ -124,6 +124,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
+    fontFamily: theme.typography.bodyMedium.fontFamily,
     fontSize: theme.typography.bodyMedium.fontSize,
     color: theme.colors.inkPrimary,
     minHeight: theme.touchTarget.minHeight,

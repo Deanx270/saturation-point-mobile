@@ -180,6 +180,23 @@ export const DrawerContent = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.menuItem}
+              onPress={() => navigateTo('AdminTab', 'AdminCategories')}
+            >
+              <Ionicons
+                name="pricetags-outline"
+                size={20}
+                color={theme.colors.inkPrimary}
+              />
+              <AtelierText
+                variant="bodyMedium"
+                style={styles.menuLabel}
+              >
+                Manage Categories
+              </AtelierText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
               onPress={() => navigateTo('AdminTab', 'AdminOrders')}
             >
               <Ionicons

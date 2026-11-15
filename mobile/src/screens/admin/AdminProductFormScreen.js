@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -7,18 +7,27 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
-import { createProduct, updateProduct } from '../../redux/productsSlice';
+import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import {
+  createProduct,
+  updateProduct,
+  fetchProductFilters,
+} from '../../redux/productsSlice';
+import { appendImageToFormData, isRemoteUri } from '../../utils/formDataHelper';
+import {
+  pickImagesFromGallery,
+  captureImageWithCamera,
+} from '../../utils/imagePickerHelper';
 
-const PRODUCT_CATEGORIES = ['Fountain Pens', 'Inks', 'Paper'];
+const DEFAULT_CATEGORIES = ['Fountain Pens', 'Inks', 'Paper'];
 
 const ProductSchema = Yup.object().shape({
   name: Yup.string().required('Product name is required'),
@@ -38,95 +47,106 @@ const ProductSchema = Yup.object().shape({
 export const AdminProductFormScreen = ({ route, navigation }) => {
   const { product, isEditing } = route.params || {};
   const dispatch = useDispatch();
+  const storeCategories = useSelector((state) => state.products.categories);
 
   const [images, setImages] = useState(product?.images || []);
   const [submitting, setSubmitting] = useState(false);
+  const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchProductFilters());
+  }, [dispatch]);
+
+  const categoryOptions = useMemo(() => {
+    const filtered = (storeCategories || []).filter((c) => c && c !== 'All');
+    const merged = filtered.length > 0 ? filtered : DEFAULT_CATEGORIES;
+    if (product?.category && !merged.includes(product.category)) {
+      return [...merged, product.category];
+    }
+    return merged;
+  }, [storeCategories, product?.category]);
 
   const handlePickFromGallery = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permission Required', 'Gallery access is needed to select product photos.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets?.length > 0) {
-      const newUris = result.assets.map((asset) => asset.uri);
-      setImages([...images, ...newUris]);
+    const selected = await pickImagesFromGallery({ allowsMultipleSelection: true });
+    if (selected.length > 0) {
+      setImages((prev) => [...prev, ...selected].slice(0, 5));
     }
   };
 
   const handleCaptureCamera = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permission Required', 'Camera access is needed to take a product photo.');
-      return;
+    const captured = await captureImageWithCamera();
+    if (captured) {
+      setImages((prev) => [...prev, captured].slice(0, 5));
     }
-
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets?.length > 0) {
-      setImages([...images, result.assets[0].uri]);
-    }
-  };
-
-  const showImagePickerOptions = () => {
-    Alert.alert(
-      'Add Product Photo',
-      'Choose an image source:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Choose from Gallery', onPress: handlePickFromGallery },
-        { text: 'Take Photo', onPress: handleCaptureCamera },
-      ]
-    );
   };
 
   const handleRemoveImage = (index) => {
-    const updated = [...images];
-    updated.splice(index, 1);
-    setImages(updated);
+    setImages((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleMoveImage = (index, direction) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= images.length) {
+      return;
+    }
+    setImages((prev) => {
+      const updated = [...prev];
+      const temp = updated[index];
+      updated[index] = updated[nextIndex];
+      updated[nextIndex] = temp;
+      return updated;
+    });
   };
 
   const handleFormSubmit = async (values) => {
     setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('name', values.name.trim());
+      formData.append('brand', values.brand.trim());
+      formData.append('category', values.category.trim());
+      formData.append('price', String(Number(values.price)));
+      formData.append('stock', String(Number(values.stock)));
+      formData.append('description', values.description.trim());
 
-    const payload = {
-      ...values,
-      price: Number(values.price),
-      stock: Number(values.stock),
-      images,
-    };
+      const existingImages = [];
+      const imageManifest = [];
+      let uploadIndex = 0;
 
-    let resultAction;
-    if (isEditing) {
-      resultAction = await dispatch(
-        updateProduct({ productId: product._id, productData: payload })
-      );
-    } else {
-      resultAction = await dispatch(createProduct(payload));
-    }
+      for (const uri of images) {
+        if (isRemoteUri(uri)) {
+          existingImages.push(uri);
+          imageManifest.push(`remote:${uri}`);
+        } else {
+          await appendImageToFormData(formData, 'images', uri, uploadIndex, 'product');
+          imageManifest.push(`upload:${uploadIndex}`);
+          uploadIndex += 1;
+        }
+      }
 
-    setSubmitting(false);
+      formData.append('existingImages', JSON.stringify(existingImages));
+      formData.append('imageManifest', JSON.stringify(imageManifest));
 
-    if (
-      createProduct.fulfilled.match(resultAction) ||
-      updateProduct.fulfilled.match(resultAction)
-    ) {
-      Alert.alert(
-        isEditing ? 'Product Updated' : 'Product Added',
-        `Product ${isEditing ? 'updated' : 'added'} successfully.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-    } else {
-      Alert.alert('Save Failed', resultAction.payload || 'Unable to save product.');
+      const resultAction = isEditing
+        ? await dispatch(updateProduct({ productId: product._id, productData: formData }))
+        : await dispatch(createProduct(formData));
+
+      if (
+        createProduct.fulfilled.match(resultAction) ||
+        updateProduct.fulfilled.match(resultAction)
+      ) {
+        Alert.alert(
+          isEditing ? 'Product Updated' : 'Product Added',
+          `Product ${isEditing ? 'updated' : 'added'} successfully.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        Alert.alert('Save Failed', resultAction.payload || 'Unable to save product.');
+      }
+    } catch (error) {
+      Alert.alert('Save Failed', error.message || 'Unable to prepare image upload.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -168,33 +188,49 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.imageScroll}
         >
-          <TouchableOpacity
-            style={styles.addImageTile}
-            onPress={showImagePickerOptions}
-          >
-            <Ionicons
-              name="camera-outline"
-              size={28}
-              color={theme.colors.gold}
-            />
-            <AtelierText
-              variant="caption"
-              color={theme.colors.goldText}
-              style={{ marginTop: 4 }}
+          {images.length < 5 && (
+            <TouchableOpacity
+              style={styles.addImageTile}
+              onPress={() => setPhotoSheetVisible(true)}
             >
-              Add Photo
-            </AtelierText>
-          </TouchableOpacity>
+              <Ionicons
+                name="camera-outline"
+                size={28}
+                color={theme.colors.gold}
+              />
+              <AtelierText
+                variant="caption"
+                color={theme.colors.goldText}
+                style={{ marginTop: 4 }}
+              >
+                Add Photo
+              </AtelierText>
+            </TouchableOpacity>
+          )}
 
           {images.map((uri, idx) => (
             <View
-              key={idx}
-              style={styles.imagePreviewWrapper}
+              key={`${uri}_${idx}`}
+              style={[
+                styles.imagePreviewWrapper,
+                idx === 0 && styles.primaryImageBorder,
+              ]}
             >
               <Image
                 source={{ uri }}
                 style={styles.previewImage}
               />
+              {idx === 0 && (
+                <View style={styles.coverBadge}>
+                  <AtelierText
+                    variant="caption"
+                    color="#FFFFFF"
+                    style={styles.coverBadgeText}
+                  >
+                    COVER
+                  </AtelierText>
+                </View>
+              )}
               <TouchableOpacity
                 style={styles.removeImageBadge}
                 onPress={() => handleRemoveImage(idx)}
@@ -205,6 +241,35 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                   color="#FFFFFF"
                 />
               </TouchableOpacity>
+              {images.length > 1 && (
+                <View style={styles.reorderBar}>
+                  <TouchableOpacity
+                    style={[styles.reorderBtn, idx === 0 && styles.reorderBtnDisabled]}
+                    onPress={() => handleMoveImage(idx, -1)}
+                    disabled={idx === 0}
+                  >
+                    <Ionicons
+                      name="chevron-back"
+                      size={14}
+                      color="#FFFFFF"
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.reorderBtn,
+                      idx === images.length - 1 && styles.reorderBtnDisabled,
+                    ]}
+                    onPress={() => handleMoveImage(idx, 1)}
+                    disabled={idx === images.length - 1}
+                  >
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color="#FFFFFF"
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ))}
         </ScrollView>
@@ -213,7 +278,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
           initialValues={{
             name: product?.name || '',
             brand: product?.brand || '',
-            category: product?.category || 'Fountain Pens',
+            category: product?.category || categoryOptions[0] || 'Fountain Pens',
             price: product?.price ? String(product.price) : '',
             stock: product?.stock !== undefined ? String(product.stock) : '10',
             description: product?.description || '',
@@ -259,7 +324,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                 CATEGORY
               </AtelierText>
               <View style={styles.categoryRow}>
-                {PRODUCT_CATEGORIES.map((cat) => {
+                {categoryOptions.map((cat) => {
                   const isSelected = values.category === cat;
                   return (
                     <TouchableOpacity
@@ -330,6 +395,33 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
           )}
         </Formik>
       </ScrollView>
+
+      <AtelierBottomSheet
+        visible={photoSheetVisible}
+        onClose={() => setPhotoSheetVisible(false)}
+        title="Add Product Photo"
+        subtitle="Select up to 5 photos. First photo is shown as cover."
+        options={[
+          {
+            key: 'gallery',
+            label: 'Choose from Gallery',
+            icon: 'images-outline',
+            onPress: handlePickFromGallery,
+          },
+          {
+            key: 'camera',
+            label: 'Take Photo',
+            icon: 'camera-outline',
+            onPress: handleCaptureCamera,
+          },
+          {
+            key: 'cancel',
+            label: 'Cancel',
+            icon: 'close-outline',
+            onPress: () => setPhotoSheetVisible(false),
+          },
+        ]}
+      />
     </View>
   );
 };
@@ -383,13 +475,29 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceSubtle,
   },
   imagePreviewWrapper: {
-    width: 90,
-    height: 90,
+    width: 100,
+    height: 100,
     borderRadius: theme.radii.xs,
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: 'hidden',
     position: 'relative',
+  },
+  primaryImageBorder: {
+    borderColor: theme.colors.gold,
+    borderWidth: 2,
+  },
+  coverBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(28, 25, 23, 0.8)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: theme.radii.xs,
+  },
+  coverBadgeText: {
+    fontSize: 9,
   },
   previewImage: {
     width: '100%',
@@ -399,12 +507,32 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 4,
     backgroundColor: theme.colors.error,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  reorderBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(28, 25, 23, 0.72)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  reorderBtn: {
+    width: 26,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reorderBtnDisabled: {
+    opacity: 0.3,
   },
   formContainer: {
     marginTop: theme.spacing.sm,

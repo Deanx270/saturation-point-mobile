@@ -98,6 +98,7 @@ const productsSlice = createSlice({
     selectedBrand: 'All',
     minPrice: '',
     maxPrice: '',
+    minRating: '',
   },
   reducers: {
     setSearchKeyword: (state, action) => {
@@ -113,12 +114,16 @@ const productsSlice = createSlice({
       state.minPrice = action.payload.minPrice;
       state.maxPrice = action.payload.maxPrice;
     },
+    setMinRating: (state, action) => {
+      state.minRating = action.payload;
+    },
     resetFilters: (state) => {
       state.searchKeyword = '';
       state.selectedCategory = 'All';
       state.selectedBrand = 'All';
       state.minPrice = '';
       state.maxPrice = '';
+      state.minRating = '';
     },
     clearSelectedProduct: (state) => {
       state.selectedProduct = null;
@@ -185,6 +190,7 @@ export const {
   setSelectedCategory,
   setSelectedBrand,
   setPriceFilter,
+  setMinRating,
   resetFilters,
   clearSelectedProduct,
 } = productsSlice.actions;

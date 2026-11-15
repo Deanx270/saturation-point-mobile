@@ -27,23 +27,35 @@ import {
   fetchProductFilters,
   setSearchKeyword,
   setSelectedCategory,
+  setSelectedBrand,
   setPriceFilter,
+  setMinRating,
   resetFilters,
 } from '../../redux/productsSlice';
 import { addToCart } from '../../redux/cartSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+
+const RATING_OPTIONS = [
+  { label: 'Any', value: '' },
+  { label: '3★ & up', value: '3' },
+  { label: '4★ & up', value: '4' },
+  { label: '4.5★ & up', value: '4.5' },
+];
 
 export const ProductListScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const {
     items,
     categories,
+    brands,
     loading,
     error,
     searchKeyword,
     selectedCategory,
+    selectedBrand,
     minPrice,
     maxPrice,
+    minRating,
   } = useSelector((state) => state.products);
 
   const [searchInput, setSearchInput] = useState(searchKeyword);
@@ -51,6 +63,8 @@ export const ProductListScreen = ({ navigation }) => {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [minPriceDraft, setMinPriceDraft] = useState(minPrice);
   const [maxPriceDraft, setMaxPriceDraft] = useState(maxPrice);
+  const [brandDraft, setBrandDraft] = useState(selectedBrand);
+  const [ratingDraft, setRatingDraft] = useState(minRating);
 
   useEffect(() => {
     dispatch(fetchProductFilters());
@@ -61,11 +75,13 @@ export const ProductListScreen = ({ navigation }) => {
       fetchProducts({
         keyword: searchKeyword || undefined,
         category: selectedCategory === 'All' ? undefined : selectedCategory,
+        brand: selectedBrand === 'All' ? undefined : selectedBrand,
         minPrice: minPrice || undefined,
         maxPrice: maxPrice || undefined,
+        minRating: minRating || undefined,
       })
     );
-  }, [dispatch, searchKeyword, selectedCategory, minPrice, maxPrice]);
+  }, [dispatch, searchKeyword, selectedCategory, selectedBrand, minPrice, maxPrice, minRating]);
 
   useEffect(() => {
     loadData();
@@ -88,13 +104,23 @@ export const ProductListScreen = ({ navigation }) => {
     dispatch(setSelectedCategory(category));
   };
 
-  const handleApplyPriceFilter = () => {
+  const handleOpenFilterModal = () => {
+    setMinPriceDraft(minPrice);
+    setMaxPriceDraft(maxPrice);
+    setBrandDraft(selectedBrand);
+    setRatingDraft(minRating);
+    setFilterModalVisible(true);
+  };
+
+  const handleApplyFilters = () => {
     dispatch(
       setPriceFilter({
         minPrice: minPriceDraft.trim(),
         maxPrice: maxPriceDraft.trim(),
       })
     );
+    dispatch(setSelectedBrand(brandDraft || 'All'));
+    dispatch(setMinRating(ratingDraft || ''));
     setFilterModalVisible(false);
   };
 
@@ -102,6 +128,8 @@ export const ProductListScreen = ({ navigation }) => {
     setSearchInput('');
     setMinPriceDraft('');
     setMaxPriceDraft('');
+    setBrandDraft('All');
+    setRatingDraft('');
     dispatch(resetFilters());
     setFilterModalVisible(false);
   };
@@ -127,7 +155,12 @@ export const ProductListScreen = ({ navigation }) => {
     Alert.alert('Added to Cart', `${product.name} added to your cart.`);
   };
 
-  const hasActivePriceFilter = Boolean(minPrice || maxPrice);
+  const hasActiveFilter = Boolean(
+    minPrice ||
+      maxPrice ||
+      minRating ||
+      (selectedBrand && selectedBrand !== 'All')
+  );
 
   const renderProductItem = ({ item }) => {
     const firstImage = item.images && item.images.length > 0 ? item.images[0] : '';
@@ -191,6 +224,7 @@ export const ProductListScreen = ({ navigation }) => {
               <AtelierText
                 variant="bodyLarge"
                 color={theme.colors.inkPrimary}
+                numberOfLines={1}
                 style={styles.priceText}
               >
                 {formatPrice(item.price)}
@@ -202,6 +236,7 @@ export const ProductListScreen = ({ navigation }) => {
                 ]}
                 disabled={item.stock <= 0}
                 onPress={() => handleAddToCart(item)}
+                accessibilityLabel={`Add ${item.name} to cart`}
               >
                 <Ionicons
                   name="add"
@@ -262,14 +297,14 @@ export const ProductListScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[
             styles.filterIconButton,
-            hasActivePriceFilter && styles.filterIconButtonActive,
+            hasActiveFilter && styles.filterIconButtonActive,
           ]}
-          onPress={() => setFilterModalVisible(true)}
+          onPress={handleOpenFilterModal}
         >
           <Ionicons
             name="options-outline"
             size={22}
-            color={hasActivePriceFilter ? '#FFFFFF' : theme.colors.inkPrimary}
+            color={hasActiveFilter ? '#FFFFFF' : theme.colors.inkPrimary}
           />
         </TouchableOpacity>
       </View>
@@ -378,8 +413,9 @@ export const ProductListScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
-              <AtelierText variant="title1">Filter by Price</AtelierText>
+              <AtelierText variant="title1">Filter Products</AtelierText>
               <TouchableOpacity
                 onPress={() => setFilterModalVisible(false)}
                 style={styles.modalCloseButton}
@@ -392,26 +428,98 @@ export const ProductListScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.priceInputsRow}>
-              <View style={styles.priceInputColumn}>
-                <AtelierInput
-                  label="Min Price (PHP)"
-                  placeholder="0"
-                  value={minPriceDraft}
-                  onChangeText={setMinPriceDraft}
-                  keyboardType="numeric"
-                />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={styles.modalScroll}
+            >
+              <AtelierText
+                variant="caption"
+                color={theme.colors.inkSecondary}
+                style={styles.filterSectionLabel}
+              >
+                PRICE RANGE
+              </AtelierText>
+              <View style={styles.priceInputsRow}>
+                <View style={styles.priceInputColumn}>
+                  <AtelierInput
+                    label="Min Price (PHP)"
+                    placeholder="0"
+                    value={minPriceDraft}
+                    onChangeText={setMinPriceDraft}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.priceInputColumn}>
+                  <AtelierInput
+                    label="Max Price (PHP)"
+                    placeholder="20000"
+                    value={maxPriceDraft}
+                    onChangeText={setMaxPriceDraft}
+                    keyboardType="numeric"
+                  />
+                </View>
               </View>
-              <View style={styles.priceInputColumn}>
-                <AtelierInput
-                  label="Max Price (PHP)"
-                  placeholder="20000"
-                  value={maxPriceDraft}
-                  onChangeText={setMaxPriceDraft}
-                  keyboardType="numeric"
-                />
+
+              <AtelierText
+                variant="caption"
+                color={theme.colors.inkSecondary}
+                style={styles.filterSectionLabel}
+              >
+                MINIMUM RATING
+              </AtelierText>
+              <View style={styles.filterChipsWrap}>
+                {RATING_OPTIONS.map((option) => {
+                  const isSelected = ratingDraft === option.value;
+                  return (
+                    <TouchableOpacity
+                      key={option.label}
+                      onPress={() => setRatingDraft(option.value)}
+                      style={[
+                        styles.filterChip,
+                        isSelected && styles.filterChipSelected,
+                      ]}
+                    >
+                      <AtelierText
+                        variant="caption"
+                        color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
+                      >
+                        {option.label}
+                      </AtelierText>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </View>
+
+              <AtelierText
+                variant="caption"
+                color={theme.colors.inkSecondary}
+                style={styles.filterSectionLabel}
+              >
+                BRAND
+              </AtelierText>
+              <View style={styles.filterChipsWrap}>
+                {(brands || ['All']).map((brandName) => {
+                  const isSelected = brandDraft === brandName;
+                  return (
+                    <TouchableOpacity
+                      key={brandName}
+                      onPress={() => setBrandDraft(brandName)}
+                      style={[
+                        styles.filterChip,
+                        isSelected && styles.filterChipSelected,
+                      ]}
+                    >
+                      <AtelierText
+                        variant="caption"
+                        color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
+                      >
+                        {brandName}
+                      </AtelierText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
 
             <View style={styles.modalActions}>
               <AtelierButton
@@ -422,7 +530,7 @@ export const ProductListScreen = ({ navigation }) => {
               />
               <AtelierButton
                 title="Apply Filters"
-                onPress={handleApplyPriceFilter}
+                onPress={handleApplyFilters}
                 style={styles.modalActionBtn}
               />
             </View>
@@ -562,10 +670,12 @@ const styles = StyleSheet.create({
   },
   priceText: {
     fontWeight: '700',
+    flexShrink: 1,
+    marginRight: 6,
   },
   quickAddButton: {
-    width: 36,
-    height: 36,
+    width: theme.touchTarget.minWidth,
+    height: theme.touchTarget.minHeight,
     borderRadius: theme.radii.xs,
     backgroundColor: theme.colors.inkPrimary,
     alignItems: 'center',
@@ -597,16 +707,53 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.radii.md,
     padding: theme.spacing.xl,
     paddingBottom: theme.spacing.hero,
+    maxHeight: '80%',
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.borderMedium,
+    alignSelf: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  modalScroll: {
+    maxHeight: 360,
+  },
+  filterSectionLabel: {
+    marginBottom: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  filterChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  filterChip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
+    minHeight: 40,
+    borderRadius: theme.radii.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterChipSelected: {
+    backgroundColor: theme.colors.inkPrimary,
+    borderColor: theme.colors.inkPrimary,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   modalCloseButton: {
-    width: 44,
-    height: 44,
+    width: theme.touchTarget.minWidth,
+    height: theme.touchTarget.minHeight,
     alignItems: 'center',
     justifyContent: 'center',
   },

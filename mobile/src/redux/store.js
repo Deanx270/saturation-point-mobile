@@ -4,6 +4,7 @@ import ordersReducer from './ordersSlice';
 import reviewsReducer from './reviewsSlice';
 import cartReducer from './cartSlice';
 import authReducer from './authSlice';
+import categoriesReducer from './categoriesSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     reviews: reviewsReducer,
     cart: cartReducer,
     auth: authReducer,
+    categories: categoriesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

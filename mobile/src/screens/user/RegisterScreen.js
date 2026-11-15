@@ -14,6 +14,7 @@ import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
+import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { register } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
 
@@ -165,6 +166,10 @@ export const RegisterScreen = ({ navigation }) => {
                 onPress={handleSubmit}
                 loading={loading}
                 style={styles.submitButton}
+              />
+
+              <SocialAuthSection
+                onAuthenticated={() => navigation.navigate('Profile')}
               />
 
               <View style={styles.switchRow}>

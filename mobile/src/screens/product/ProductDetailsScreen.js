@@ -8,6 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { Formik } from 'formik';
+import * as Yup from 'yup';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../../theme';
@@ -18,6 +20,7 @@ import AtelierCard from '../../components/common/AtelierCard';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
+import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import { fetchProductDetails } from '../../redux/productsSlice';
 import { addToCart } from '../../redux/cartSlice';
 import {
@@ -29,18 +32,32 @@ import {
 } from '../../redux/reviewsSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
 
+const ReviewSchema = Yup.object().shape({
+  rating: Yup.number()
+    .min(1, 'Select a star rating between 1 and 5')
+    .max(5, 'Select a star rating between 1 and 5')
+    .required('Rating is required'),
+  comment: Yup.string()
+    .trim()
+    .min(3, 'Review comment must be at least 3 characters')
+    .max(500, 'Review comment must be 500 characters or less')
+    .required('Please write a review comment'),
+});
+
 export const ProductDetailsScreen = ({ route, navigation }) => {
   const { productId } = route.params;
   const dispatch = useDispatch();
   const { selectedProduct, loading, error } = useSelector((state) => state.products);
-  const { isEligible, submitting, submitSuccess } = useSelector((state) => state.reviews);
+  const { isEligible, submitting, submitSuccess, error: reviewError } = useSelector(
+    (state) => state.reviews
+  );
   const { user } = useSelector((state) => state.auth);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
-  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [editingReview, setEditingReview] = useState(null);
+  const [deleteReviewTarget, setDeleteReviewTarget] = useState(null);
+  const [addedToCartSheetVisible, setAddedToCartSheetVisible] = useState(false);
 
   useEffect(() => {
     dispatch(fetchProductDetails(productId));
@@ -51,11 +68,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     if (submitSuccess) {
-      setReviewComment('');
-      setReviewRating(5);
-      setEditingReviewId(null);
+      setEditingReview(null);
       dispatch(resetReviewStatus());
-      Alert.alert('Success', 'Your review has been saved.');
+      Alert.alert('Review Saved', 'Your review has been saved.');
     }
   }, [submitSuccess, dispatch]);
 
@@ -78,67 +93,59 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
         stock: selectedProduct.stock,
       })
     );
-    Alert.alert(
-      'Added to Cart',
-      `${quantity}x ${selectedProduct.name} added to your cart.`,
-      [
-        { text: 'Continue Shopping' },
-        { text: 'View Cart', onPress: () => navigation.navigate('CartTab') },
-      ]
-    );
+    setAddedToCartSheetVisible(true);
   };
 
-  const handleReviewSubmit = () => {
-    if (!reviewComment.trim()) {
-      Alert.alert('Comment Required', 'Please enter your review comment.');
-      return;
-    }
+  const handleReviewSubmit = async (values, { resetForm }) => {
+    const cleanComment = values.comment.trim();
+    const result = editingReview
+      ? await dispatch(
+          editReview({
+            productId,
+            reviewId: editingReview._id,
+            rating: values.rating,
+            comment: cleanComment,
+          })
+        )
+      : await dispatch(
+          submitReview({
+            productId,
+            rating: values.rating,
+            comment: cleanComment,
+          })
+        );
 
-    if (editingReviewId) {
-      dispatch(
-        editReview({
-          productId,
-          reviewId: editingReviewId,
-          rating: reviewRating,
-          comment: reviewComment,
-        })
-      );
-    } else {
-      dispatch(
-        submitReview({
-          productId,
-          rating: reviewRating,
-          comment: reviewComment,
-        })
-      );
+    if (
+      submitReview.fulfilled.match(result) ||
+      editReview.fulfilled.match(result)
+    ) {
+      resetForm();
+    } else if (result.payload) {
+      Alert.alert('Review Not Saved', result.payload);
     }
   };
 
   const handleStartEditReview = (review) => {
-    setEditingReviewId(review._id);
-    setReviewRating(review.rating);
-    setReviewComment(review.comment);
+    dispatch(resetReviewStatus());
+    setEditingReview(review);
   };
 
   const handleCancelEdit = () => {
-    setEditingReviewId(null);
-    setReviewRating(5);
-    setReviewComment('');
+    dispatch(resetReviewStatus());
+    setEditingReview(null);
   };
 
   const handleDeleteReview = (reviewId) => {
-    Alert.alert(
-      'Delete Review',
-      'Are you sure you want to delete this review?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => dispatch(removeReview({ productId, reviewId })),
-        },
-      ]
-    );
+    setDeleteReviewTarget(reviewId);
+  };
+
+  const handleConfirmDeleteReview = async () => {
+    if (!deleteReviewTarget) {
+      return;
+    }
+    const targetId = deleteReviewTarget;
+    setDeleteReviewTarget(null);
+    await dispatch(removeReview({ productId, reviewId: targetId }));
   };
 
   if (error && !selectedProduct) {
@@ -195,7 +202,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   const existingUserReview = user
     ? selectedProduct.reviews?.find((r) => r.user === user._id)
     : null;
-  const showReviewForm = (isEligible && !existingUserReview) || Boolean(editingReviewId);
+  const showReviewForm = (isEligible && !existingUserReview) || Boolean(editingReview);
 
   return (
     <View style={styles.container}>
@@ -382,46 +389,78 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                   color={theme.colors.goldText}
                   style={styles.formHeader}
                 >
-                  {editingReviewId ? 'Edit Review' : 'Write a Review'}
+                  {editingReview ? 'Edit Review' : 'Write a Review'}
                 </AtelierText>
-                <View style={styles.starPickerRow}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity
-                      key={star}
-                      onPress={() => setReviewRating(star)}
-                    >
-                      <Ionicons
-                        name={star <= reviewRating ? 'star' : 'star-outline'}
-                        size={26}
-                        color={theme.colors.gold}
-                        style={{ marginRight: 6 }}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <AtelierInput
-                  placeholder="Share your thoughts about this product..."
-                  value={reviewComment}
-                  onChangeText={setReviewComment}
-                  multiline
-                />
-                <View style={styles.reviewFormButtons}>
-                  {editingReviewId && (
-                    <AtelierButton
-                      title="Cancel"
-                      onPress={handleCancelEdit}
-                      variant="outline"
-                      style={styles.cancelEditButton}
-                    />
-                  )}
-                  <AtelierButton
-                    title={editingReviewId ? 'Update Review' : 'Submit Review'}
-                    onPress={handleReviewSubmit}
-                    loading={submitting}
-                    variant="primary"
-                    style={styles.submitReviewButton}
+                {reviewError ? (
+                  <AtelierErrorBanner
+                    message={reviewError}
+                    style={styles.reviewErrorBanner}
                   />
-                </View>
+                ) : null}
+                <Formik
+                  enableReinitialize
+                  initialValues={{
+                    rating: editingReview?.rating || 5,
+                    comment: editingReview?.comment || '',
+                  }}
+                  validationSchema={ReviewSchema}
+                  onSubmit={handleReviewSubmit}
+                >
+                  {({
+                    handleChange,
+                    handleBlur,
+                    handleSubmit,
+                    setFieldValue,
+                    values,
+                    errors,
+                    touched,
+                  }) => (
+                    <View>
+                      <View style={styles.starPickerRow}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <TouchableOpacity
+                            key={star}
+                            style={styles.starButton}
+                            onPress={() => setFieldValue('rating', star)}
+                          >
+                            <Ionicons
+                              name={star <= values.rating ? 'star' : 'star-outline'}
+                              size={26}
+                              color={theme.colors.gold}
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <AtelierInput
+                        placeholder="Share your thoughts about this product..."
+                        value={values.comment}
+                        onChangeText={handleChange('comment')}
+                        onBlur={handleBlur('comment')}
+                        autoCapitalize="sentences"
+                        multiline
+                        error={errors.comment}
+                        touched={touched.comment}
+                      />
+                      <View style={styles.reviewFormButtons}>
+                        {editingReview ? (
+                          <AtelierButton
+                            title="Cancel"
+                            onPress={handleCancelEdit}
+                            variant="outline"
+                            style={styles.cancelEditButton}
+                          />
+                        ) : null}
+                        <AtelierButton
+                          title={editingReview ? 'Update Review' : 'Submit Review'}
+                          onPress={handleSubmit}
+                          loading={submitting}
+                          variant="primary"
+                          style={styles.submitReviewButton}
+                        />
+                      </View>
+                    </View>
+                  )}
+                </Formik>
               </AtelierCard>
             ) : !existingUserReview ? (
               <AtelierCard
@@ -536,6 +575,50 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
           style={styles.addToCartButton}
         />
       </View>
+
+      <AtelierBottomSheet
+        visible={Boolean(deleteReviewTarget)}
+        onClose={() => setDeleteReviewTarget(null)}
+        title="Delete Review"
+        subtitle="Are you sure you want to delete this review?"
+        options={[
+          {
+            key: 'delete',
+            label: 'Delete Review',
+            icon: 'trash-outline',
+            destructive: true,
+            onPress: handleConfirmDeleteReview,
+          },
+          {
+            key: 'cancel',
+            label: 'Cancel',
+            icon: 'close-outline',
+            onPress: () => setDeleteReviewTarget(null),
+          },
+        ]}
+      />
+
+      <AtelierBottomSheet
+        visible={addedToCartSheetVisible}
+        onClose={() => setAddedToCartSheetVisible(false)}
+        title="Added to Cart"
+        subtitle={`${quantity}x ${selectedProduct.name} added to your cart.`}
+        options={[
+          {
+            key: 'cart',
+            label: 'View Cart',
+            icon: 'bag-outline',
+            selected: true,
+            onPress: () => navigation.navigate('CartTab'),
+          },
+          {
+            key: 'continue',
+            label: 'Continue Shopping',
+            icon: 'arrow-forward-outline',
+            onPress: () => setAddedToCartSheetVisible(false),
+          },
+        ]}
+      />
     </View>
   );
 };
@@ -555,8 +638,8 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.md,
   },
   errorBackButton: {
-    width: 44,
-    height: 44,
+    width: theme.touchTarget.minWidth,
+    height: theme.touchTarget.minHeight,
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
@@ -587,8 +670,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: theme.spacing.hero + 10,
     left: theme.spacing.lg,
-    width: 44,
-    height: 44,
+    width: theme.touchTarget.minWidth,
+    height: theme.touchTarget.minHeight,
     borderRadius: theme.radii.sm,
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderWidth: 1,
@@ -667,8 +750,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   stepperButton: {
-    width: 40,
-    height: 40,
+    width: theme.touchTarget.minWidth,
+    height: theme.touchTarget.minHeight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -678,17 +761,26 @@ const styles = StyleSheet.create({
   },
   reviewsSection: {
     marginTop: theme.spacing.sm,
-    paddingBottom: 80,
+    paddingBottom: 96,
   },
   reviewFormCard: {
     marginBottom: theme.spacing.lg,
+  },
+  reviewErrorBanner: {
+    marginBottom: theme.spacing.md,
   },
   formHeader: {
     marginBottom: theme.spacing.sm,
   },
   starPickerRow: {
     flexDirection: 'row',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  starButton: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   reviewFormButtons: {
     flexDirection: 'row',

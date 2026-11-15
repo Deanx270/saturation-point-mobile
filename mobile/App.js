@@ -1,10 +1,17 @@
 import React, { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider, useDispatch } from 'react-redux';
 import * as Notifications from 'expo-notifications';
+import { useFonts } from 'expo-font';
+import { Lora_600SemiBold, Lora_700Bold } from '@expo-google-fonts/lora';
+import {
+  Montserrat_400Regular,
+  Montserrat_500Medium,
+  Montserrat_600SemiBold,
+} from '@expo-google-fonts/montserrat';
 import { store } from './src/redux/store';
 import AppNavigator, {
   navigateFromNotification,
@@ -87,6 +94,32 @@ const AppContent = () => {
 };
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({
+    Lora_600SemiBold,
+    Lora_700Bold,
+    Montserrat_400Regular,
+    Montserrat_500Medium,
+    Montserrat_600SemiBold,
+  });
+
+  if (!fontsLoaded && !fontError) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: '#FAF9F6',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <ActivityIndicator
+          size="small"
+          color="#CA8A04"
+        />
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Provider store={store}>

@@ -16,6 +16,7 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
+import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import { fetchAllOrders, updateOrderStatus } from '../../redux/ordersSlice';
 import { formatPrice } from '../../utils/formatters';
 
@@ -25,6 +26,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { allOrders, loading, error } = useSelector((state) => state.orders);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   useEffect(() => {
     dispatch(fetchAllOrders());
@@ -36,33 +38,25 @@ export const AdminOrdersScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const handleStatusChangePrompt = (order) => {
-    Alert.alert(
-      'Update Order Status',
-      `Choose a new status for Order #${order._id.slice(-8).toUpperCase()}:`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        ...STATUS_OPTIONS.map((st) => ({
-          text: st.toUpperCase(),
-          onPress: async () => {
-            const result = await dispatch(
-              updateOrderStatus({ orderId: order._id, status: st })
-            );
-            if (updateOrderStatus.fulfilled.match(result)) {
-              Alert.alert(
-                'Status Updated',
-                `Order status updated to ${st.toUpperCase()}. Notification sent to customer.`
-              );
-            } else {
-              Alert.alert(
-                'Update Failed',
-                result.payload || 'Unable to update order status.'
-              );
-            }
-          },
-        })),
-      ]
+  const handleStatusChange = async (order, nextStatus) => {
+    const result = await dispatch(
+      updateOrderStatus({ orderId: order._id, status: nextStatus })
     );
+    if (updateOrderStatus.fulfilled.match(result)) {
+      Alert.alert(
+        'Status Updated',
+        `Order status updated to ${nextStatus.toUpperCase()}. Notification sent to customer.`
+      );
+    } else {
+      Alert.alert(
+        'Update Failed',
+        result.payload || 'Unable to update order status.'
+      );
+    }
+  };
+
+  const handleStatusChangePrompt = (order) => {
+    setSelectedOrder(order);
   };
 
   const renderOrderItem = ({ item }) => {
@@ -209,6 +203,36 @@ export const AdminOrdersScreen = ({ navigation }) => {
           }
         />
       )}
+
+      <AtelierBottomSheet
+        visible={Boolean(selectedOrder)}
+        onClose={() => setSelectedOrder(null)}
+        title="Update Order Status"
+        subtitle={
+          selectedOrder
+            ? `Order #${selectedOrder._id.slice(-8).toUpperCase()}`
+            : ''
+        }
+        options={
+          selectedOrder
+            ? [
+                ...STATUS_OPTIONS.map((st) => ({
+                  key: st,
+                  label: st.charAt(0).toUpperCase() + st.slice(1),
+                  selected: selectedOrder.status === st,
+                  destructive: st === 'cancelled',
+                  onPress: () => handleStatusChange(selectedOrder, st),
+                })),
+                {
+                  key: 'cancel',
+                  label: 'Cancel',
+                  icon: 'close-outline',
+                  onPress: () => setSelectedOrder(null),
+                },
+              ]
+            : []
+        }
+      />
     </View>
   );
 };

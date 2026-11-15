@@ -4,6 +4,7 @@ import AdminProductsScreen from '../screens/admin/AdminProductsScreen';
 import AdminProductFormScreen from '../screens/admin/AdminProductFormScreen';
 import AdminOrdersScreen from '../screens/admin/AdminOrdersScreen';
 import AdminPromotionsScreen from '../screens/admin/AdminPromotionsScreen';
+import AdminCategoriesScreen from '../screens/admin/AdminCategoriesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,6 +31,10 @@ export const AdminNavigator = () => {
       <Stack.Screen
         name="AdminPromotions"
         component={AdminPromotionsScreen}
+      />
+      <Stack.Screen
+        name="AdminCategories"
+        component={AdminCategoriesScreen}
       />
     </Stack.Navigator>
   );
