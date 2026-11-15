@@ -205,8 +205,12 @@ const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.displayName = req.body.displayName || user.displayName;
-    user.username = req.body.username || user.username;
+    if (typeof req.body.displayName === 'string' && req.body.displayName.trim()) {
+      user.displayName = req.body.displayName.trim();
+    }
+    if (typeof req.body.username === 'string' && req.body.username.trim()) {
+      user.username = req.body.username.trim();
+    }
     if (req.file && req.file.path) {
       user.photoURL = req.file.path;
     } else if (req.body.photoURL !== undefined) {
@@ -229,6 +233,9 @@ const updateUserProfile = async (req, res) => {
       role: user.role,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'That username is already taken' });
+    }
     res.status(500).json({ message: error.message });
   }
 };

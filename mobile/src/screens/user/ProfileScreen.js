@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +21,7 @@ import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierPressable from '../../components/common/AtelierPressable';
+import AtelierToast from '../../components/common/AtelierToast';
 import { updateProfile, logout, syncPushToken } from '../../redux/authSlice';
 import { getNotificationPermissionGranted } from '../../services/pushNotificationService';
 import { isValidRemoteOrLocalUri } from '../../utils/formatters';
@@ -30,8 +32,8 @@ import {
 } from '../../utils/imagePickerHelper';
 
 const ProfileSchema = Yup.object().shape({
-  displayName: Yup.string().required('Display name is required'),
-  username: Yup.string().required('Username is required'),
+  displayName: Yup.string().trim().required('Display name is required'),
+  username: Yup.string().trim().required('Username is required'),
 });
 
 export const ProfileScreen = ({ navigation }) => {
@@ -40,7 +42,13 @@ export const ProfileScreen = ({ navigation }) => {
   const [avatarUri, setAvatarUri] = useState(user?.photoURL || null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [syncingPush, setSyncingPush] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    key: 0,
+  });
 
   const refreshPushPermission = useCallback(async () => {
     const granted = await getNotificationPermissionGranted();
@@ -104,13 +112,21 @@ export const ProfileScreen = ({ navigation }) => {
   }
 
   const uploadSelectedAvatar = async (uri) => {
+    if (uploadingPhoto) {
+      return;
+    }
     setAvatarUri(uri);
+    setUploadingPhoto(true);
     try {
       const formData = new FormData();
       await appendImageToFormData(formData, 'photo', uri, 0, 'avatar');
       const result = await dispatch(updateProfile(formData));
       if (updateProfile.fulfilled.match(result)) {
-        Alert.alert('Photo Updated', 'Your profile photo has been saved.');
+        setToastState((prev) => ({
+          visible: true,
+          message: 'Profile photo updated',
+          key: prev.key + 1,
+        }));
       } else {
         setAvatarUri(user?.photoURL || null);
         Alert.alert('Upload Failed', result.payload || 'Unable to upload photo.');
@@ -118,6 +134,8 @@ export const ProfileScreen = ({ navigation }) => {
     } catch (error) {
       setAvatarUri(user?.photoURL || null);
       Alert.alert('Upload Failed', error.message || 'Unable to upload photo.');
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -146,9 +164,17 @@ export const ProfileScreen = ({ navigation }) => {
   };
 
   const handleProfileSubmit = async (values) => {
-    const result = await dispatch(updateProfile(values));
+    const payload = {
+      displayName: values.displayName.trim(),
+      username: values.username.trim(),
+    };
+    const result = await dispatch(updateProfile(payload));
     if (updateProfile.fulfilled.match(result)) {
-      Alert.alert('Profile Saved', 'Your account details have been updated.');
+      setToastState((prev) => ({
+        visible: true,
+        message: 'Profile details updated',
+        key: prev.key + 1,
+      }));
     } else {
       Alert.alert('Update Failed', result.payload || 'Unable to update profile.');
     }
@@ -208,6 +234,7 @@ export const ProfileScreen = ({ navigation }) => {
             <AtelierPressable
               tone="none"
               disableRipple
+              disabled={uploadingPhoto}
               haptic="light"
               hitSlop={8}
               onPress={showAvatarPickerOptions}
@@ -229,6 +256,14 @@ export const ProfileScreen = ({ navigation }) => {
                   />
                 </View>
               )}
+              {uploadingPhoto ? (
+                <View style={styles.avatarUploadingOverlay}>
+                  <ActivityIndicator
+                    size="small"
+                    color="#FFFFFF"
+                  />
+                </View>
+              ) : null}
             </AtelierPressable>
             <View
               pointerEvents="none"
@@ -361,6 +396,13 @@ export const ProfileScreen = ({ navigation }) => {
         </Formik>
       </ScrollView>
 
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
+      />
+
       <AtelierBottomSheet
         visible={avatarSheetVisible}
         onClose={() => setAvatarSheetVisible(false)}
@@ -427,6 +469,17 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 46,
     backgroundColor: theme.colors.surfaceSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarUploadingOverlay: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    right: 3,
+    bottom: 3,
+    borderRadius: 46,
+    backgroundColor: 'rgba(28, 25, 23, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },

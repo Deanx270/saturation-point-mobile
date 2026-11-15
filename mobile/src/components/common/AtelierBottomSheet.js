@@ -34,7 +34,7 @@ export const AtelierBottomSheet = ({
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const prevVisibleRef = useRef(false);
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const backdropProgress = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const sheetHeightRef = useRef(360);
   const closingRef = useRef(false);
@@ -43,20 +43,26 @@ export const AtelierBottomSheet = ({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
+  const backdropColor = backdropProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(28, 25, 23, 0)', 'rgba(28, 25, 23, 0.45)'],
+    extrapolate: 'clamp',
+  });
+
   const runOpenAnimation = useCallback(() => {
     if (hasOpenedRef.current) {
       return;
     }
     hasOpenedRef.current = true;
     const startOffset = Math.max(sheetHeightRef.current + 40, 320);
-    backdropOpacity.setValue(0);
+    backdropProgress.setValue(0);
     translateY.setValue(startOffset);
 
     Animated.parallel([
-      Animated.timing(backdropOpacity, {
+      Animated.timing(backdropProgress, {
         toValue: 1,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(translateY, {
         toValue: 0,
@@ -65,7 +71,7 @@ export const AtelierBottomSheet = ({
         stiffness: 260,
       }),
     ]).start();
-  }, [backdropOpacity, translateY]);
+  }, [backdropProgress, translateY]);
 
   const runCloseAnimation = useCallback(
     (onFinished) => {
@@ -76,10 +82,10 @@ export const AtelierBottomSheet = ({
       const targetOffset = Math.max(sheetHeightRef.current + 40, 320);
 
       Animated.parallel([
-        Animated.timing(backdropOpacity, {
+        Animated.timing(backdropProgress, {
           toValue: 0,
           duration: 160,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(translateY, {
           toValue: targetOffset,
@@ -100,7 +106,7 @@ export const AtelierBottomSheet = ({
         }
       });
     },
-    [backdropOpacity, translateY]
+    [backdropProgress, translateY]
   );
 
   const handleDismiss = useCallback(() => {
@@ -126,13 +132,13 @@ export const AtelierBottomSheet = ({
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2,
       onPanResponderGrant: () => {
         translateY.stopAnimation();
-        backdropOpacity.stopAnimation();
+        backdropProgress.stopAnimation();
       },
       onPanResponderMove: (_, gestureState) => {
         const dy = Math.max(0, gestureState.dy);
         translateY.setValue(dy);
         const travelHeight = Math.max(sheetHeightRef.current, 240);
-        backdropOpacity.setValue(Math.max(0, 1 - dy / travelHeight));
+        backdropProgress.setValue(Math.max(0, 1 - dy / travelHeight));
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 65 || gestureState.vy > 0.45) {
@@ -146,10 +152,10 @@ export const AtelierBottomSheet = ({
             damping: 22,
             stiffness: 260,
           }),
-          Animated.timing(backdropOpacity, {
+          Animated.timing(backdropProgress, {
             toValue: 1,
             duration: 140,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
       },
@@ -161,10 +167,10 @@ export const AtelierBottomSheet = ({
             damping: 22,
             stiffness: 260,
           }),
-          Animated.timing(backdropOpacity, {
+          Animated.timing(backdropProgress, {
             toValue: 1,
             duration: 140,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
       },
@@ -179,7 +185,7 @@ export const AtelierBottomSheet = ({
       closingRef.current = false;
       hasOpenedRef.current = false;
       pendingActionRef.current = null;
-      backdropOpacity.setValue(0);
+      backdropProgress.setValue(0);
       translateY.setValue(SCREEN_HEIGHT);
       setRendered(true);
       const fallbackTimer = setTimeout(() => {
@@ -193,7 +199,7 @@ export const AtelierBottomSheet = ({
       runCloseAnimation();
     }
     return undefined;
-  }, [visible, backdropOpacity, translateY, runOpenAnimation, runCloseAnimation]);
+  }, [visible, backdropProgress, translateY, runOpenAnimation, runCloseAnimation]);
 
   const handleSelectOption = (option) => {
     pendingActionRef.current = option.onPress || null;
@@ -212,17 +218,20 @@ export const AtelierBottomSheet = ({
       onRequestClose={handleDismiss}
     >
       {rendered ? (
-        <View style={styles.modalRoot}>
+        <View
+          collapsable={false}
+          style={styles.modalRoot}
+        >
+          <Animated.View
+            collapsable={false}
+            pointerEvents="none"
+            style={[styles.backdrop, { backgroundColor: backdropColor }]}
+          />
           <Pressable
             style={styles.backdropPress}
             onPress={handleDismiss}
             accessibilityLabel="Close dialog backdrop"
-          >
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.backdrop, { opacity: backdropOpacity }]}
-            />
-          </Pressable>
+          />
 
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -357,17 +366,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
-  backdropPress: {
+  backdrop: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
   },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(28, 25, 23, 0.45)',
+  backdropPress: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
   },
   positioner: {
     justifyContent: 'flex-end',
-    zIndex: 2,
+    zIndex: 3,
     elevation: 16,
   },
   sheet: {
