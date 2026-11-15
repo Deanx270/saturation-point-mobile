@@ -44,6 +44,8 @@ const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const promotionRoutes = require('./routes/promotionRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const brandRoutes = require('./routes/brandRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 app.get('/', (req, res) => {
@@ -59,6 +61,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/promotions', promotionRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/brands', brandRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

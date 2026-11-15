@@ -207,7 +207,11 @@ const updateUserProfile = async (req, res) => {
 
     user.displayName = req.body.displayName || user.displayName;
     user.username = req.body.username || user.username;
-    user.photoURL = req.body.photoURL || user.photoURL;
+    if (req.file && req.file.path) {
+      user.photoURL = req.file.path;
+    } else if (req.body.photoURL !== undefined) {
+      user.photoURL = req.body.photoURL;
+    }
 
     if (req.body.password) {
       const salt = await bcrypt.genSalt(10);
