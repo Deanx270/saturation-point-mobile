@@ -20,6 +20,7 @@ import AppNavigator, {
 import { initDatabase } from './src/services/sqliteService';
 import { hydrateCart } from './src/redux/cartSlice';
 import { loadStoredAuth, syncPushToken } from './src/redux/authSlice';
+import { AtelierSheetProvider } from './src/components/common/AtelierBottomSheet';
 
 const AppContent = () => {
   const dispatch = useDispatch();
@@ -89,11 +90,13 @@ const AppContent = () => {
 
   return (
     <SafeAreaProvider>
-      <StatusBar
-        style="dark"
-        backgroundColor="#FAF9F6"
-      />
-      <AppNavigator />
+      <AtelierSheetProvider>
+        <StatusBar
+          style="dark"
+          backgroundColor="#FAF9F6"
+        />
+        <AppNavigator />
+      </AtelierSheetProvider>
     </SafeAreaProvider>
   );
 };

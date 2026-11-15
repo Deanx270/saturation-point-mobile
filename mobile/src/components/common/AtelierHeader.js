@@ -47,6 +47,8 @@ export const AtelierHeader = ({
     return (
       <AtelierPressable
         tone="subtle"
+        borderlessRipple
+        rippleRadius={theme.touchTarget.minHeight / 2}
         style={styles.iconButton}
         onPress={handleLeftAction}
         accessibilityLabel={isDrawer ? 'Open navigation menu' : 'Go back'}
@@ -68,6 +70,8 @@ export const AtelierHeader = ({
       return (
         <AtelierPressable
           tone="subtle"
+          borderlessRipple
+          rippleRadius={theme.touchTarget.minHeight / 2}
           style={styles.iconButton}
           onPress={onRightPress}
           accessibilityLabel={rightAccessibilityLabel}
@@ -122,7 +126,7 @@ const styles = StyleSheet.create({
   iconButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
-    borderRadius: theme.radii.sm,
+    borderRadius: theme.touchTarget.minHeight / 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

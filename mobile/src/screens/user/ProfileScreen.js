@@ -33,7 +33,6 @@ import {
 
 const ProfileSchema = Yup.object().shape({
   displayName: Yup.string().trim().required('Display name is required'),
-  username: Yup.string().trim().required('Username is required'),
 });
 
 export const ProfileScreen = ({ navigation }) => {
@@ -166,7 +165,6 @@ export const ProfileScreen = ({ navigation }) => {
   const handleProfileSubmit = async (values) => {
     const payload = {
       displayName: values.displayName.trim(),
-      username: values.username.trim(),
     };
     const result = await dispatch(updateProfile(payload));
     if (updateProfile.fulfilled.match(result)) {
@@ -346,7 +344,6 @@ export const ProfileScreen = ({ navigation }) => {
           enableReinitialize
           initialValues={{
             displayName: user.displayName || '',
-            username: user.username || '',
           }}
           validationSchema={ProfileSchema}
           onSubmit={handleProfileSubmit}
@@ -367,15 +364,6 @@ export const ProfileScreen = ({ navigation }) => {
                 onBlur={handleBlur('displayName')}
                 error={errors.displayName}
                 touched={touched.displayName}
-              />
-
-              <AtelierInput
-                label="Username"
-                value={values.username}
-                onChangeText={handleChange('username')}
-                onBlur={handleBlur('username')}
-                error={errors.username}
-                touched={touched.username}
               />
 
               <AtelierButton

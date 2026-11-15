@@ -1,4 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  useId,
+} from 'react';
 import {
   Modal,
   View,
@@ -9,7 +18,9 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from './AtelierText';
@@ -17,9 +28,73 @@ import AtelierPressable from './AtelierPressable';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-export const AtelierBottomSheet = ({
+const SheetPortalContext = createContext(null);
+
+const AtelierSheetOutlet = ({ api }) => {
+  const [, setTick] = useState(0);
+
+  useEffect(() => api.subscribe(() => setTick((prev) => prev + 1)), [api]);
+
+  const entries = api.getSnapshot();
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return (
+    <View
+      pointerEvents="box-none"
+      style={styles.outletLayer}
+    >
+      {entries.map(([id, element]) => (
+        <React.Fragment key={id}>{element}</React.Fragment>
+      ))}
+    </View>
+  );
+};
+
+export const AtelierSheetProvider = ({ children }) => {
+  const listenersRef = useRef(new Set());
+  const portalsRef = useRef(new Map());
+
+  const api = useMemo(
+    () => ({
+      mount(id, element) {
+        portalsRef.current.set(id, element);
+        listenersRef.current.forEach((listener) => listener());
+      },
+      unmount(id) {
+        if (portalsRef.current.has(id)) {
+          portalsRef.current.delete(id);
+          listenersRef.current.forEach((listener) => listener());
+        }
+      },
+      subscribe(listener) {
+        listenersRef.current.add(listener);
+        return () => {
+          listenersRef.current.delete(listener);
+        };
+      },
+      getSnapshot() {
+        return Array.from(portalsRef.current.entries());
+      },
+    }),
+    []
+  );
+
+  return (
+    <SheetPortalContext.Provider value={api}>
+      <View style={styles.providerRoot}>
+        <View style={styles.appLayer}>{children}</View>
+        <AtelierSheetOutlet api={api} />
+      </View>
+    </SheetPortalContext.Provider>
+  );
+};
+
+const AtelierBottomSheetContent = ({
   visible,
   onClose,
+  onExited,
   title,
   subtitle,
   options = [],
@@ -28,50 +103,20 @@ export const AtelierBottomSheet = ({
   showCloseButton = true,
   children,
 }) => {
-  const [rendered, setRendered] = useState(visible);
-  const renderedRef = useRef(visible);
-  renderedRef.current = rendered;
+  const insets = useSafeAreaInsets();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
-  const prevVisibleRef = useRef(false);
-  const backdropProgress = useRef(new Animated.Value(0)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const sheetHeightRef = useRef(360);
   const closingRef = useRef(false);
   const hasOpenedRef = useRef(false);
+  const hasClosedRef = useRef(false);
   const pendingActionRef = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-
-  const backdropColor = backdropProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['rgba(28, 25, 23, 0)', 'rgba(28, 25, 23, 0.45)'],
-    extrapolate: 'clamp',
-  });
-
-  const runOpenAnimation = useCallback(() => {
-    if (hasOpenedRef.current) {
-      return;
-    }
-    hasOpenedRef.current = true;
-    const startOffset = Math.max(sheetHeightRef.current + 40, 320);
-    backdropProgress.setValue(0);
-    translateY.setValue(startOffset);
-
-    Animated.parallel([
-      Animated.timing(backdropProgress, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: false,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 24,
-        stiffness: 260,
-      }),
-    ]).start();
-  }, [backdropProgress, translateY]);
+  const onExitedRef = useRef(onExited);
+  onExitedRef.current = onExited;
 
   const runCloseAnimation = useCallback(
     (onFinished) => {
@@ -82,20 +127,23 @@ export const AtelierBottomSheet = ({
       const targetOffset = Math.max(sheetHeightRef.current + 40, 320);
 
       Animated.parallel([
-        Animated.timing(backdropProgress, {
+        Animated.timing(backdropOpacity, {
           toValue: 0,
           duration: 160,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(translateY, {
           toValue: targetOffset,
           duration: 180,
           useNativeDriver: true,
         }),
-      ]).start(() => {
+      ]).start(({ finished }) => {
         closingRef.current = false;
         hasOpenedRef.current = false;
-        setRendered(false);
+        if (!finished && visibleRef.current) {
+          return;
+        }
+        hasClosedRef.current = true;
         const queuedAction = pendingActionRef.current;
         pendingActionRef.current = null;
         if (onFinished) {
@@ -104,9 +152,12 @@ export const AtelierBottomSheet = ({
         if (queuedAction) {
           queuedAction();
         }
+        if (onExitedRef.current) {
+          onExitedRef.current();
+        }
       });
     },
-    [backdropProgress, translateY]
+    [backdropOpacity, translateY]
   );
 
   const handleDismiss = useCallback(() => {
@@ -132,13 +183,13 @@ export const AtelierBottomSheet = ({
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2,
       onPanResponderGrant: () => {
         translateY.stopAnimation();
-        backdropProgress.stopAnimation();
+        backdropOpacity.stopAnimation();
       },
       onPanResponderMove: (_, gestureState) => {
         const dy = Math.max(0, gestureState.dy);
         translateY.setValue(dy);
         const travelHeight = Math.max(sheetHeightRef.current, 240);
-        backdropProgress.setValue(Math.max(0, 1 - dy / travelHeight));
+        backdropOpacity.setValue(Math.max(0, 1 - dy / travelHeight));
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 65 || gestureState.vy > 0.45) {
@@ -152,10 +203,10 @@ export const AtelierBottomSheet = ({
             damping: 22,
             stiffness: 260,
           }),
-          Animated.timing(backdropProgress, {
+          Animated.timing(backdropOpacity, {
             toValue: 1,
             duration: 140,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]).start();
       },
@@ -167,10 +218,10 @@ export const AtelierBottomSheet = ({
             damping: 22,
             stiffness: 260,
           }),
-          Animated.timing(backdropProgress, {
+          Animated.timing(backdropOpacity, {
             toValue: 1,
             duration: 140,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]).start();
       },
@@ -178,28 +229,52 @@ export const AtelierBottomSheet = ({
   ).current;
 
   useEffect(() => {
-    const wasVisible = prevVisibleRef.current;
-    prevVisibleRef.current = visible;
-
-    if (visible && !wasVisible) {
+    if (visible) {
       closingRef.current = false;
       hasOpenedRef.current = false;
+      hasClosedRef.current = false;
       pendingActionRef.current = null;
-      backdropProgress.setValue(0);
+      backdropOpacity.stopAnimation();
+      translateY.stopAnimation();
+      backdropOpacity.setValue(0);
       translateY.setValue(SCREEN_HEIGHT);
-      setRendered(true);
-      const fallbackTimer = setTimeout(() => {
-        if (visibleRef.current) {
-          runOpenAnimation();
+      const frameId = requestAnimationFrame(() => {
+        if (!visibleRef.current || hasOpenedRef.current) {
+          return;
         }
-      }, 40);
-      return () => clearTimeout(fallbackTimer);
+        hasOpenedRef.current = true;
+        const startOffset = Math.max(sheetHeightRef.current + 40, 320);
+        translateY.setValue(startOffset);
+
+        Animated.parallel([
+          Animated.timing(backdropOpacity, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 24,
+            stiffness: 260,
+          }),
+        ]).start();
+      });
+      return () => cancelAnimationFrame(frameId);
     }
-    if (!visible && wasVisible && renderedRef.current && !closingRef.current) {
+    if (!visible && !closingRef.current && !hasClosedRef.current) {
       runCloseAnimation();
     }
     return undefined;
-  }, [visible, backdropProgress, translateY, runOpenAnimation, runCloseAnimation]);
+  }, [visible, backdropOpacity, translateY, runCloseAnimation]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      dismissRef.current();
+      return true;
+    });
+    return () => subscription.remove();
+  }, []);
 
   const handleSelectOption = (option) => {
     pendingActionRef.current = option.onPress || null;
@@ -207,168 +282,290 @@ export const AtelierBottomSheet = ({
   };
 
   const sheetPanProps = children ? {} : dragResponder.panHandlers;
+  const bottomPadding = Math.max(insets.bottom + theme.spacing.lg, theme.spacing.hero);
+
+  return (
+    <View
+      collapsable={false}
+      style={styles.modalRoot}
+    >
+      <Animated.View
+        collapsable={false}
+        pointerEvents="none"
+        style={[styles.backdropLayer, { opacity: backdropOpacity }]}
+      >
+        <View
+          collapsable={false}
+          style={styles.backdropTint}
+        />
+      </Animated.View>
+      <Pressable
+        style={styles.backdropPress}
+        onPress={handleDismiss}
+        accessibilityLabel="Close dialog backdrop"
+      />
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        pointerEvents="box-none"
+        style={styles.positioner}
+      >
+        <Animated.View
+          collapsable={false}
+          {...sheetPanProps}
+          onLayout={(event) => {
+            sheetHeightRef.current = event.nativeEvent.layout.height;
+          }}
+          style={[
+            styles.sheet,
+            { paddingBottom: bottomPadding },
+            maxHeight ? { maxHeight } : null,
+            { transform: [{ translateY }] },
+          ]}
+        >
+          <View
+            collapsable={false}
+            {...dragResponder.panHandlers}
+            style={styles.dragZone}
+          >
+            <View
+              collapsable={false}
+              style={styles.handleHitArea}
+            >
+              <View style={styles.handleBar} />
+            </View>
+            <View style={styles.header}>
+              <View style={styles.headerText}>
+                <AtelierText
+                  variant="title2"
+                  color={theme.colors.inkPrimary}
+                >
+                  {title}
+                </AtelierText>
+                {subtitle ? (
+                  <AtelierText
+                    variant="bodySmall"
+                    color={theme.colors.inkMuted}
+                    style={styles.subtitle}
+                  >
+                    {subtitle}
+                  </AtelierText>
+                ) : null}
+              </View>
+              {showCloseButton ? (
+                <AtelierPressable
+                  tone="subtle"
+                  borderlessRipple
+                  rippleRadius={theme.touchTarget.minHeight / 2}
+                  onPress={handleDismiss}
+                  style={styles.closeButton}
+                  accessibilityLabel="Close sheet"
+                >
+                  <Ionicons
+                    name="close"
+                    size={22}
+                    color={theme.colors.inkSecondary}
+                  />
+                </AtelierPressable>
+              ) : null}
+            </View>
+          </View>
+
+          {options.length > 0 ? (
+            <View style={styles.optionsList}>
+              {options.map((option, index) => (
+                <AtelierPressable
+                  key={option.key || option.label || String(index)}
+                  tone="surface"
+                  haptic="selection"
+                  onPress={() => handleSelectOption(option)}
+                  style={[
+                    styles.optionRow,
+                    option.selected && styles.optionRowSelected,
+                  ]}
+                >
+                  <View style={styles.optionLeft}>
+                    {option.icon ? (
+                      <Ionicons
+                        name={option.icon}
+                        size={20}
+                        color={
+                          option.destructive
+                            ? theme.colors.error
+                            : option.selected
+                            ? theme.colors.goldText
+                            : theme.colors.inkPrimary
+                        }
+                        style={styles.optionIcon}
+                      />
+                    ) : null}
+                    <AtelierText
+                      variant="bodyMedium"
+                      color={
+                        option.destructive
+                          ? theme.colors.error
+                          : option.selected
+                          ? theme.colors.goldText
+                          : theme.colors.inkPrimary
+                      }
+                      style={option.selected ? styles.optionLabelSelected : undefined}
+                    >
+                      {option.label}
+                    </AtelierText>
+                  </View>
+                  {option.selected ? (
+                    <Ionicons
+                      name="checkmark"
+                      size={18}
+                      color={theme.colors.goldText}
+                    />
+                  ) : null}
+                </AtelierPressable>
+              ))}
+            </View>
+          ) : null}
+
+          {children}
+
+          {footer ? <View style={styles.footer}>{footer}</View> : null}
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+};
+
+export const AtelierBottomSheet = ({
+  visible,
+  onClose,
+  title,
+  subtitle,
+  options = [],
+  footer,
+  maxHeight,
+  showCloseButton = true,
+  children,
+}) => {
+  const portal = useContext(SheetPortalContext);
+  const sheetId = useId();
+  const [rendered, setRendered] = useState(Boolean(visible));
+
+  useEffect(() => {
+    if (visible) {
+      setRendered(true);
+    }
+  }, [visible]);
+
+  const handleExited = useCallback(() => {
+    setRendered(false);
+  }, []);
+
+  useEffect(() => {
+    if (!portal) {
+      return undefined;
+    }
+    if (rendered || visible) {
+      portal.mount(
+        sheetId,
+        <AtelierBottomSheetContent
+          visible={Boolean(visible)}
+          onClose={onClose}
+          onExited={handleExited}
+          title={title}
+          subtitle={subtitle}
+          options={options}
+          footer={footer}
+          maxHeight={maxHeight}
+          showCloseButton={showCloseButton}
+        >
+          {children}
+        </AtelierBottomSheetContent>
+      );
+    } else {
+      portal.unmount(sheetId);
+    }
+    return undefined;
+  }, [
+    portal,
+    sheetId,
+    rendered,
+    visible,
+    onClose,
+    handleExited,
+    title,
+    subtitle,
+    options,
+    footer,
+    maxHeight,
+    showCloseButton,
+    children,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (portal) {
+        portal.unmount(sheetId);
+      }
+    };
+  }, [portal, sheetId]);
+
+  if (portal) {
+    return null;
+  }
+
+  if (!rendered && !visible) {
+    return null;
+  }
 
   return (
     <Modal
-      visible={rendered}
+      visible={rendered || Boolean(visible)}
       transparent
       statusBarTranslucent
       animationType="none"
-      onShow={runOpenAnimation}
-      onRequestClose={handleDismiss}
+      onRequestClose={onClose}
     >
-      {rendered ? (
-        <View
-          collapsable={false}
-          style={styles.modalRoot}
-        >
-          <Animated.View
-            collapsable={false}
-            pointerEvents="none"
-            style={[styles.backdrop, { backgroundColor: backdropColor }]}
-          />
-          <Pressable
-            style={styles.backdropPress}
-            onPress={handleDismiss}
-            accessibilityLabel="Close dialog backdrop"
-          />
-
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            pointerEvents="box-none"
-            style={styles.positioner}
-          >
-            <Animated.View
-              collapsable={false}
-              {...sheetPanProps}
-              onLayout={(event) => {
-                sheetHeightRef.current = event.nativeEvent.layout.height;
-              }}
-              style={[
-                styles.sheet,
-                maxHeight ? { maxHeight } : null,
-                { transform: [{ translateY }] },
-              ]}
-            >
-              <View
-                collapsable={false}
-                {...dragResponder.panHandlers}
-                style={styles.dragZone}
-              >
-                <View
-                  collapsable={false}
-                  style={styles.handleHitArea}
-                >
-                  <View style={styles.handleBar} />
-                </View>
-                <View style={styles.header}>
-                  <View style={styles.headerText}>
-                    <AtelierText
-                      variant="title2"
-                      color={theme.colors.inkPrimary}
-                    >
-                      {title}
-                    </AtelierText>
-                    {subtitle ? (
-                      <AtelierText
-                        variant="bodySmall"
-                        color={theme.colors.inkMuted}
-                        style={styles.subtitle}
-                      >
-                        {subtitle}
-                      </AtelierText>
-                    ) : null}
-                  </View>
-                  {showCloseButton ? (
-                    <AtelierPressable
-                      tone="subtle"
-                      onPress={handleDismiss}
-                      style={styles.closeButton}
-                      accessibilityLabel="Close sheet"
-                    >
-                      <Ionicons
-                        name="close"
-                        size={22}
-                        color={theme.colors.inkSecondary}
-                      />
-                    </AtelierPressable>
-                  ) : null}
-                </View>
-              </View>
-
-              {options.length > 0 ? (
-                <View style={styles.optionsList}>
-                  {options.map((option, index) => (
-                    <AtelierPressable
-                      key={option.key || option.label || String(index)}
-                      tone="surface"
-                      haptic="selection"
-                      onPress={() => handleSelectOption(option)}
-                      style={[
-                        styles.optionRow,
-                        option.selected && styles.optionRowSelected,
-                      ]}
-                    >
-                      <View style={styles.optionLeft}>
-                        {option.icon ? (
-                          <Ionicons
-                            name={option.icon}
-                            size={20}
-                            color={
-                              option.destructive
-                                ? theme.colors.error
-                                : option.selected
-                                ? theme.colors.goldText
-                                : theme.colors.inkPrimary
-                            }
-                            style={styles.optionIcon}
-                          />
-                        ) : null}
-                        <AtelierText
-                          variant="bodyMedium"
-                          color={
-                            option.destructive
-                              ? theme.colors.error
-                              : option.selected
-                              ? theme.colors.goldText
-                              : theme.colors.inkPrimary
-                          }
-                          style={option.selected ? styles.optionLabelSelected : undefined}
-                        >
-                          {option.label}
-                        </AtelierText>
-                      </View>
-                      {option.selected ? (
-                        <Ionicons
-                          name="checkmark"
-                          size={18}
-                          color={theme.colors.goldText}
-                        />
-                      ) : null}
-                    </AtelierPressable>
-                  ))}
-                </View>
-              ) : null}
-
-              {children}
-
-              {footer ? <View style={styles.footer}>{footer}</View> : null}
-            </Animated.View>
-          </KeyboardAvoidingView>
-        </View>
-      ) : null}
+      <AtelierBottomSheetContent
+        visible={Boolean(visible)}
+        onClose={onClose}
+        onExited={handleExited}
+        title={title}
+        subtitle={subtitle}
+        options={options}
+        footer={footer}
+        maxHeight={maxHeight}
+        showCloseButton={showCloseButton}
+      >
+        {children}
+      </AtelierBottomSheetContent>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalRoot: {
+  providerRoot: {
     flex: 1,
+  },
+  appLayer: {
+    flex: 1,
+    zIndex: 1,
+    elevation: 0,
+  },
+  outletLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 24,
+  },
+  modalRoot: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
   },
-  backdrop: {
+  backdropLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
+  },
+  backdropTint: {
+    flex: 1,
+    backgroundColor: 'rgba(28, 25, 23, 0.45)',
   },
   backdropPress: {
     ...StyleSheet.absoluteFillObject,
@@ -385,7 +582,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     paddingHorizontal: theme.spacing.xl,
     paddingTop: theme.spacing.xs,
-    paddingBottom: theme.spacing.hero,
     borderTopWidth: 1,
     borderColor: theme.colors.border,
     elevation: 16,
@@ -423,7 +619,7 @@ const styles = StyleSheet.create({
   closeButton: {
     width: theme.touchTarget.minHeight,
     height: theme.touchTarget.minHeight,
-    borderRadius: theme.radii.sm,
+    borderRadius: theme.touchTarget.minHeight / 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

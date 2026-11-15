@@ -34,6 +34,7 @@ export const AtelierPressable = ({
   haptic = 'none',
   stopPropagation = false,
   rippleColor,
+  rippleRadius,
   disableRipple = false,
   borderlessRipple = false,
   pressedStyle,
@@ -71,6 +72,7 @@ export const AtelierPressable = ({
             DEFAULT_RIPPLE_COLORS[tone] ||
             DEFAULT_RIPPLE_COLORS.surface,
           borderless: borderlessRipple,
+          ...(rippleRadius ? { radius: rippleRadius } : {}),
         };
 
   const resolvedToneStyle = TONE_PRESSED_STYLES[tone];
