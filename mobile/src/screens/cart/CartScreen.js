@@ -69,7 +69,11 @@ export const CartScreen = ({ navigation }) => {
         'Please sign in before placing an order.',
         [
           { text: 'Later' },
-          { text: 'Sign In', onPress: () => navigation.navigate('UserTab') },
+          {
+            text: 'Sign In',
+            onPress: () =>
+              navigation.navigate('UserTab', { screen: 'Login' }),
+          },
         ]
       );
       return;
@@ -209,14 +213,17 @@ export const CartScreen = ({ navigation }) => {
         data={items}
         keyExtractor={(item) => item.product}
         renderItem={renderCartItem}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          items.length === 0 && styles.emptyListContent,
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <AtelierEmptyState
             iconName="cart-outline"
             title="Your Cart is Empty"
-            description="Add fountain pens, inks, or paper from the catalog to get started."
+            description="Add fountain pens, inks, or paper from the shop to get started."
             actionTitle="Browse Products"
             onActionPress={() => navigation.navigate('HomeTab')}
           />
@@ -286,6 +293,11 @@ const styles = StyleSheet.create({
   listContent: {
     padding: theme.spacing.lg,
     paddingBottom: 220,
+  },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingBottom: theme.spacing.hero,
   },
   itemCard: {
     marginBottom: theme.spacing.md,

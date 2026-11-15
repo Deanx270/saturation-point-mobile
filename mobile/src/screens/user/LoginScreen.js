@@ -18,10 +18,14 @@ import AtelierPressable from '../../components/common/AtelierPressable';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { login } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
+import {
+  emailSchemaField,
+  passwordSchemaField,
+} from '../../utils/validationSchemas';
 
 const LoginSchema = Yup.object().shape({
-  email: Yup.string().email('Invalid email address').required('Email is required'),
-  password: Yup.string().min(6, 'Minimum 6 characters').required('Password is required'),
+  email: emailSchemaField,
+  password: passwordSchemaField,
 });
 
 export const LoginScreen = ({ navigation }) => {
@@ -32,7 +36,7 @@ export const LoginScreen = ({ navigation }) => {
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
       login({
-        email: values.email,
+        email: values.email.trim(),
         password: values.password,
         pushToken,
       })
@@ -87,6 +91,7 @@ export const LoginScreen = ({ navigation }) => {
                 autoCapitalize="none"
                 error={errors.email}
                 touched={touched.email}
+                style={styles.compactInput}
               />
 
               <AtelierInput
@@ -98,6 +103,7 @@ export const LoginScreen = ({ navigation }) => {
                 secureTextEntry
                 error={errors.password}
                 touched={touched.password}
+                style={styles.compactInput}
               />
 
               <AtelierButton
@@ -146,15 +152,19 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.canvas,
   },
   scrollContent: {
-    padding: theme.spacing.xl,
-    paddingBottom: theme.spacing.hero,
+    paddingHorizontal: theme.spacing.xl,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
   },
   formContainer: {
-    marginTop: theme.spacing.lg,
+    marginTop: theme.spacing.xs,
+  },
+  compactInput: {
+    marginBottom: theme.spacing.md,
   },
   submitButton: {
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
   },
   switchRow: {
     flexDirection: 'row',

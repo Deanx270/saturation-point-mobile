@@ -149,13 +149,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   authContainer: {
-    marginVertical: theme.spacing.lg,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
   },
   authBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   authMark: {
     width: 28,
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
   },
   authHeading: {
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   authSubheading: {
     lineHeight: 22,

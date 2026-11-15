@@ -208,21 +208,13 @@ export const AdminOrdersScreen = ({ navigation }) => {
         }
         options={
           selectedOrder
-            ? [
-                ...STATUS_OPTIONS.map((st) => ({
-                  key: st,
-                  label: st.charAt(0).toUpperCase() + st.slice(1),
-                  selected: selectedOrder.status === st,
-                  destructive: st === 'cancelled',
-                  onPress: () => handleStatusChange(selectedOrder, st),
-                })),
-                {
-                  key: 'cancel',
-                  label: 'Cancel',
-                  icon: 'close-outline',
-                  onPress: () => setSelectedOrder(null),
-                },
-              ]
+            ? STATUS_OPTIONS.map((st) => ({
+                key: st,
+                label: st.charAt(0).toUpperCase() + st.slice(1),
+                selected: selectedOrder.status === st,
+                destructive: st === 'cancelled',
+                onPress: () => handleStatusChange(selectedOrder, st),
+              }))
             : []
         }
       />

@@ -141,7 +141,15 @@ export const OrdersListScreen = ({ navigation }) => {
           title="Sign In Required"
           description="Sign in to view your order history."
           actionTitle="Sign In"
-          onActionPress={() => navigation.navigate('UserTab')}
+          actionVariant="primary"
+          fullWidthActions
+          onActionPress={() =>
+            navigation.navigate('UserTab', { screen: 'Login' })
+          }
+          secondaryActionTitle="Create Account"
+          onSecondaryActionPress={() =>
+            navigation.navigate('UserTab', { screen: 'Register' })
+          }
         />
       </View>
     );
@@ -210,7 +218,10 @@ export const OrdersListScreen = ({ navigation }) => {
           data={filteredOrders}
           keyExtractor={(item) => item._id}
           renderItem={renderOrderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredOrders.length === 0 && styles.emptyListContent,
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -279,6 +290,10 @@ const styles = StyleSheet.create({
   listContent: {
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.hero,
+  },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   orderCard: {
     marginBottom: theme.spacing.lg,

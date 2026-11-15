@@ -272,13 +272,13 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   dividerLine: {
     flex: 1,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     marginHorizontal: theme.spacing.md,
   },
   socialButton: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
 });
 

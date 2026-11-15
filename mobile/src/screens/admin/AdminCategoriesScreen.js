@@ -282,6 +282,7 @@ const AdminCategoriesScreen = ({ navigation }) => {
         visible={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
         title="Delete Category"
+        showCloseButton={false}
         subtitle={
           deleteTarget
             ? `Remove "${deleteTarget.name}" from store categories?`

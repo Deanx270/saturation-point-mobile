@@ -6,7 +6,6 @@ import {
   Image,
   RefreshControl,
   ScrollView,
-  Modal,
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -18,6 +17,8 @@ import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierPressable from '../../components/common/AtelierPressable';
+import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import AtelierToast from '../../components/common/AtelierToast';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
@@ -68,6 +69,11 @@ export const ProductListScreen = ({ navigation }) => {
   const [maxPriceDraft, setMaxPriceDraft] = useState(maxPrice);
   const [brandDraft, setBrandDraft] = useState(selectedBrand);
   const [ratingDraft, setRatingDraft] = useState(minRating);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    key: 0,
+  });
 
   useEffect(() => {
     dispatch(fetchProductFilters());
@@ -167,7 +173,11 @@ export const ProductListScreen = ({ navigation }) => {
         stock: product.stock,
       })
     );
-    Alert.alert('Added to Cart', `${product.name} added to your cart.`);
+    setToastState({
+      visible: true,
+      message: `${product.name} added to cart`,
+      key: Date.now(),
+    });
   };
 
   const hasActiveFilter = Boolean(
@@ -180,6 +190,8 @@ export const ProductListScreen = ({ navigation }) => {
   const renderProductItem = ({ item }) => {
     const firstImage = item.images && item.images.length > 0 ? item.images[0] : '';
     const hasImage = isValidRemoteOrLocalUri(firstImage);
+    const existingCartItem = cartItems.find((entry) => entry.product === item._id);
+    const inCartQty = existingCartItem ? existingCartItem.quantity : 0;
 
     return (
       <View style={styles.gridItemContainer}>
@@ -244,29 +256,48 @@ export const ProductListScreen = ({ navigation }) => {
               >
                 {formatPrice(item.price)}
               </AtelierText>
-              <AtelierPressable
-                tone="none"
-                stopPropagation
-                haptic="none"
-                disabled={item.stock <= 0}
-                pressedStyle={styles.quickAddPressed}
-                style={[
-                  styles.quickAddButton,
-                  item.stock <= 0 && styles.quickAddDisabled,
-                ]}
-                onPress={() => handleAddToCart(item)}
-                accessibilityLabel={`Add ${item.name} to cart`}
-              >
-                <Ionicons
-                  name="add"
-                  size={20}
-                  color={
-                    item.stock <= 0
-                      ? theme.colors.inkMuted
-                      : theme.colors.inkPrimary
-                  }
-                />
-              </AtelierPressable>
+              <View style={styles.quickAddWrapper}>
+                <AtelierPressable
+                  tone="none"
+                  stopPropagation
+                  haptic="none"
+                  disabled={item.stock <= 0}
+                  pressedStyle={styles.quickAddPressed}
+                  style={[
+                    styles.quickAddButton,
+                    inCartQty > 0 && styles.quickAddInCart,
+                    item.stock <= 0 && styles.quickAddDisabled,
+                  ]}
+                  onPress={() => handleAddToCart(item)}
+                  accessibilityLabel={`Add ${item.name} to cart`}
+                >
+                  <Ionicons
+                    name="add"
+                    size={20}
+                    color={
+                      item.stock <= 0
+                        ? theme.colors.inkMuted
+                        : inCartQty > 0
+                        ? theme.colors.goldText
+                        : theme.colors.inkPrimary
+                    }
+                  />
+                </AtelierPressable>
+                {inCartQty > 0 ? (
+                  <View
+                    pointerEvents="none"
+                    style={styles.quickAddBadge}
+                  >
+                    <AtelierText
+                      variant="caption"
+                      color="#FFFFFF"
+                      style={styles.quickAddBadgeText}
+                    >
+                      {inCartQty > 99 ? '99+' : inCartQty}
+                    </AtelierText>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </View>
         </AtelierCard>
@@ -405,7 +436,10 @@ export const ProductListScreen = ({ navigation }) => {
           keyExtractor={(item) => item._id}
           renderItem={renderProductItem}
           numColumns={2}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            items.length === 0 && styles.emptyListContent,
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -428,150 +462,139 @@ export const ProductListScreen = ({ navigation }) => {
         />
       )}
 
-      <Modal
+      <AtelierBottomSheet
         visible={filterModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setFilterModalVisible(false)}
+        onClose={() => setFilterModalVisible(false)}
+        title="Filter Products"
+        maxHeight="82%"
+        footer={
+          <View style={styles.modalActions}>
+            <AtelierButton
+              title="Reset"
+              variant="outline"
+              singleLine
+              onPress={handleClearAllFilters}
+              style={styles.modalActionBtn}
+            />
+            <AtelierButton
+              title="Apply"
+              singleLine
+              onPress={handleApplyFilters}
+              style={styles.modalActionBtn}
+            />
+          </View>
+        }
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <AtelierText variant="title1">Filter Products</AtelierText>
-              <AtelierPressable
-                tone="subtle"
-                borderlessRipple
-                hitSlop={6}
-                onPress={() => setFilterModalVisible(false)}
-                style={styles.modalCloseButton}
-                accessibilityLabel="Close filter modal"
-              >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={theme.colors.inkPrimary}
-                />
-              </AtelierPressable>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              style={styles.modalScroll}
-            >
-              <AtelierText
-                variant="caption"
-                color={theme.colors.inkSecondary}
-                style={styles.filterSectionLabel}
-              >
-                PRICE RANGE
-              </AtelierText>
-              <View style={styles.priceInputsRow}>
-                <View style={styles.priceInputColumn}>
-                  <AtelierInput
-                    label="Min Price (PHP)"
-                    placeholder="0"
-                    value={minPriceDraft}
-                    onChangeText={setMinPriceDraft}
-                    keyboardType="numeric"
-                  />
-                </View>
-                <View style={styles.priceInputColumn}>
-                  <AtelierInput
-                    label="Max Price (PHP)"
-                    placeholder="20000"
-                    value={maxPriceDraft}
-                    onChangeText={setMaxPriceDraft}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              <AtelierText
-                variant="caption"
-                color={theme.colors.inkSecondary}
-                style={styles.filterSectionLabel}
-              >
-                MINIMUM RATING
-              </AtelierText>
-              <View style={styles.filterChipsWrap}>
-                {RATING_OPTIONS.map((option) => {
-                  const isSelected = ratingDraft === option.value;
-                  return (
-                    <AtelierPressable
-                      key={option.label}
-                      tone={isSelected ? 'solid' : 'surface'}
-                      haptic="selection"
-                      hitSlop={4}
-                      onPress={() => setRatingDraft(option.value)}
-                      style={[
-                        styles.filterChip,
-                        isSelected && styles.filterChipSelected,
-                      ]}
-                    >
-                      <AtelierText
-                        variant="caption"
-                        color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
-                      >
-                        {option.label}
-                      </AtelierText>
-                    </AtelierPressable>
-                  );
-                })}
-              </View>
-
-              <AtelierText
-                variant="caption"
-                color={theme.colors.inkSecondary}
-                style={styles.filterSectionLabel}
-              >
-                BRAND
-              </AtelierText>
-              <View style={styles.filterChipsWrap}>
-                {(brands || ['All']).map((brandName) => {
-                  const isSelected = brandDraft === brandName;
-                  return (
-                    <AtelierPressable
-                      key={brandName}
-                      tone={isSelected ? 'solid' : 'surface'}
-                      haptic="selection"
-                      hitSlop={4}
-                      onPress={() => setBrandDraft(brandName)}
-                      style={[
-                        styles.filterChip,
-                        isSelected && styles.filterChipSelected,
-                      ]}
-                    >
-                      <AtelierText
-                        variant="caption"
-                        color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
-                      >
-                        {brandName}
-                      </AtelierText>
-                    </AtelierPressable>
-                  );
-                })}
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <AtelierButton
-                title="Reset"
-                variant="outline"
-                singleLine
-                onPress={handleClearAllFilters}
-                style={styles.modalActionBtn}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={styles.modalScroll}
+        >
+          <AtelierText
+            variant="caption"
+            color={theme.colors.inkSecondary}
+            style={styles.filterSectionLabel}
+          >
+            PRICE RANGE (PHP)
+          </AtelierText>
+          <View style={styles.priceInputsRow}>
+            <View style={styles.priceInputColumn}>
+              <AtelierInput
+                label="Min Price"
+                prefix="₱"
+                placeholder="0"
+                value={minPriceDraft}
+                onChangeText={setMinPriceDraft}
+                keyboardType="numeric"
               />
-              <AtelierButton
-                title="Apply"
-                singleLine
-                onPress={handleApplyFilters}
-                style={styles.modalActionBtn}
+            </View>
+            <View style={styles.priceInputColumn}>
+              <AtelierInput
+                label="Max Price"
+                prefix="₱"
+                placeholder="20000"
+                value={maxPriceDraft}
+                onChangeText={setMaxPriceDraft}
+                keyboardType="numeric"
               />
             </View>
           </View>
-        </View>
-      </Modal>
+
+          <AtelierText
+            variant="caption"
+            color={theme.colors.inkSecondary}
+            style={styles.filterSectionLabel}
+          >
+            MINIMUM RATING
+          </AtelierText>
+          <View style={styles.filterChipsWrap}>
+            {RATING_OPTIONS.map((option) => {
+              const isSelected = ratingDraft === option.value;
+              return (
+                <AtelierPressable
+                  key={option.label}
+                  tone={isSelected ? 'solid' : 'surface'}
+                  haptic="selection"
+                  hitSlop={4}
+                  onPress={() => setRatingDraft(option.value)}
+                  style={[
+                    styles.filterChip,
+                    isSelected && styles.filterChipSelected,
+                  ]}
+                >
+                  <AtelierText
+                    variant="caption"
+                    color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
+                  >
+                    {option.label}
+                  </AtelierText>
+                </AtelierPressable>
+              );
+            })}
+          </View>
+
+          <AtelierText
+            variant="caption"
+            color={theme.colors.inkSecondary}
+            style={styles.filterSectionLabel}
+          >
+            BRAND
+          </AtelierText>
+          <View style={styles.filterChipsWrap}>
+            {(brands || ['All']).map((brandName) => {
+              const isSelected = brandDraft === brandName;
+              return (
+                <AtelierPressable
+                  key={brandName}
+                  tone={isSelected ? 'solid' : 'surface'}
+                  haptic="selection"
+                  hitSlop={4}
+                  onPress={() => setBrandDraft(brandName)}
+                  style={[
+                    styles.filterChip,
+                    isSelected && styles.filterChipSelected,
+                  ]}
+                >
+                  <AtelierText
+                    variant="caption"
+                    color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
+                  >
+                    {brandName}
+                  </AtelierText>
+                </AtelierPressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </AtelierBottomSheet>
+
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        actionLabel="View Cart"
+        onActionPress={() => navigation.navigate('CartTab')}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -645,6 +668,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingBottom: theme.spacing.hero,
   },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   gridItemContainer: {
     flex: 0.5,
     padding: theme.spacing.xs,
@@ -696,6 +723,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     marginRight: 6,
   },
+  quickAddWrapper: {
+    position: 'relative',
+  },
   quickAddButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
@@ -706,6 +736,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  quickAddInCart: {
+    borderColor: theme.colors.gold,
+    backgroundColor: '#FEFDF7',
+  },
+  quickAddBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: theme.radii.xs,
+    backgroundColor: theme.colors.inkPrimary,
+    borderWidth: 1,
+    borderColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickAddBadgeText: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   quickAddPressed: {
     backgroundColor: '#E7E5E4',
@@ -728,27 +780,6 @@ const styles = StyleSheet.create({
   },
   skeletonTextWrapper: {
     padding: theme.spacing.sm,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(28, 25, 23, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: theme.colors.canvas,
-    borderTopLeftRadius: theme.radii.md,
-    borderTopRightRadius: theme.radii.md,
-    padding: theme.spacing.xl,
-    paddingBottom: theme.spacing.hero,
-    maxHeight: '80%',
-  },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.borderMedium,
-    alignSelf: 'center',
-    marginBottom: theme.spacing.sm,
   },
   modalScroll: {
     maxHeight: 360,
@@ -779,20 +810,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.inkPrimary,
     borderColor: theme.colors.inkPrimary,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  modalCloseButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    borderRadius: theme.radii.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
   priceInputsRow: {
     flexDirection: 'row',
     gap: theme.spacing.md,
@@ -803,7 +820,6 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     gap: theme.spacing.md,
-    marginTop: theme.spacing.sm,
   },
   modalActionBtn: {
     flex: 1,

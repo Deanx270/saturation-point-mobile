@@ -204,7 +204,15 @@ export const ProfileScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.avatarSection}>
-          <View style={styles.avatarWrapper}>
+          <AtelierPressable
+            tone="none"
+            haptic="light"
+            hitSlop={8}
+            onPress={showAvatarPickerOptions}
+            pressedStyle={styles.avatarPressed}
+            style={styles.avatarWrapper}
+            accessibilityLabel="Update profile photo"
+          >
             {hasAvatar ? (
               <Image
                 source={{ uri: resolvedAvatar }}
@@ -219,21 +227,17 @@ export const ProfileScreen = ({ navigation }) => {
                 />
               </View>
             )}
-            <AtelierPressable
-              tone="solid"
-              haptic="light"
-              hitSlop={8}
+            <View
+              pointerEvents="none"
               style={styles.cameraIconBadge}
-              onPress={showAvatarPickerOptions}
-              accessibilityLabel="Update profile photo"
             >
               <Ionicons
                 name="camera"
-                size={18}
+                size={16}
                 color="#FFFFFF"
               />
-            </AtelierPressable>
-          </View>
+            </View>
+          </AtelierPressable>
 
           <AtelierText
             variant="title1"
@@ -372,12 +376,6 @@ export const ProfileScreen = ({ navigation }) => {
             icon: 'camera-outline',
             onPress: handleCaptureCamera,
           },
-          {
-            key: 'cancel',
-            label: 'Cancel',
-            icon: 'close-outline',
-            onPress: () => setAvatarSheetVisible(false),
-          },
         ]}
       />
     </View>
@@ -400,39 +398,42 @@ const styles = StyleSheet.create({
   avatarWrapper: {
     width: 100,
     height: 100,
-    borderRadius: theme.radii.sm,
+    borderRadius: 50,
     borderWidth: 2,
     borderColor: theme.colors.gold,
     position: 'relative',
     backgroundColor: theme.colors.surface,
     padding: 3,
   },
+  avatarPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.97 }],
+  },
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: theme.radii.xs,
+    borderRadius: 46,
   },
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    borderRadius: theme.radii.xs,
+    borderRadius: 46,
     backgroundColor: theme.colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cameraIconBadge: {
     position: 'absolute',
-    bottom: -6,
-    right: -6,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    bottom: -2,
+    right: -2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: theme.colors.inkPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: theme.colors.surface,
-    overflow: 'hidden',
   },
   profileDisplayName: {
     marginTop: theme.spacing.md,

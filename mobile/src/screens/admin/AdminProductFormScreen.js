@@ -417,12 +417,6 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
             icon: 'camera-outline',
             onPress: handleCaptureCamera,
           },
-          {
-            key: 'cancel',
-            label: 'Cancel',
-            icon: 'close-outline',
-            onPress: () => setPhotoSheetVisible(false),
-          },
         ]}
       />
     </View>

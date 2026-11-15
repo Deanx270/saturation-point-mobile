@@ -18,11 +18,15 @@ import AtelierPressable from '../../components/common/AtelierPressable';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { register } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
+import {
+  emailSchemaField,
+  passwordSchemaField,
+} from '../../utils/validationSchemas';
 
 const RegisterSchema = Yup.object().shape({
-  displayName: Yup.string().required('Full name is required'),
-  email: Yup.string().email('Invalid email address').required('Email is required'),
-  password: Yup.string().min(6, 'Minimum 6 characters').required('Password is required'),
+  displayName: Yup.string().trim().required('Full name is required'),
+  email: emailSchemaField,
+  password: passwordSchemaField,
   confirmPassword: Yup.string()
     .oneOf([Yup.ref('password'), null], 'Passwords must match')
     .required('Please confirm your password'),
@@ -36,8 +40,8 @@ export const RegisterScreen = ({ navigation }) => {
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
       register({
-        displayName: values.displayName,
-        email: values.email,
+        displayName: values.displayName.trim(),
+        email: values.email.trim(),
         password: values.password,
         pushToken,
       })
@@ -177,15 +181,16 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.canvas,
   },
   scrollContent: {
-    padding: theme.spacing.xl,
-    paddingBottom: theme.spacing.hero,
+    paddingHorizontal: theme.spacing.xl,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
   },
   formContainer: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.xs,
   },
   submitButton: {
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
   },
   switchRow: {
     flexDirection: 'row',

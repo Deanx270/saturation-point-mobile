@@ -698,6 +698,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
         visible={Boolean(deleteReviewTarget)}
         onClose={() => setDeleteReviewTarget(null)}
         title="Delete Review"
+        showCloseButton={false}
         subtitle="Are you sure you want to delete this review?"
         options={[
           {

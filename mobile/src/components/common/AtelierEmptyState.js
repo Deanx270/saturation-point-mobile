@@ -11,11 +11,17 @@ export const AtelierEmptyState = ({
   description = 'No items to display right now.',
   actionTitle,
   onActionPress,
+  actionVariant = 'outline',
+  secondaryActionTitle,
+  onSecondaryActionPress,
+  secondaryActionVariant = 'outline',
+  centered = true,
+  fullWidthActions = false,
   style,
 }) => {
   return (
-    <View style={[styles.container, style]}>
-      <View style={styles.iconCircle}>
+    <View style={[styles.container, centered && styles.centered, style]}>
+      <View style={styles.iconFrame}>
         <Ionicons
           name={iconName}
           size={36}
@@ -35,14 +41,27 @@ export const AtelierEmptyState = ({
       >
         {description}
       </AtelierText>
-      {actionTitle && onActionPress && (
-        <AtelierButton
-          title={actionTitle}
-          onPress={onActionPress}
-          variant="outline"
-          style={styles.actionButton}
-        />
-      )}
+      {actionTitle && onActionPress ? (
+        <View style={[styles.actionsWrapper, fullWidthActions && styles.actionsFullWidth]}>
+          <AtelierButton
+            title={actionTitle}
+            onPress={onActionPress}
+            variant={actionVariant}
+            style={[
+              fullWidthActions ? styles.fullWidthButton : styles.compactButton,
+              secondaryActionTitle ? styles.primaryButtonSpacing : null,
+            ]}
+          />
+          {secondaryActionTitle && onSecondaryActionPress ? (
+            <AtelierButton
+              title={secondaryActionTitle}
+              onPress={onSecondaryActionPress}
+              variant={secondaryActionVariant}
+              style={fullWidthActions ? styles.fullWidthButton : styles.compactButton}
+            />
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -53,7 +72,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconCircle: {
+  centered: {
+    flex: 1,
+  },
+  iconFrame: {
     width: 72,
     height: 72,
     borderRadius: theme.radii.sm,
@@ -74,8 +96,20 @@ const styles = StyleSheet.create({
     maxWidth: 280,
     marginBottom: theme.spacing.xl,
   },
-  actionButton: {
-    minWidth: 160,
+  actionsWrapper: {
+    alignItems: 'center',
+  },
+  actionsFullWidth: {
+    width: '100%',
+  },
+  compactButton: {
+    minWidth: 180,
+  },
+  fullWidthButton: {
+    width: '100%',
+  },
+  primaryButtonSpacing: {
+    marginBottom: theme.spacing.md,
   },
 });
 

@@ -113,7 +113,7 @@ export const DrawerContent = ({ navigation }) => {
             variant="bodyMedium"
             style={styles.menuLabel}
           >
-            Catalog
+            Shop
           </AtelierText>
         </AtelierPressable>
 
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   avatarBorder: {
     width: 56,
     height: 56,
-    borderRadius: theme.radii.sm,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: theme.colors.borderMedium,
     padding: 2,
@@ -331,12 +331,12 @@ const styles = StyleSheet.create({
   avatar: {
     width: '100%',
     height: '100%',
-    borderRadius: theme.radii.xs,
+    borderRadius: 26,
   },
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    borderRadius: theme.radii.xs,
+    borderRadius: 26,
     backgroundColor: theme.colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',

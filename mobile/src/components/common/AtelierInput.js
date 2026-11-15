@@ -15,6 +15,7 @@ export const AtelierInput = ({
   onChangeText,
   onBlur,
   placeholder,
+  prefix,
   secureTextEntry = false,
   keyboardType = 'default',
   autoCapitalize = 'none',
@@ -47,9 +48,18 @@ export const AtelierInput = ({
           styles.inputContainer,
           isFocused && styles.focusedContainer,
           hasError && styles.errorContainer,
-          multiline && { minHeight: 90, alignItems: 'flex-start' },
+          multiline && styles.multilineContainer,
         ]}
       >
+        {prefix ? (
+          <AtelierText
+            variant="bodyMedium"
+            color={theme.colors.inkMuted}
+            style={styles.prefixText}
+          >
+            {prefix}
+          </AtelierText>
+        ) : null}
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -69,7 +79,7 @@ export const AtelierInput = ({
           numberOfLines={numberOfLines}
           style={[
             styles.textInput,
-            multiline && { textAlignVertical: 'top', paddingTop: theme.spacing.sm },
+            multiline ? styles.multilineInput : styles.singleLineInput,
             inputStyle,
           ]}
           {...inputProps}
@@ -120,6 +130,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
   },
+  multilineContainer: {
+    minHeight: 90,
+    alignItems: 'flex-start',
+  },
   focusedContainer: {
     borderColor: theme.colors.borderFocused,
   },
@@ -127,12 +141,27 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.error,
     backgroundColor: theme.colors.errorBg,
   },
+  prefixText: {
+    marginRight: theme.spacing.xs,
+    includeFontPadding: false,
+  },
   textInput: {
     flex: 1,
     fontFamily: theme.typography.bodyMedium.fontFamily,
     fontSize: theme.typography.bodyMedium.fontSize,
     color: theme.colors.inkPrimary,
-    minHeight: theme.touchTarget.minHeight,
+    includeFontPadding: false,
+    paddingVertical: 0,
+  },
+  singleLineInput: {
+    height: theme.touchTarget.minHeight,
+    textAlignVertical: 'center',
+  },
+  multilineInput: {
+    minHeight: 88,
+    textAlignVertical: 'top',
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
   },
   eyeIcon: {
     padding: theme.spacing.xs,
