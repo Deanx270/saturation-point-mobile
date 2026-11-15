@@ -3,7 +3,6 @@ import {
   View,
   FlatList,
   StyleSheet,
-  TouchableOpacity,
   RefreshControl,
   Alert,
 } from 'react-native';
@@ -24,6 +23,7 @@ import AtelierText from '../../components/common/AtelierText';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierCard from '../../components/common/AtelierCard';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
@@ -127,7 +127,9 @@ const AdminCategoriesScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity
+          <AtelierPressable
+            tone="surface"
+            hitSlop={6}
             style={styles.editButton}
             onPress={() => openEditSheet(item)}
             accessibilityLabel={`Edit ${item.name}`}
@@ -137,8 +139,10 @@ const AdminCategoriesScreen = ({ navigation }) => {
               size={18}
               color={theme.colors.inkPrimary}
             />
-          </TouchableOpacity>
-          <TouchableOpacity
+          </AtelierPressable>
+          <AtelierPressable
+            tone="subtle"
+            hitSlop={6}
             style={styles.deleteButton}
             onPress={() => setDeleteTarget(item)}
             accessibilityLabel={`Delete ${item.name}`}
@@ -148,7 +152,7 @@ const AdminCategoriesScreen = ({ navigation }) => {
               size={18}
               color={theme.colors.error}
             />
-          </TouchableOpacity>
+          </AtelierPressable>
         </View>
       </View>
     </AtelierCard>
@@ -206,8 +210,8 @@ const AdminCategoriesScreen = ({ navigation }) => {
                 iconName="pricetags-outline"
                 title="No Categories Yet"
                 description="Add product categories to organize your store."
-                actionLabel="Add Category"
-                onAction={openCreateSheet}
+                actionTitle="Add Category"
+                onActionPress={openCreateSheet}
               />
             ) : null
           }
@@ -350,6 +354,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   deleteButton: {
     width: theme.touchTarget.minWidth,
@@ -360,6 +365,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.errorBg,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
 });
 

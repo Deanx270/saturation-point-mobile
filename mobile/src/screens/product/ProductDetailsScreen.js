@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -19,12 +18,13 @@ import AtelierButton from '../../components/common/AtelierButton';
 import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierInput from '../../components/common/AtelierInput';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import { fetchProductDetails } from '../../redux/productsSlice';
-import { addToCart } from '../../redux/cartSlice';
+import { addToCart, selectCartItems } from '../../redux/cartSlice';
 import {
   checkEligibility,
   submitReview,
@@ -47,7 +47,11 @@ const ReviewSchema = Yup.object().shape({
 });
 
 export const ProductDetailsScreen = ({ route, navigation }) => {
-  const { productId } = route.params;
+  const {
+    productId,
+    discountPercent = 0,
+    promoTitle = '',
+  } = route.params || {};
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { selectedProduct, loading, error } = useSelector((state) => state.products);
@@ -55,6 +59,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     (state) => state.reviews
   );
   const { user } = useSelector((state) => state.auth);
+  const cartItems = useSelector(selectCartItems);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -63,6 +68,10 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   const [addedToCartSheetVisible, setAddedToCartSheetVisible] = useState(false);
 
   useEffect(() => {
+    setSelectedImageIndex(0);
+    setQuantity(1);
+    setEditingReview(null);
+    setDeleteReviewTarget(null);
     dispatch(fetchProductDetails(productId));
     if (user) {
       dispatch(checkEligibility(productId));
@@ -77,25 +86,58 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     }
   }, [submitSuccess, dispatch]);
 
+  const [lastAddedQty, setLastAddedQty] = useState(1);
+
+  const parsedDiscount = Number(discountPercent) || 0;
+  const hasPromoDiscount = parsedDiscount > 0 && parsedDiscount < 100;
+  const isStaleProduct = !selectedProduct || (productId && selectedProduct._id !== productId);
+  const existingCartItem = !isStaleProduct
+    ? cartItems.find((item) => item.product === selectedProduct._id)
+    : null;
+  const existingCartQty = existingCartItem ? existingCartItem.quantity : 0;
+  const remainingStock = !isStaleProduct
+    ? Math.max(0, (selectedProduct.stock || 0) - existingCartQty)
+    : 0;
+  const effectiveUnitPrice = !isStaleProduct
+    ? hasPromoDiscount
+      ? Math.round(selectedProduct.price * (1 - parsedDiscount / 100))
+      : selectedProduct.price
+    : 0;
+
+  useEffect(() => {
+    if (!isStaleProduct && remainingStock >= 1 && quantity > remainingStock) {
+      setQuantity(remainingStock);
+    }
+  }, [isStaleProduct, remainingStock, quantity]);
+
   const handleAddToCart = async () => {
-    if (!selectedProduct) {
+    if (isStaleProduct || selectedProduct.stock <= 0) {
       return;
     }
+    if (remainingStock <= 0) {
+      Alert.alert(
+        'Stock Limit Reached',
+        `You already have the maximum available stock (${selectedProduct.stock}) for ${selectedProduct.name} in your cart.`
+      );
+      return;
+    }
+    const qtyToAdd = Math.min(quantity, remainingStock);
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) { }
+    } catch (e) {}
 
     dispatch(
       addToCart({
         product: selectedProduct._id,
         name: selectedProduct.name,
-        price: selectedProduct.price,
-        quantity,
+        price: effectiveUnitPrice,
+        quantity: qtyToAdd,
         image: selectedProduct.images?.[0] || '',
         brand: selectedProduct.brand,
         stock: selectedProduct.stock,
       })
     );
+    setLastAddedQty(qtyToAdd);
     setAddedToCartSheetVisible(true);
   };
 
@@ -151,7 +193,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     await dispatch(removeReview({ productId, reviewId: targetId }));
   };
 
-  if (error && !selectedProduct) {
+  if (error && isStaleProduct) {
     return (
       <View style={styles.loadingContainer}>
         <AtelierHeader
@@ -167,7 +209,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     );
   }
 
-  if (loading || !selectedProduct) {
+  if (loading && isStaleProduct) {
     return (
       <View style={styles.loadingContainer}>
         <AtelierSkeleton
@@ -194,9 +236,26 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     );
   }
 
+  if (isStaleProduct) {
+    return (
+      <View style={styles.loadingContainer}>
+        <AtelierHeader
+          title="Product Details"
+          leftType="back"
+          navigation={navigation}
+        />
+        <AtelierErrorBanner
+          message="Unable to load this product."
+          onRetry={() => dispatch(fetchProductDetails(productId))}
+        />
+      </View>
+    );
+  }
+
   const images = (selectedProduct.images || []).filter(isValidRemoteOrLocalUri);
+  const safeImageIndex = images.length > 0 ? Math.min(selectedImageIndex, images.length - 1) : 0;
   const existingUserReview = user
-    ? selectedProduct.reviews?.find((r) => r.user === user._id)
+    ? selectedProduct.reviews?.find((r) => String(r.user) === String(user._id))
     : null;
   const showReviewForm = (isEligible && !existingUserReview) || Boolean(editingReview);
 
@@ -206,9 +265,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
         <View style={styles.imageGallery}>
           {images.length > 0 ? (
             <Image
-              source={{ uri: images[selectedImageIndex] }}
+              source={{ uri: images[safeImageIndex] }}
               style={styles.mainImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           ) : (
             <View style={styles.imagePlaceholder}>
@@ -219,19 +278,21 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
               />
             </View>
           )}
-          <TouchableOpacity
+          <AtelierPressable
+            tone="subtle"
             style={[
               styles.backButton,
               { top: Math.max(insets.top, theme.spacing.lg) + theme.spacing.xs },
             ]}
             onPress={() => navigation.goBack()}
+            accessibilityLabel="Go back"
           >
             <Ionicons
               name="arrow-back"
               size={22}
               color={theme.colors.inkPrimary}
             />
-          </TouchableOpacity>
+          </AtelierPressable>
         </View>
 
         {images.length > 1 && (
@@ -241,19 +302,22 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
             contentContainerStyle={styles.thumbnailRow}
           >
             {images.map((img, idx) => (
-              <TouchableOpacity
+              <AtelierPressable
                 key={idx}
+                tone="subtle"
+                haptic="selection"
                 onPress={() => setSelectedImageIndex(idx)}
                 style={[
                   styles.thumbnail,
-                  selectedImageIndex === idx && styles.activeThumbnail,
+                  safeImageIndex === idx && styles.activeThumbnail,
                 ]}
               >
                 <Image
                   source={{ uri: img }}
                   style={styles.thumbnailImage}
+                  resizeMode="contain"
                 />
-              </TouchableOpacity>
+              </AtelierPressable>
             ))}
           </ScrollView>
         )}
@@ -283,13 +347,41 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
             {selectedProduct.name}
           </AtelierText>
 
+          {hasPromoDiscount && (
+            <View style={styles.promoBanner}>
+              <Ionicons
+                name="pricetag-outline"
+                size={16}
+                color={theme.colors.goldText}
+              />
+              <AtelierText
+                variant="caption"
+                color={theme.colors.goldText}
+                style={styles.promoBannerText}
+              >
+                {`${promoTitle ? `${promoTitle} — ` : ''}${parsedDiscount}% OFF APPLIED`}
+              </AtelierText>
+            </View>
+          )}
+
           <View style={styles.ratingPriceRow}>
-            <AtelierText
-              variant="title1"
-              color={theme.colors.inkPrimary}
-            >
-              {formatPrice(selectedProduct.price)}
-            </AtelierText>
+            <View style={styles.priceGroup}>
+              <AtelierText
+                variant="title1"
+                color={theme.colors.inkPrimary}
+              >
+                {formatPrice(effectiveUnitPrice)}
+              </AtelierText>
+              {hasPromoDiscount && (
+                <AtelierText
+                  variant="bodyMedium"
+                  color={theme.colors.inkMuted}
+                  style={styles.originalPrice}
+                >
+                  {formatPrice(selectedProduct.price)}
+                </AtelierText>
+              )}
+            </View>
             <View style={styles.ratingStars}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <Ionicons
@@ -330,41 +422,73 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
           <View style={styles.divider} />
 
           <View style={styles.quantitySection}>
-            <AtelierText
-              variant="caption"
-              color={theme.colors.inkSecondary}
-            >
-              Quantity
-            </AtelierText>
+            <View>
+              <AtelierText
+                variant="caption"
+                color={theme.colors.inkSecondary}
+              >
+                Quantity
+              </AtelierText>
+              {existingCartQty > 0 && (
+                <AtelierText
+                  variant="bodySmall"
+                  color={theme.colors.inkMuted}
+                >
+                  {existingCartQty} already in cart
+                </AtelierText>
+              )}
+            </View>
             <View style={styles.stepperContainer}>
-              <TouchableOpacity
-                style={styles.stepperButton}
+              <AtelierPressable
+                tone="surface"
+                haptic="selection"
+                disabled={selectedProduct.stock <= 0 || quantity <= 1}
+                style={[
+                  styles.stepperButton,
+                  (selectedProduct.stock <= 0 || quantity <= 1) && styles.stepperButtonDisabled,
+                ]}
                 onPress={() => setQuantity(Math.max(1, quantity - 1))}
+                accessibilityLabel="Decrease quantity"
               >
                 <Ionicons
                   name="remove"
                   size={18}
-                  color={theme.colors.inkPrimary}
+                  color={
+                    selectedProduct.stock <= 0 || quantity <= 1
+                      ? theme.colors.inkMuted
+                      : theme.colors.inkPrimary
+                  }
                 />
-              </TouchableOpacity>
+              </AtelierPressable>
               <AtelierText
                 variant="title2"
                 style={styles.stepperValue}
               >
                 {quantity}
               </AtelierText>
-              <TouchableOpacity
-                style={styles.stepperButton}
+              <AtelierPressable
+                tone="surface"
+                haptic="selection"
+                disabled={remainingStock <= 0 || quantity >= remainingStock}
+                style={[
+                  styles.stepperButton,
+                  (remainingStock <= 0 || quantity >= remainingStock) && styles.stepperButtonDisabled,
+                ]}
                 onPress={() =>
-                  setQuantity(Math.min(selectedProduct.stock || 10, quantity + 1))
+                  setQuantity(Math.min(Math.max(1, remainingStock), quantity + 1))
                 }
+                accessibilityLabel="Increase quantity"
               >
                 <Ionicons
                   name="add"
                   size={18}
-                  color={theme.colors.inkPrimary}
+                  color={
+                    remainingStock <= 0 || quantity >= remainingStock
+                      ? theme.colors.inkMuted
+                      : theme.colors.inkPrimary
+                  }
                 />
-              </TouchableOpacity>
+              </AtelierPressable>
             </View>
           </View>
 
@@ -417,17 +541,21 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                     <View>
                       <View style={styles.starPickerRow}>
                         {[1, 2, 3, 4, 5].map((star) => (
-                          <TouchableOpacity
+                          <AtelierPressable
                             key={star}
+                            tone="subtle"
+                            borderlessRipple
+                            haptic="selection"
                             style={styles.starButton}
                             onPress={() => setFieldValue('rating', star)}
+                            accessibilityLabel={`Rate ${star} star${star > 1 ? 's' : ''}`}
                           >
                             <Ionicons
                               name={star <= values.rating ? 'star' : 'star-outline'}
                               size={26}
                               color={theme.colors.gold}
                             />
-                          </TouchableOpacity>
+                          </AtelierPressable>
                         ))}
                       </View>
                       <AtelierInput
@@ -483,7 +611,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
 
             {selectedProduct.reviews && selectedProduct.reviews.length > 0 ? (
               selectedProduct.reviews.map((rev) => {
-                const isOwnReview = user?._id === rev.user;
+                const isOwnReview = Boolean(
+                  user?._id && rev.user && String(user._id) === String(rev.user)
+                );
                 const canDelete = user?.role === 'admin' || isOwnReview;
 
                 return (
@@ -519,7 +649,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                     {(isOwnReview || canDelete) && (
                       <View style={styles.reviewActionsRow}>
                         {isOwnReview && (
-                          <TouchableOpacity
+                          <AtelierPressable
+                            tone="subtle"
+                            hitSlop={8}
                             style={styles.reviewActionLink}
                             onPress={() => handleStartEditReview(rev)}
                           >
@@ -529,10 +661,12 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                             >
                               Edit
                             </AtelierText>
-                          </TouchableOpacity>
+                          </AtelierPressable>
                         )}
                         {canDelete && (
-                          <TouchableOpacity
+                          <AtelierPressable
+                            tone="subtle"
+                            hitSlop={8}
                             style={styles.reviewActionLink}
                             onPress={() => handleDeleteReview(rev._id)}
                           >
@@ -542,7 +676,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                             >
                               Delete
                             </AtelierText>
-                          </TouchableOpacity>
+                          </AtelierPressable>
                         )}
                       </View>
                     )}
@@ -565,9 +699,11 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
       <View style={styles.bottomBar}>
         <AtelierButton
           title={
-            selectedProduct.stock > 0
-              ? `Add to Cart — ${formatPrice(selectedProduct.price * quantity)}`
-              : 'Out of Stock'
+            selectedProduct.stock <= 0
+              ? 'Out of Stock'
+              : remainingStock <= 0
+                ? 'Max Stock in Cart'
+                : `Add to Cart — ${formatPrice(effectiveUnitPrice * quantity)}`
           }
           onPress={handleAddToCart}
           disabled={selectedProduct.stock <= 0}
@@ -601,7 +737,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
         visible={addedToCartSheetVisible}
         onClose={() => setAddedToCartSheetVisible(false)}
         title="Added to Cart"
-        subtitle={`${quantity}x ${selectedProduct.name} added to your cart.`}
+        subtitle={`${lastAddedQty}x ${selectedProduct.name} added to your cart.`}
         options={[
           {
             key: 'cart',
@@ -638,7 +774,9 @@ const styles = StyleSheet.create({
     height: 340,
     width: '100%',
     position: 'relative',
-    backgroundColor: theme.colors.surfaceSubtle,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   mainImage: {
     width: '100%',
@@ -649,6 +787,7 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceSubtle,
   },
   backButton: {
     position: 'absolute',
@@ -662,6 +801,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   thumbnailRow: {
     paddingHorizontal: theme.spacing.lg,
@@ -674,6 +814,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.xs,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
   activeThumbnail: {
@@ -696,11 +837,37 @@ const styles = StyleSheet.create({
   productName: {
     marginBottom: theme.spacing.sm,
   },
+  promoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: theme.radii.xs,
+    backgroundColor: '#FAF5E8',
+    borderWidth: 1,
+    borderColor: theme.colors.gold,
+    marginBottom: theme.spacing.sm,
+  },
+  promoBannerText: {
+    letterSpacing: 0.6,
+  },
   ratingPriceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
     marginBottom: theme.spacing.lg,
+  },
+  priceGroup: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: theme.spacing.sm,
+  },
+  originalPrice: {
+    textDecorationLine: 'line-through',
   },
   ratingStars: {
     flexDirection: 'row',
@@ -732,12 +899,16 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xs,
     backgroundColor: theme.colors.surface,
+    overflow: 'hidden',
   },
   stepperButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stepperButtonDisabled: {
+    opacity: 0.35,
   },
   stepperValue: {
     minWidth: 40,

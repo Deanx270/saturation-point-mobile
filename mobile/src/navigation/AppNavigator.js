@@ -28,7 +28,11 @@ export const navigateFromNotification = (data) => {
       screen: 'HomeTab',
       params: {
         screen: 'ProductDetails',
-        params: { productId: data.productId },
+        params: {
+          productId: data.productId,
+          discountPercent: Number(data.discountPercent) || 0,
+          promoTitle: data.promoTitle || '',
+        },
       },
     });
     return true;

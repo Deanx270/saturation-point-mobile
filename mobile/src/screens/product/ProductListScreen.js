@@ -4,8 +4,6 @@ import {
   FlatList,
   StyleSheet,
   Image,
-  TouchableOpacity,
-  Pressable,
   RefreshControl,
   ScrollView,
   Modal,
@@ -19,6 +17,7 @@ import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
@@ -35,7 +34,7 @@ import {
   setMinRating,
   resetFilters,
 } from '../../redux/productsSlice';
-import { addToCart } from '../../redux/cartSlice';
+import { addToCart, selectCartItems } from '../../redux/cartSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
 
 const RATING_OPTIONS = [
@@ -47,6 +46,7 @@ const RATING_OPTIONS = [
 
 export const ProductListScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const cartItems = useSelector(selectCartItems);
   const {
     items,
     categories,
@@ -141,9 +141,18 @@ export const ProductListScreen = ({ navigation }) => {
     if (product.stock <= 0) {
       return;
     }
+    const existingItem = cartItems.find((item) => item.product === product._id);
+    const existingQty = existingItem ? existingItem.quantity : 0;
+    if (existingQty >= product.stock) {
+      Alert.alert(
+        'Stock Limit Reached',
+        `You already have the maximum available stock (${product.stock}) for ${product.name} in your cart.`
+      );
+      return;
+    }
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) { }
+    } catch (e) {}
 
     dispatch(
       addToCart({
@@ -232,21 +241,17 @@ export const ProductListScreen = ({ navigation }) => {
               >
                 {formatPrice(item.price)}
               </AtelierText>
-              <Pressable
-                android_ripple={{
-                  color: 'rgba(28, 25, 23, 0.12)',
-                  borderless: false,
-                }}
-                style={({ pressed }) => [
+              <AtelierPressable
+                tone="none"
+                stopPropagation
+                haptic="none"
+                disabled={item.stock <= 0}
+                pressedStyle={styles.quickAddPressed}
+                style={[
                   styles.quickAddButton,
-                  pressed && item.stock > 0 && styles.quickAddPressed,
                   item.stock <= 0 && styles.quickAddDisabled,
                 ]}
-                disabled={item.stock <= 0}
-                onPress={(event) => {
-                  event.stopPropagation?.();
-                  handleAddToCart(item);
-                }}
+                onPress={() => handleAddToCart(item)}
                 accessibilityLabel={`Add ${item.name} to cart`}
               >
                 <Ionicons
@@ -258,7 +263,7 @@ export const ProductListScreen = ({ navigation }) => {
                       : theme.colors.inkPrimary
                   }
                 />
-              </Pressable>
+              </AtelierPressable>
             </View>
           </View>
         </AtelierCard>
@@ -273,7 +278,10 @@ export const ProductListScreen = ({ navigation }) => {
         navigation={navigation}
         centerComponent={<AtelierBrandMark variant="header" />}
         rightComponent={
-          <TouchableOpacity
+          <AtelierPressable
+            tone="subtle"
+            borderlessRipple
+            hitSlop={6}
             style={styles.headerIconButton}
             onPress={() => navigation.navigate('CartTab')}
             accessibilityLabel="View shopping cart"
@@ -286,7 +294,7 @@ export const ProductListScreen = ({ navigation }) => {
               />
               <CartIconBadge />
             </View>
-          </TouchableOpacity>
+          </AtelierPressable>
         }
       />
 
@@ -299,19 +307,21 @@ export const ProductListScreen = ({ navigation }) => {
             style={styles.searchInputWrapper}
           />
         </View>
-        <TouchableOpacity
+        <AtelierPressable
+          tone={hasActiveFilter ? 'solid' : 'surface'}
           style={[
             styles.filterIconButton,
             hasActiveFilter && styles.filterIconButtonActive,
           ]}
           onPress={handleOpenFilterModal}
+          accessibilityLabel="Filter products"
         >
           <Ionicons
             name="options-outline"
             size={22}
             color={hasActiveFilter ? '#FFFFFF' : theme.colors.inkPrimary}
           />
-        </TouchableOpacity>
+        </AtelierPressable>
       </View>
 
       <View style={styles.categoryScrollWrapper}>
@@ -323,8 +333,11 @@ export const ProductListScreen = ({ navigation }) => {
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
-              <TouchableOpacity
+              <AtelierPressable
                 key={cat}
+                tone={isSelected ? 'solid' : 'surface'}
+                haptic="selection"
+                hitSlop={6}
                 style={[
                   styles.categoryChip,
                   isSelected && styles.categoryChipSelected,
@@ -338,7 +351,7 @@ export const ProductListScreen = ({ navigation }) => {
                 >
                   {cat}
                 </AtelierText>
-              </TouchableOpacity>
+              </AtelierPressable>
             );
           })}
         </ScrollView>
@@ -421,16 +434,20 @@ export const ProductListScreen = ({ navigation }) => {
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <AtelierText variant="title1">Filter Products</AtelierText>
-              <TouchableOpacity
+              <AtelierPressable
+                tone="subtle"
+                borderlessRipple
+                hitSlop={6}
                 onPress={() => setFilterModalVisible(false)}
                 style={styles.modalCloseButton}
+                accessibilityLabel="Close filter modal"
               >
                 <Ionicons
                   name="close"
                   size={24}
                   color={theme.colors.inkPrimary}
                 />
-              </TouchableOpacity>
+              </AtelierPressable>
             </View>
 
             <ScrollView
@@ -476,8 +493,11 @@ export const ProductListScreen = ({ navigation }) => {
                 {RATING_OPTIONS.map((option) => {
                   const isSelected = ratingDraft === option.value;
                   return (
-                    <TouchableOpacity
+                    <AtelierPressable
                       key={option.label}
+                      tone={isSelected ? 'solid' : 'surface'}
+                      haptic="selection"
+                      hitSlop={4}
                       onPress={() => setRatingDraft(option.value)}
                       style={[
                         styles.filterChip,
@@ -490,7 +510,7 @@ export const ProductListScreen = ({ navigation }) => {
                       >
                         {option.label}
                       </AtelierText>
-                    </TouchableOpacity>
+                    </AtelierPressable>
                   );
                 })}
               </View>
@@ -506,8 +526,11 @@ export const ProductListScreen = ({ navigation }) => {
                 {(brands || ['All']).map((brandName) => {
                   const isSelected = brandDraft === brandName;
                   return (
-                    <TouchableOpacity
+                    <AtelierPressable
                       key={brandName}
+                      tone={isSelected ? 'solid' : 'surface'}
+                      haptic="selection"
+                      hitSlop={4}
                       onPress={() => setBrandDraft(brandName)}
                       style={[
                         styles.filterChip,
@@ -520,7 +543,7 @@ export const ProductListScreen = ({ navigation }) => {
                       >
                         {brandName}
                       </AtelierText>
-                    </TouchableOpacity>
+                    </AtelierPressable>
                   );
                 })}
               </View>
@@ -579,6 +602,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   filterIconButtonActive: {
     backgroundColor: theme.colors.inkPrimary,
@@ -601,6 +625,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   categoryChipSelected: {
     backgroundColor: theme.colors.inkPrimary,
@@ -741,6 +766,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   filterChipSelected: {
     backgroundColor: theme.colors.inkPrimary,
@@ -755,8 +781,10 @@ const styles = StyleSheet.create({
   modalCloseButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
+    borderRadius: theme.radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   priceInputsRow: {
     flexDirection: 'row',

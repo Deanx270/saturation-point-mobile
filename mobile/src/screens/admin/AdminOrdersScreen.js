@@ -3,7 +3,6 @@ import {
   View,
   FlatList,
   StyleSheet,
-  TouchableOpacity,
   Alert,
   RefreshControl,
 } from 'react-native';
@@ -12,6 +11,7 @@ import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBadge from '../../components/common/AtelierBadge';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
@@ -80,12 +80,17 @@ export const AdminOrdersScreen = ({ navigation }) => {
               {item.user?.displayName || 'Customer'}
             </AtelierText>
           </View>
-          <TouchableOpacity onPress={() => handleStatusChangePrompt(item)}>
+          <AtelierPressable
+            tone="subtle"
+            hitSlop={8}
+            onPress={() => handleStatusChangePrompt(item)}
+            accessibilityLabel={`Change status for order ${item._id.slice(-8).toUpperCase()}`}
+          >
             <AtelierBadge
               label={`${item.status.toUpperCase()} ▾`}
               status={item.status}
             />
-          </TouchableOpacity>
+          </AtelierPressable>
         </View>
 
         <View style={styles.divider} />
@@ -121,7 +126,9 @@ export const AdminOrdersScreen = ({ navigation }) => {
             </AtelierText>
           </View>
 
-          <TouchableOpacity
+          <AtelierPressable
+            tone="surface"
+            hitSlop={6}
             style={styles.updateButton}
             onPress={() => handleStatusChangePrompt(item)}
           >
@@ -131,7 +138,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
             >
               UPDATE STATUS
             </AtelierText>
-          </TouchableOpacity>
+          </AtelierPressable>
         </View>
       </AtelierCard>
     );
@@ -269,6 +276,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.borderMedium,
     backgroundColor: theme.colors.surfaceSubtle,
+    overflow: 'hidden',
   },
 });
 

@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../api/client';
 import { fetchProductDetails } from './productsSlice';
+import { logout } from './authSlice';
 
 export const checkEligibility = createAsyncThunk(
   'reviews/checkEligibility',
@@ -109,6 +110,11 @@ const reviewsSlice = createSlice({
       .addCase(editReview.rejected, (state, action) => {
         state.submitting = false;
         state.error = action.payload;
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.isEligible = false;
+        state.submitSuccess = false;
+        state.error = null;
       });
   },
 });

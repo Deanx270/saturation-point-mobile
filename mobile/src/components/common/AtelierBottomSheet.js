@@ -2,14 +2,13 @@ import React from 'react';
 import {
   Modal,
   View,
-  TouchableOpacity,
   StyleSheet,
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { theme } from '../../theme';
 import AtelierText from './AtelierText';
+import AtelierPressable from './AtelierPressable';
 
 export const AtelierBottomSheet = ({
   visible,
@@ -19,10 +18,7 @@ export const AtelierBottomSheet = ({
   options = [],
   children,
 }) => {
-  const handleSelectOption = async (option) => {
-    try {
-      await Haptics.selectionAsync();
-    } catch (e) {}
+  const handleSelectOption = (option) => {
     if (onClose) {
       onClose();
     }
@@ -65,7 +61,8 @@ export const AtelierBottomSheet = ({
                 </AtelierText>
               ) : null}
             </View>
-            <TouchableOpacity
+            <AtelierPressable
+              tone="subtle"
               onPress={onClose}
               style={styles.closeButton}
               accessibilityLabel="Close sheet"
@@ -75,20 +72,21 @@ export const AtelierBottomSheet = ({
                 size={22}
                 color={theme.colors.inkSecondary}
               />
-            </TouchableOpacity>
+            </AtelierPressable>
           </View>
 
           {options.length > 0 ? (
             <View style={styles.optionsList}>
               {options.map((option, index) => (
-                <TouchableOpacity
+                <AtelierPressable
                   key={option.key || option.label || String(index)}
+                  tone="surface"
+                  haptic="selection"
                   onPress={() => handleSelectOption(option)}
                   style={[
                     styles.optionRow,
                     option.selected && styles.optionRowSelected,
                   ]}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.optionLeft}>
                     {option.icon ? (
@@ -126,7 +124,7 @@ export const AtelierBottomSheet = ({
                       color={theme.colors.goldText}
                     />
                   ) : null}
-                </TouchableOpacity>
+                </AtelierPressable>
               ))}
             </View>
           ) : null}
@@ -178,8 +176,10 @@ const styles = StyleSheet.create({
   closeButton: {
     width: theme.touchTarget.minHeight,
     height: theme.touchTarget.minHeight,
+    borderRadius: theme.radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   optionsList: {
     gap: theme.spacing.sm,
@@ -194,6 +194,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   optionRowSelected: {
     borderColor: theme.colors.gold,

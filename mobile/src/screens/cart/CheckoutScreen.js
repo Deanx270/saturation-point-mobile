@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -216,42 +215,39 @@ export const CheckoutScreen = ({ navigation }) => {
               {PAYMENT_METHODS.map((method) => {
                 const isSelected = paymentMethod === method.id;
                 return (
-                  <TouchableOpacity
+                  <AtelierCard
                     key={method.id}
                     onPress={() => setPaymentMethod(method.id)}
+                    style={[
+                      styles.paymentCard,
+                      isSelected && styles.selectedPaymentCard,
+                    ]}
                   >
-                    <AtelierCard
-                      style={[
-                        styles.paymentCard,
-                        isSelected && styles.selectedPaymentCard,
-                      ]}
-                    >
-                      <View style={styles.paymentRadioRow}>
-                        <View
-                          style={[
-                            styles.radioOuter,
-                            isSelected && styles.radioOuterSelected,
-                          ]}
-                        >
-                          {isSelected && <View style={styles.radioInner} />}
-                        </View>
-                        <View style={styles.paymentDetails}>
-                          <AtelierText
-                            variant="title2"
-                            style={styles.paymentTitle}
-                          >
-                            {method.title}
-                          </AtelierText>
-                          <AtelierText
-                            variant="bodySmall"
-                            color={theme.colors.inkMuted}
-                          >
-                            {method.description}
-                          </AtelierText>
-                        </View>
+                    <View style={styles.paymentRadioRow}>
+                      <View
+                        style={[
+                          styles.radioOuter,
+                          isSelected && styles.radioOuterSelected,
+                        ]}
+                      >
+                        {isSelected && <View style={styles.radioInner} />}
                       </View>
-                    </AtelierCard>
-                  </TouchableOpacity>
+                      <View style={styles.paymentDetails}>
+                        <AtelierText
+                          variant="title2"
+                          style={styles.paymentTitle}
+                        >
+                          {method.title}
+                        </AtelierText>
+                        <AtelierText
+                          variant="bodySmall"
+                          color={theme.colors.inkMuted}
+                        >
+                          {method.description}
+                        </AtelierText>
+                      </View>
+                    </View>
+                  </AtelierCard>
                 );
               })}
 

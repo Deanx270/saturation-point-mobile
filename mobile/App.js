@@ -3,7 +3,7 @@ import { Platform, View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Provider, useDispatch } from 'react-redux';
+import { Provider, useDispatch, useSelector } from 'react-redux';
 import * as Notifications from 'expo-notifications';
 import { useFonts } from 'expo-font';
 import { Lora_600SemiBold, Lora_700Bold } from '@expo-google-fonts/lora';
@@ -19,10 +19,11 @@ import AppNavigator, {
 } from './src/navigation/AppNavigator';
 import { initDatabase } from './src/services/sqliteService';
 import { hydrateCart } from './src/redux/cartSlice';
-import { loadStoredAuth } from './src/redux/authSlice';
+import { loadStoredAuth, syncPushToken } from './src/redux/authSlice';
 
 const AppContent = () => {
   const dispatch = useDispatch();
+  const { user, token } = useSelector((state) => state.auth);
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -58,9 +59,7 @@ const AppContent = () => {
     handleInitialNotification();
 
     notificationListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        console.log('Push notification received in foreground:', notification);
-      }
+      () => {}
     );
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
@@ -81,6 +80,12 @@ const AppContent = () => {
       }
     };
   }, [dispatch]);
+
+  useEffect(() => {
+    if (user?._id && token && Platform.OS !== 'web') {
+      dispatch(syncPushToken({ requestPermission: false }));
+    }
+  }, [dispatch, user?._id, token]);
 
   return (
     <SafeAreaProvider>

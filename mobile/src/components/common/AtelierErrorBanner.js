@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from './AtelierText';
+import AtelierPressable from './AtelierPressable';
 
 export const AtelierErrorBanner = ({
   message = 'Unable to connect to the server. Check your connection and try again.',
@@ -30,7 +31,9 @@ export const AtelierErrorBanner = ({
           {message}
         </AtelierText>
         {onRetry && (
-          <TouchableOpacity
+          <AtelierPressable
+            tone="surface"
+            hitSlop={6}
             onPress={onRetry}
             style={styles.retryButton}
           >
@@ -40,7 +43,7 @@ export const AtelierErrorBanner = ({
             >
               RETRY
             </AtelierText>
-          </TouchableOpacity>
+          </AtelierPressable>
         )}
       </View>
     </View>
@@ -79,6 +82,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.errorBorder,
     borderRadius: theme.radii.xs,
     backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
   },
 });
 

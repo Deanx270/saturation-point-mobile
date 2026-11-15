@@ -4,18 +4,17 @@ import {
   FlatList,
   StyleSheet,
   Image,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import {
   selectCartItems,
   selectCartTotal,
@@ -31,7 +30,7 @@ export const CartScreen = ({ navigation }) => {
   const total = useSelector(selectCartTotal);
   const { user } = useSelector((state) => state.auth);
 
-  const handleUpdateQuantity = async (item, delta) => {
+  const handleUpdateQuantity = (item, delta) => {
     const nextQty = item.quantity + delta;
     if (delta > 0 && typeof item.stock === 'number' && nextQty > item.stock) {
       Alert.alert(
@@ -40,9 +39,6 @@ export const CartScreen = ({ navigation }) => {
       );
       return;
     }
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
     dispatch(updateQuantity({ product: item.product, quantity: nextQty }));
   };
 
@@ -76,29 +72,46 @@ export const CartScreen = ({ navigation }) => {
     navigation.navigate('Checkout');
   };
 
+  const openProductDetails = (productId) => {
+    navigation.navigate('HomeTab', {
+      screen: 'ProductDetails',
+      params: { productId },
+    });
+  };
+
   const renderCartItem = ({ item }) => {
     const hasValidImage = isValidRemoteOrLocalUri(item.image);
 
     return (
       <AtelierCard style={styles.itemCard}>
         <View style={styles.cardRow}>
-          {hasValidImage ? (
-            <Image
-              source={{ uri: item.image }}
-              style={styles.itemThumbnail}
-            />
-          ) : (
-            <View style={[styles.itemThumbnail, styles.placeholderThumb]}>
-              <Ionicons
-                name="image-outline"
-                size={24}
-                color={theme.colors.inkMuted}
+          <AtelierPressable
+            tone="subtle"
+            onPress={() => openProductDetails(item.product)}
+            style={styles.thumbPressable}
+          >
+            {hasValidImage ? (
+              <Image
+                source={{ uri: item.image }}
+                style={styles.itemThumbnail}
               />
-            </View>
-          )}
+            ) : (
+              <View style={[styles.itemThumbnail, styles.placeholderThumb]}>
+                <Ionicons
+                  name="image-outline"
+                  size={24}
+                  color={theme.colors.inkMuted}
+                />
+              </View>
+            )}
+          </AtelierPressable>
           <View style={styles.itemInfo}>
             <View style={styles.itemHeader}>
-              <View style={styles.titleWrapper}>
+              <AtelierPressable
+                tone="subtle"
+                onPress={() => openProductDetails(item.product)}
+                style={styles.titleWrapper}
+              >
                 <AtelierText
                   variant="caption"
                   color={theme.colors.goldText}
@@ -113,17 +126,20 @@ export const CartScreen = ({ navigation }) => {
                 >
                   {item.name}
                 </AtelierText>
-              </View>
-              <TouchableOpacity
+              </AtelierPressable>
+              <AtelierPressable
+                tone="subtle"
+                hitSlop={8}
                 onPress={() => handleRemove(item.product, item.name)}
                 style={styles.deleteButton}
+                accessibilityLabel={`Remove ${item.name}`}
               >
                 <Ionicons
                   name="trash-outline"
                   size={18}
                   color={theme.colors.inkMuted}
                 />
-              </TouchableOpacity>
+              </AtelierPressable>
             </View>
 
             <View style={styles.priceStepperRow}>
@@ -135,32 +151,40 @@ export const CartScreen = ({ navigation }) => {
               </AtelierText>
 
               <View style={styles.stepperContainer}>
-                <TouchableOpacity
+                <AtelierPressable
+                  tone="surface"
+                  haptic="light"
+                  hitSlop={6}
                   style={styles.stepperButton}
                   onPress={() => handleUpdateQuantity(item, -1)}
+                  accessibilityLabel={`Decrease quantity of ${item.name}`}
                 >
                   <Ionicons
                     name="remove"
                     size={16}
                     color={theme.colors.inkPrimary}
                   />
-                </TouchableOpacity>
+                </AtelierPressable>
                 <AtelierText
                   variant="bodyMedium"
                   style={styles.stepperValue}
                 >
                   {item.quantity}
                 </AtelierText>
-                <TouchableOpacity
+                <AtelierPressable
+                  tone="surface"
+                  haptic="light"
+                  hitSlop={6}
                   style={styles.stepperButton}
                   onPress={() => handleUpdateQuantity(item, 1)}
+                  accessibilityLabel={`Increase quantity of ${item.name}`}
                 >
                   <Ionicons
                     name="add"
                     size={16}
                     color={theme.colors.inkPrimary}
                   />
-                </TouchableOpacity>
+                </AtelierPressable>
               </View>
             </View>
           </View>
@@ -282,6 +306,10 @@ const styles = StyleSheet.create({
   },
   cardRow: {
     flexDirection: 'row',
+  },
+  thumbPressable: {
+    borderRadius: theme.radii.xs,
+    overflow: 'hidden',
   },
   itemThumbnail: {
     width: 80,

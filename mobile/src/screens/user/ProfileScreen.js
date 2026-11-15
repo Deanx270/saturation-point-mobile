@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Image,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import * as Notifications from 'expo-notifications';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
@@ -20,7 +19,9 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
-import { updateProfile, logout } from '../../redux/authSlice';
+import AtelierPressable from '../../components/common/AtelierPressable';
+import { updateProfile, logout, syncPushToken } from '../../redux/authSlice';
+import { getNotificationPermissionGranted } from '../../services/pushNotificationService';
 import { isValidRemoteOrLocalUri } from '../../utils/formatters';
 import { appendImageToFormData } from '../../utils/formDataHelper';
 import {
@@ -38,23 +39,23 @@ export const ProfileScreen = ({ navigation }) => {
   const { user, loading } = useSelector((state) => state.auth);
   const [avatarUri, setAvatarUri] = useState(user?.photoURL || null);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [syncingPush, setSyncingPush] = useState(false);
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
+
+  const refreshPushPermission = useCallback(async () => {
+    const granted = await getNotificationPermissionGranted();
+    setPushEnabled(granted);
+  }, []);
 
   useEffect(() => {
     setAvatarUri(user?.photoURL || null);
   }, [user?.photoURL]);
 
-  useEffect(() => {
-    const checkNotificationPermission = async () => {
-      try {
-        const { status } = await Notifications.getPermissionsAsync();
-        setPushEnabled(status === 'granted');
-      } catch (e) {
-        setPushEnabled(false);
-      }
-    };
-    checkNotificationPermission();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      refreshPushPermission();
+    }, [refreshPushPermission, user])
+  );
 
   if (!user) {
     return (
@@ -157,6 +158,36 @@ export const ProfileScreen = ({ navigation }) => {
     dispatch(logout());
   };
 
+  const handleTogglePushSync = async () => {
+    if (syncingPush) {
+      return;
+    }
+    setSyncingPush(true);
+    try {
+      const result = await dispatch(syncPushToken({ requestPermission: true }));
+      const granted = await getNotificationPermissionGranted();
+      setPushEnabled(granted);
+      if (result.payload) {
+        Alert.alert(
+          'Notifications Active',
+          'Your device is registered for order and promotional updates.'
+        );
+      } else if (granted) {
+        Alert.alert(
+          'Permission Granted',
+          'Notifications are enabled. Remote push token delivery requires a development or standalone build on Android.'
+        );
+      } else {
+        Alert.alert(
+          'Permission Disabled',
+          'Enable notifications in your device settings to receive order and promotional updates.'
+        );
+      }
+    } finally {
+      setSyncingPush(false);
+    }
+  };
+
   const resolvedAvatar = avatarUri || user.photoURL;
   const hasAvatar = isValidRemoteOrLocalUri(resolvedAvatar);
 
@@ -188,16 +219,20 @@ export const ProfileScreen = ({ navigation }) => {
                 />
               </View>
             )}
-            <TouchableOpacity
+            <AtelierPressable
+              tone="solid"
+              haptic="light"
+              hitSlop={8}
               style={styles.cameraIconBadge}
               onPress={showAvatarPickerOptions}
+              accessibilityLabel="Update profile photo"
             >
               <Ionicons
                 name="camera"
                 size={18}
                 color="#FFFFFF"
               />
-            </TouchableOpacity>
+            </AtelierPressable>
           </View>
 
           <AtelierText
@@ -238,7 +273,13 @@ export const ProfileScreen = ({ navigation }) => {
               {user.role === 'admin' ? 'Administrator' : 'Customer'}
             </AtelierText>
           </View>
-          <View style={styles.infoRow}>
+          <AtelierPressable
+            tone="surface"
+            hitSlop={6}
+            style={styles.infoActionRow}
+            onPress={handleTogglePushSync}
+            accessibilityLabel="Sync push notifications"
+          >
             <AtelierText
               variant="caption"
               color={theme.colors.inkMuted}
@@ -246,10 +287,10 @@ export const ProfileScreen = ({ navigation }) => {
               PUSH NOTIFICATIONS
             </AtelierText>
             <AtelierBadge
-              label={pushEnabled ? 'ENABLED' : 'DISABLED'}
-              status={pushEnabled ? 'success' : 'default'}
+              label={syncingPush ? 'SYNCING...' : pushEnabled ? 'ENABLED' : 'ENABLE'}
+              status={pushEnabled ? 'success' : 'gold'}
             />
-          </View>
+          </AtelierPressable>
         </AtelierCard>
 
         <AtelierText
@@ -383,14 +424,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -6,
     right: -6,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: theme.colors.inkPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: theme.colors.surface,
+    overflow: 'hidden',
   },
   profileDisplayName: {
     marginTop: theme.spacing.md,
@@ -406,6 +448,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginVertical: 4,
+  },
+  infoActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: theme.radii.xs,
+    overflow: 'hidden',
   },
   sectionHeader: {
     marginBottom: theme.spacing.md,

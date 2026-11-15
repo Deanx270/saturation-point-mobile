@@ -23,17 +23,30 @@ const cartSlice = createSlice({
     },
     addToCart: (state, action) => {
       const incomingItem = action.payload;
+      const incomingQty = incomingItem.quantity || 1;
       const existingItem = state.items.find(
         (item) => item.product === incomingItem.product
       );
 
       if (existingItem) {
-        existingItem.quantity += incomingItem.quantity || 1;
+        const availableStock = Number(
+          incomingItem.stock !== undefined ? incomingItem.stock : existingItem.stock
+        );
+        const rawNext = existingItem.quantity + incomingQty;
+        const cappedNext =
+          availableStock > 0 ? Math.min(availableStock, rawNext) : rawNext;
+        existingItem.quantity = Math.max(1, cappedNext);
+        if (incomingItem.stock !== undefined) {
+          existingItem.stock = incomingItem.stock;
+        }
         saveCartItemToDatabase(existingItem);
       } else {
+        const availableStock = Number(incomingItem.stock);
+        const cappedQty =
+          availableStock > 0 ? Math.min(availableStock, incomingQty) : incomingQty;
         const newItem = {
           ...incomingItem,
-          quantity: incomingItem.quantity || 1,
+          quantity: Math.max(1, cappedQty),
         };
         state.items.push(newItem);
         saveCartItemToDatabase(newItem);

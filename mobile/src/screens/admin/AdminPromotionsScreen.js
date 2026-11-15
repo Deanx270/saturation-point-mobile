@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,6 +13,7 @@ import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import apiClient from '../../api/client';
 import { fetchProducts } from '../../redux/productsSlice';
@@ -171,8 +171,11 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                 {items.slice(0, 12).map((prod) => {
                   const isSelected = selectedProductId === prod._id;
                   return (
-                    <TouchableOpacity
+                    <AtelierPressable
                       key={prod._id}
+                      tone={isSelected ? 'solid' : 'surface'}
+                      haptic="selection"
+                      hitSlop={4}
                       onPress={() => setSelectedProductId(prod._id)}
                       style={[
                         styles.productChip,
@@ -186,7 +189,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                       >
                         {prod.name}
                       </AtelierText>
-                    </TouchableOpacity>
+                    </AtelierPressable>
                   );
                 })}
               </ScrollView>
@@ -245,6 +248,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   productChipSelected: {
     backgroundColor: theme.colors.inkPrimary,

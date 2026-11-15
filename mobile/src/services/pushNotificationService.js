@@ -12,12 +12,31 @@ if (Platform.OS !== 'web') {
   });
 }
 
+const isExpoGoClient = () => {
+  return (
+    Constants.executionEnvironment === 'storeClient' ||
+    Constants.appOwnership === 'expo'
+  );
+};
+
 const resolveProjectId = () => {
   return (
     Constants.expoConfig?.extra?.eas?.projectId ||
     Constants.easConfig?.projectId ||
     undefined
   );
+};
+
+export const getNotificationPermissionGranted = async () => {
+  if (Platform.OS === 'web') {
+    return false;
+  }
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === 'granted';
+  } catch (error) {
+    return false;
+  }
 };
 
 export const getCurrentPushTokenAsync = async () => {
@@ -45,15 +64,15 @@ export const registerForPushNotificationsAsync = async () => {
     return null;
   }
 
-  let token = null;
-
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#CA8A04',
-    });
+    try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#CA8A04',
+      });
+    } catch (error) {}
   }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -73,10 +92,11 @@ export const registerForPushNotificationsAsync = async () => {
     const pushTokenData = projectId
       ? await Notifications.getExpoPushTokenAsync({ projectId })
       : await Notifications.getExpoPushTokenAsync();
-    token = pushTokenData.data;
+    return pushTokenData.data;
   } catch (error) {
-    console.warn('Failed to obtain Expo push token:', error);
+    if (!isExpoGoClient()) {
+      console.warn('Failed to obtain Expo push token:', error);
+    }
+    return null;
   }
-
-  return token;
 };

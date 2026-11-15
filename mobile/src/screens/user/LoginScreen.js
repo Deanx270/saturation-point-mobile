@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -15,6 +14,7 @@ import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBrandMark from '../../components/common/AtelierBrandMark';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { login } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
@@ -118,7 +118,9 @@ export const LoginScreen = ({ navigation }) => {
                 >
                   New customer?
                 </AtelierText>
-                <TouchableOpacity
+                <AtelierPressable
+                  tone="subtle"
+                  hitSlop={8}
                   onPress={() => navigation.navigate('Register')}
                   style={styles.switchLink}
                 >
@@ -128,7 +130,7 @@ export const LoginScreen = ({ navigation }) => {
                   >
                     Create Account
                   </AtelierText>
-                </TouchableOpacity>
+                </AtelierPressable>
               </View>
             </View>
           )}

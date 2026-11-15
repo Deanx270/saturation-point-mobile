@@ -30,7 +30,8 @@ const sendPromotionalNotification = async (req, res) => {
           data: {
             screen: 'ProductDetails',
             productId: targetProduct ? targetProduct._id.toString() : '',
-            discountPercent: discountPercent || 0,
+            discountPercent: Number(discountPercent) || 0,
+            promoTitle: title,
           },
         });
       }

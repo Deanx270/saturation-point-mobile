@@ -3,11 +3,11 @@ import {
   View,
   TextInput,
   StyleSheet,
-  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from './AtelierText';
+import AtelierPressable from './AtelierPressable';
 
 export const AtelierInput = ({
   label,
@@ -73,16 +73,19 @@ export const AtelierInput = ({
           ]}
         />
         {secureTextEntry && (
-          <TouchableOpacity
+          <AtelierPressable
+            tone="subtle"
+            hitSlop={8}
             onPress={() => setShowPassword(!showPassword)}
             style={styles.eyeIcon}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
           >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20}
               color={theme.colors.inkMuted}
             />
-          </TouchableOpacity>
+          </AtelierPressable>
         )}
       </View>
       {hasError && (

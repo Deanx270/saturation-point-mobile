@@ -1,13 +1,8 @@
 import React from 'react';
-import {
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  View,
-} from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { theme } from '../../theme';
 import AtelierText from './AtelierText';
+import AtelierPressable from './AtelierPressable';
 
 export const AtelierButton = ({
   title,
@@ -20,17 +15,7 @@ export const AtelierButton = ({
   style,
   textStyle,
 }) => {
-  const handlePress = async () => {
-    if (disabled || loading) {
-      return;
-    }
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
-    if (onPress) {
-      onPress();
-    }
-  };
+  const isSolid = variant === 'primary' || variant === 'gold' || variant === 'danger';
 
   const getContainerStyle = () => {
     switch (variant) {
@@ -68,9 +53,10 @@ export const AtelierButton = ({
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={handlePress}
+    <AtelierPressable
+      tone={isSolid ? 'solid' : 'surface'}
+      haptic="light"
+      onPress={onPress}
       disabled={disabled || loading}
       style={[
         styles.base,
@@ -96,7 +82,7 @@ export const AtelierButton = ({
           </AtelierText>
         </View>
       )}
-    </TouchableOpacity>
+    </AtelierPressable>
   );
 };
 
@@ -109,6 +95,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    overflow: 'hidden',
   },
   primaryContainer: {
     backgroundColor: theme.colors.inkPrimary,

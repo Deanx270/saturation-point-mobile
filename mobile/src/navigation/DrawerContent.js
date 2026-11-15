@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   Image,
-  TouchableOpacity,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +12,7 @@ import { theme } from '../theme';
 import AtelierText from '../components/common/AtelierText';
 import AtelierBadge from '../components/common/AtelierBadge';
 import AtelierBrandMark from '../components/common/AtelierBrandMark';
+import AtelierPressable from '../components/common/AtelierPressable';
 import { logout } from '../redux/authSlice';
 import { isValidRemoteOrLocalUri } from '../utils/formatters';
 
@@ -96,7 +96,8 @@ export const DrawerContent = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.menuContainer}
       >
-        <TouchableOpacity
+        <AtelierPressable
+          tone="surface"
           style={styles.menuItem}
           onPress={() => navigateTo('HomeTab', 'ProductList')}
         >
@@ -111,9 +112,10 @@ export const DrawerContent = ({ navigation }) => {
           >
             Catalog
           </AtelierText>
-        </TouchableOpacity>
+        </AtelierPressable>
 
-        <TouchableOpacity
+        <AtelierPressable
+          tone="surface"
           style={styles.menuItem}
           onPress={() => navigateTo('CartTab', 'CartScreen')}
         >
@@ -128,9 +130,10 @@ export const DrawerContent = ({ navigation }) => {
           >
             Cart
           </AtelierText>
-        </TouchableOpacity>
+        </AtelierPressable>
 
-        <TouchableOpacity
+        <AtelierPressable
+          tone="surface"
           style={styles.menuItem}
           onPress={() => navigateTo('OrdersTab', 'OrdersList')}
         >
@@ -145,9 +148,10 @@ export const DrawerContent = ({ navigation }) => {
           >
             Orders
           </AtelierText>
-        </TouchableOpacity>
+        </AtelierPressable>
 
-        <TouchableOpacity
+        <AtelierPressable
+          tone="surface"
           style={styles.menuItem}
           onPress={() => navigateTo('UserTab', 'Profile')}
         >
@@ -162,7 +166,7 @@ export const DrawerContent = ({ navigation }) => {
           >
             Profile
           </AtelierText>
-        </TouchableOpacity>
+        </AtelierPressable>
 
         {user?.role === 'admin' && (
           <>
@@ -175,7 +179,8 @@ export const DrawerContent = ({ navigation }) => {
               </AtelierText>
             </View>
 
-            <TouchableOpacity
+            <AtelierPressable
+              tone="surface"
               style={styles.menuItem}
               onPress={() => navigateTo('AdminTab', 'AdminProducts')}
             >
@@ -190,9 +195,10 @@ export const DrawerContent = ({ navigation }) => {
               >
                 Manage Products
               </AtelierText>
-            </TouchableOpacity>
+            </AtelierPressable>
 
-            <TouchableOpacity
+            <AtelierPressable
+              tone="surface"
               style={styles.menuItem}
               onPress={() => navigateTo('AdminTab', 'AdminCategories')}
             >
@@ -207,9 +213,10 @@ export const DrawerContent = ({ navigation }) => {
               >
                 Manage Categories
               </AtelierText>
-            </TouchableOpacity>
+            </AtelierPressable>
 
-            <TouchableOpacity
+            <AtelierPressable
+              tone="surface"
               style={styles.menuItem}
               onPress={() => navigateTo('AdminTab', 'AdminOrders')}
             >
@@ -224,9 +231,10 @@ export const DrawerContent = ({ navigation }) => {
               >
                 Manage Orders
               </AtelierText>
-            </TouchableOpacity>
+            </AtelierPressable>
 
-            <TouchableOpacity
+            <AtelierPressable
+              tone="surface"
               style={styles.menuItem}
               onPress={() => navigateTo('AdminTab', 'AdminPromotions')}
             >
@@ -241,7 +249,7 @@ export const DrawerContent = ({ navigation }) => {
               >
                 Send Promotions
               </AtelierText>
-            </TouchableOpacity>
+            </AtelierPressable>
           </>
         )}
       </ScrollView>
@@ -249,7 +257,8 @@ export const DrawerContent = ({ navigation }) => {
       <View style={styles.footerContainer}>
         <View style={styles.divider} />
         {user ? (
-          <TouchableOpacity
+          <AtelierPressable
+            tone="surface"
             style={styles.logoutButton}
             onPress={handleLogout}
           >
@@ -265,9 +274,10 @@ export const DrawerContent = ({ navigation }) => {
             >
               Sign Out
             </AtelierText>
-          </TouchableOpacity>
+          </AtelierPressable>
         ) : (
-          <TouchableOpacity
+          <AtelierPressable
+            tone="surface"
             style={styles.loginButton}
             onPress={() => navigateTo('UserTab', 'Login')}
           >
@@ -283,7 +293,7 @@ export const DrawerContent = ({ navigation }) => {
             >
               Sign In
             </AtelierText>
-          </TouchableOpacity>
+          </AtelierPressable>
         )}
       </View>
     </View>
@@ -357,6 +367,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radii.sm,
     minHeight: theme.touchTarget.minHeight,
+    overflow: 'hidden',
   },
   menuLabel: {
     marginLeft: theme.spacing.md,

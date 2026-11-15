@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from './AtelierText';
+import AtelierPressable from './AtelierPressable';
 
 export const AtelierHeader = ({
   title,
@@ -44,7 +45,8 @@ export const AtelierHeader = ({
     }
     const isDrawer = leftType === 'drawer';
     return (
-      <TouchableOpacity
+      <AtelierPressable
+        tone="subtle"
         style={styles.iconButton}
         onPress={handleLeftAction}
         accessibilityLabel={isDrawer ? 'Open navigation menu' : 'Go back'}
@@ -54,7 +56,7 @@ export const AtelierHeader = ({
           size={isDrawer ? 26 : 24}
           color={theme.colors.inkPrimary}
         />
-      </TouchableOpacity>
+      </AtelierPressable>
     );
   };
 
@@ -64,7 +66,8 @@ export const AtelierHeader = ({
     }
     if (rightIcon && onRightPress) {
       return (
-        <TouchableOpacity
+        <AtelierPressable
+          tone="subtle"
           style={styles.iconButton}
           onPress={onRightPress}
           accessibilityLabel={rightAccessibilityLabel}
@@ -74,7 +77,7 @@ export const AtelierHeader = ({
             size={rightIconSize}
             color={rightIconColor}
           />
-        </TouchableOpacity>
+        </AtelierPressable>
       );
     }
     return <View style={styles.iconButton} />;
@@ -119,8 +122,10 @@ const styles = StyleSheet.create({
   iconButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
+    borderRadius: theme.radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   centerSlot: {
     flex: 1,

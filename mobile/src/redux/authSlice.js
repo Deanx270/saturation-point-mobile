@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { Platform } from 'react-native';
 import apiClient from '../api/client';
 import {
   saveAuthToken,
@@ -7,7 +8,10 @@ import {
   getAuthUser,
   clearAuthStorage,
 } from '../services/secureStoreService';
-import { getCurrentPushTokenAsync } from '../services/pushNotificationService';
+import {
+  getCurrentPushTokenAsync,
+  registerForPushNotificationsAsync,
+} from '../services/pushNotificationService';
 
 export const loadStoredAuth = createAsyncThunk(
   'auth/loadStoredAuth',
@@ -90,6 +94,29 @@ export const updateProfile = createAsyncThunk(
         error.response?.data?.message || error.message || 'Failed to update profile'
       );
     }
+  }
+);
+
+export const syncPushToken = createAsyncThunk(
+  'auth/syncPushToken',
+  async ({ requestPermission = false } = {}, { getState }) => {
+    const { token } = getState().auth;
+    if (!token || Platform.OS === 'web') {
+      return null;
+    }
+    const pushToken = requestPermission
+      ? await registerForPushNotificationsAsync()
+      : await getCurrentPushTokenAsync();
+    if (!pushToken) {
+      return null;
+    }
+    await apiClient
+      .post('/users/push-token', {
+        pushToken,
+        device: Platform.OS,
+      })
+      .catch(() => {});
+    return pushToken;
   }
 );
 

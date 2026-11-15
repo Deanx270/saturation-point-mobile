@@ -4,7 +4,6 @@ import {
   FlatList,
   StyleSheet,
   Image,
-  TouchableOpacity,
   Alert,
   RefreshControl,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBadge from '../../components/common/AtelierBadge';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
@@ -103,7 +103,9 @@ export const AdminProductsScreen = ({ navigation }) => {
             </AtelierText>
 
             <View style={styles.actionsRow}>
-              <TouchableOpacity
+              <AtelierPressable
+                tone="subtle"
+                hitSlop={8}
                 style={styles.editButton}
                 onPress={() =>
                   navigation.navigate('AdminProductForm', {
@@ -124,9 +126,11 @@ export const AdminProductsScreen = ({ navigation }) => {
                 >
                   EDIT
                 </AtelierText>
-              </TouchableOpacity>
+              </AtelierPressable>
 
-              <TouchableOpacity
+              <AtelierPressable
+                tone="subtle"
+                hitSlop={8}
                 style={styles.deleteButton}
                 onPress={() => handleDelete(item._id, item.name)}
               >
@@ -142,7 +146,7 @@ export const AdminProductsScreen = ({ navigation }) => {
                 >
                   DELETE
                 </AtelierText>
-              </TouchableOpacity>
+              </AtelierPressable>
             </View>
           </View>
         </View>
@@ -276,10 +280,18 @@ const styles = StyleSheet.create({
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: theme.radii.xs,
+    overflow: 'hidden',
   },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: theme.radii.xs,
+    overflow: 'hidden',
   },
   actionLabel: {
     marginLeft: 4,

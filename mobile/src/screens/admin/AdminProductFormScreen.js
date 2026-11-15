@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -15,6 +14,7 @@ import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import {
@@ -176,7 +176,9 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
           contentContainerStyle={styles.imageScroll}
         >
           {images.length < 5 && (
-            <TouchableOpacity
+            <AtelierPressable
+              tone="surface"
+              haptic="light"
               style={styles.addImageTile}
               onPress={() => setPhotoSheetVisible(true)}
             >
@@ -192,7 +194,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
               >
                 Add Photo
               </AtelierText>
-            </TouchableOpacity>
+            </AtelierPressable>
           )}
 
           {images.map((uri, idx) => (
@@ -218,43 +220,54 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                   </AtelierText>
                 </View>
               )}
-              <TouchableOpacity
+              <AtelierPressable
+                tone="solid"
+                hitSlop={8}
                 style={styles.removeImageBadge}
                 onPress={() => handleRemoveImage(idx)}
+                accessibilityLabel="Remove image"
               >
                 <Ionicons
                   name="close"
                   size={14}
                   color="#FFFFFF"
                 />
-              </TouchableOpacity>
+              </AtelierPressable>
               {images.length > 1 && (
                 <View style={styles.reorderBar}>
-                  <TouchableOpacity
+                  <AtelierPressable
+                    tone="none"
+                    hitSlop={6}
+                    pressedStyle={styles.reorderBtnPressed}
                     style={[styles.reorderBtn, idx === 0 && styles.reorderBtnDisabled]}
                     onPress={() => handleMoveImage(idx, -1)}
                     disabled={idx === 0}
+                    accessibilityLabel="Move image left"
                   >
                     <Ionicons
                       name="chevron-back"
                       size={14}
                       color="#FFFFFF"
                     />
-                  </TouchableOpacity>
-                  <TouchableOpacity
+                  </AtelierPressable>
+                  <AtelierPressable
+                    tone="none"
+                    hitSlop={6}
+                    pressedStyle={styles.reorderBtnPressed}
                     style={[
                       styles.reorderBtn,
                       idx === images.length - 1 && styles.reorderBtnDisabled,
                     ]}
                     onPress={() => handleMoveImage(idx, 1)}
                     disabled={idx === images.length - 1}
+                    accessibilityLabel="Move image right"
                   >
                     <Ionicons
                       name="chevron-forward"
                       size={14}
                       color="#FFFFFF"
                     />
-                  </TouchableOpacity>
+                  </AtelierPressable>
                 </View>
               )}
             </View>
@@ -314,8 +327,11 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                 {categoryOptions.map((cat) => {
                   const isSelected = values.category === cat;
                   return (
-                    <TouchableOpacity
+                    <AtelierPressable
                       key={cat}
+                      tone={isSelected ? 'solid' : 'surface'}
+                      haptic="selection"
+                      hitSlop={4}
                       onPress={() => setFieldValue('category', cat)}
                       style={[
                         styles.categoryChip,
@@ -328,7 +344,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                       >
                         {cat}
                       </AtelierText>
-                    </TouchableOpacity>
+                    </AtelierPressable>
                   );
                 })}
               </View>
@@ -480,6 +496,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.error,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   reorderBar: {
     position: 'absolute',
@@ -497,6 +514,9 @@ const styles = StyleSheet.create({
     height: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  reorderBtnPressed: {
+    opacity: 0.6,
   },
   reorderBtnDisabled: {
     opacity: 0.3,
@@ -520,6 +540,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceSubtle,
+    overflow: 'hidden',
   },
   categoryChipSelected: {
     backgroundColor: theme.colors.inkPrimary,

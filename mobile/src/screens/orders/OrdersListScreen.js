@@ -3,7 +3,6 @@ import {
   View,
   FlatList,
   StyleSheet,
-  TouchableOpacity,
   RefreshControl,
   ScrollView,
 } from 'react-native';
@@ -16,6 +15,7 @@ import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import { fetchMyOrders } from '../../redux/ordersSlice';
 import { formatPrice, formatDate } from '../../utils/formatters';
 
@@ -164,8 +164,10 @@ export const OrdersListScreen = ({ navigation }) => {
           {STATUS_FILTERS.map((status) => {
             const isSelected = activeStatus === status;
             return (
-              <TouchableOpacity
+              <AtelierPressable
                 key={status}
+                tone={isSelected ? 'solid' : 'surface'}
+                hitSlop={6}
                 style={[
                   styles.filterChip,
                   isSelected && styles.filterChipSelected,
@@ -178,7 +180,7 @@ export const OrdersListScreen = ({ navigation }) => {
                 >
                   {status.toUpperCase()}
                 </AtelierText>
-              </TouchableOpacity>
+              </AtelierPressable>
             );
           })}
         </ScrollView>
@@ -264,6 +266,7 @@ const styles = StyleSheet.create({
     minHeight: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   filterChipSelected: {
     backgroundColor: theme.colors.inkPrimary,

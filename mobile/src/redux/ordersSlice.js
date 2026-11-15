@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../api/client';
 import { clearCart } from './cartSlice';
+import { logout } from './authSlice';
 
 const getApiErrorMessage = (error, fallback) => {
   return (
@@ -151,6 +152,13 @@ const ordersSlice = createSlice({
         if (state.selectedOrder?._id === action.payload._id) {
           state.selectedOrder = action.payload;
         }
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.myOrders = [];
+        state.allOrders = [];
+        state.selectedOrder = null;
+        state.checkoutSuccess = false;
+        state.error = null;
       });
   },
 });
