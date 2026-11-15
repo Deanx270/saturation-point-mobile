@@ -91,11 +91,14 @@ export const ProductListScreen = ({ navigation }) => {
   }, [loadData]);
 
   useEffect(() => {
+    if (searchInput === searchKeyword) {
+      return undefined;
+    }
     const handler = setTimeout(() => {
       dispatch(setSearchKeyword(searchInput));
-    }, 400);
+    }, 220);
     return () => clearTimeout(handler);
-  }, [searchInput, dispatch]);
+  }, [searchInput, searchKeyword, dispatch]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -304,6 +307,8 @@ export const ProductListScreen = ({ navigation }) => {
             placeholder="Search pens, inks, paper..."
             value={searchInput}
             onChangeText={setSearchInput}
+            returnKeyType="search"
+            onSubmitEditing={() => dispatch(setSearchKeyword(searchInput))}
             style={styles.searchInputWrapper}
           />
         </View>
@@ -553,11 +558,13 @@ export const ProductListScreen = ({ navigation }) => {
               <AtelierButton
                 title="Reset"
                 variant="outline"
+                singleLine
                 onPress={handleClearAllFilters}
                 style={styles.modalActionBtn}
               />
               <AtelierButton
-                title="Apply Filters"
+                title="Apply"
+                singleLine
                 onPress={handleApplyFilters}
                 style={styles.modalActionBtn}
               />
@@ -594,8 +601,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   filterIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
+    width: 50,
+    height: 50,
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
@@ -800,6 +807,7 @@ const styles = StyleSheet.create({
   },
   modalActionBtn: {
     flex: 1,
+    paddingHorizontal: theme.spacing.md,
   },
 });
 

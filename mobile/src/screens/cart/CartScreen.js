@@ -15,6 +15,7 @@ import AtelierCard from '../../components/common/AtelierCard';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierPressable from '../../components/common/AtelierPressable';
+import AtelierQuantityStepper from '../../components/common/AtelierQuantityStepper';
 import {
   selectCartItems,
   selectCartTotal,
@@ -30,13 +31,17 @@ export const CartScreen = ({ navigation }) => {
   const total = useSelector(selectCartTotal);
   const { user } = useSelector((state) => state.auth);
 
-  const handleUpdateQuantity = (item, delta) => {
-    const nextQty = item.quantity + delta;
-    if (delta > 0 && typeof item.stock === 'number' && nextQty > item.stock) {
+  const handleSetQuantity = (item, nextQty) => {
+    if (
+      typeof item.stock === 'number' &&
+      item.stock > 0 &&
+      nextQty > item.stock
+    ) {
       Alert.alert(
         'Stock Limit Reached',
         `Only ${item.stock} available in stock.`
       );
+      dispatch(updateQuantity({ product: item.product, quantity: item.stock }));
       return;
     }
     dispatch(updateQuantity({ product: item.product, quantity: nextQty }));
@@ -150,42 +155,23 @@ export const CartScreen = ({ navigation }) => {
                 {formatPrice(item.price * item.quantity)}
               </AtelierText>
 
-              <View style={styles.stepperContainer}>
-                <AtelierPressable
-                  tone="surface"
-                  haptic="light"
-                  hitSlop={6}
-                  style={styles.stepperButton}
-                  onPress={() => handleUpdateQuantity(item, -1)}
-                  accessibilityLabel={`Decrease quantity of ${item.name}`}
-                >
-                  <Ionicons
-                    name="remove"
-                    size={16}
-                    color={theme.colors.inkPrimary}
-                  />
-                </AtelierPressable>
-                <AtelierText
-                  variant="bodyMedium"
-                  style={styles.stepperValue}
-                >
-                  {item.quantity}
-                </AtelierText>
-                <AtelierPressable
-                  tone="surface"
-                  haptic="light"
-                  hitSlop={6}
-                  style={styles.stepperButton}
-                  onPress={() => handleUpdateQuantity(item, 1)}
-                  accessibilityLabel={`Increase quantity of ${item.name}`}
-                >
-                  <Ionicons
-                    name="add"
-                    size={16}
-                    color={theme.colors.inkPrimary}
-                  />
-                </AtelierPressable>
-              </View>
+              <AtelierQuantityStepper
+                compact
+                allowDecrementBelowMin
+                haptic="light"
+                value={item.quantity}
+                max={typeof item.stock === 'number' && item.stock > 0 ? item.stock : undefined}
+                onChange={(nextQty) => handleSetQuantity(item, nextQty)}
+                onLimitReached={(maxStock) =>
+                  Alert.alert(
+                    'Stock Limit Reached',
+                    `Only ${maxStock} available in stock.`
+                  )
+                }
+                decrementLabel={`Decrease quantity of ${item.name}`}
+                incrementLabel={`Increase quantity of ${item.name}`}
+                inputLabel={`Quantity for ${item.name}`}
+              />
             </View>
           </View>
         </View>
@@ -225,6 +211,7 @@ export const CartScreen = ({ navigation }) => {
         renderItem={renderCartItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <AtelierEmptyState
             iconName="cart-outline"
@@ -347,25 +334,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: theme.spacing.sm,
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xs,
-    backgroundColor: theme.colors.surfaceSubtle,
-  },
-  stepperButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperValue: {
-    minWidth: 28,
-    textAlign: 'center',
-    fontWeight: '600',
   },
   summaryContainer: {
     position: 'absolute',

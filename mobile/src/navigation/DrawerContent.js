@@ -27,8 +27,11 @@ export const DrawerContent = ({ navigation }) => {
   };
 
   const navigateTo = (tabName, screenName) => {
-    navigation.navigate(tabName, { screen: screenName });
     navigation.closeDrawer();
+    navigation.navigate('MainTabs', {
+      screen: tabName,
+      params: screenName ? { screen: screenName } : undefined,
+    });
   };
 
   const hasAvatar = isValidRemoteOrLocalUri(user?.photoURL);
@@ -387,6 +390,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.lg,
     paddingHorizontal: theme.spacing.xl,
     minHeight: theme.touchTarget.minHeight,
+    overflow: 'hidden',
   },
   loginButton: {
     flexDirection: 'row',
@@ -394,6 +398,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.lg,
     paddingHorizontal: theme.spacing.xl,
     minHeight: theme.touchTarget.minHeight,
+    overflow: 'hidden',
   },
   logoutLabel: {
     marginLeft: theme.spacing.md,

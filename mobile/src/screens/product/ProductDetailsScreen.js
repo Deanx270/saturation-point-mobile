@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierPressable from '../../components/common/AtelierPressable';
+import AtelierQuantityStepper from '../../components/common/AtelierQuantityStepper';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
@@ -62,6 +64,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   const cartItems = useSelector(selectCartItems);
 
   const [quantity, setQuantity] = useState(1);
+  const [stockWarning, setStockWarning] = useState('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [editingReview, setEditingReview] = useState(null);
   const [deleteReviewTarget, setDeleteReviewTarget] = useState(null);
@@ -70,6 +73,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   useEffect(() => {
     setSelectedImageIndex(0);
     setQuantity(1);
+    setStockWarning('');
     setEditingReview(null);
     setDeleteReviewTarget(null);
     dispatch(fetchProductDetails(productId));
@@ -110,7 +114,13 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     }
   }, [isStaleProduct, remainingStock, quantity]);
 
+  const handleQuantityChange = (nextQty) => {
+    setStockWarning('');
+    setQuantity(nextQty);
+  };
+
   const handleAddToCart = async () => {
+    Keyboard.dismiss();
     if (isStaleProduct || selectedProduct.stock <= 0) {
       return;
     }
@@ -121,7 +131,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
       );
       return;
     }
-    const qtyToAdd = Math.min(quantity, remainingStock);
+    const qtyToAdd = Math.max(1, Math.min(quantity, remainingStock));
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {}
@@ -261,7 +271,10 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.imageGallery}>
           {images.length > 0 ? (
             <Image
@@ -422,7 +435,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
           <View style={styles.divider} />
 
           <View style={styles.quantitySection}>
-            <View>
+            <View style={styles.quantityLabelCol}>
               <AtelierText
                 variant="caption"
                 color={theme.colors.inkSecondary}
@@ -437,59 +450,29 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                   {existingCartQty} already in cart
                 </AtelierText>
               )}
+              {stockWarning ? (
+                <AtelierText
+                  variant="bodySmall"
+                  color={theme.colors.error}
+                  style={styles.stockWarningText}
+                >
+                  {stockWarning}
+                </AtelierText>
+              ) : null}
             </View>
-            <View style={styles.stepperContainer}>
-              <AtelierPressable
-                tone="surface"
-                haptic="selection"
-                disabled={selectedProduct.stock <= 0 || quantity <= 1}
-                style={[
-                  styles.stepperButton,
-                  (selectedProduct.stock <= 0 || quantity <= 1) && styles.stepperButtonDisabled,
-                ]}
-                onPress={() => setQuantity(Math.max(1, quantity - 1))}
-                accessibilityLabel="Decrease quantity"
-              >
-                <Ionicons
-                  name="remove"
-                  size={18}
-                  color={
-                    selectedProduct.stock <= 0 || quantity <= 1
-                      ? theme.colors.inkMuted
-                      : theme.colors.inkPrimary
-                  }
-                />
-              </AtelierPressable>
-              <AtelierText
-                variant="title2"
-                style={styles.stepperValue}
-              >
-                {quantity}
-              </AtelierText>
-              <AtelierPressable
-                tone="surface"
-                haptic="selection"
-                disabled={remainingStock <= 0 || quantity >= remainingStock}
-                style={[
-                  styles.stepperButton,
-                  (remainingStock <= 0 || quantity >= remainingStock) && styles.stepperButtonDisabled,
-                ]}
-                onPress={() =>
-                  setQuantity(Math.min(Math.max(1, remainingStock), quantity + 1))
-                }
-                accessibilityLabel="Increase quantity"
-              >
-                <Ionicons
-                  name="add"
-                  size={18}
-                  color={
-                    remainingStock <= 0 || quantity >= remainingStock
-                      ? theme.colors.inkMuted
-                      : theme.colors.inkPrimary
-                  }
-                />
-              </AtelierPressable>
-            </View>
+            <AtelierQuantityStepper
+              value={quantity}
+              min={1}
+              max={remainingStock}
+              disabled={selectedProduct.stock <= 0 || remainingStock <= 0}
+              onChange={handleQuantityChange}
+              onLimitReached={(maxAllowed) =>
+                setStockWarning(`Maximum available to add is ${maxAllowed}.`)
+              }
+              decrementLabel="Decrease quantity"
+              incrementLabel="Increase quantity"
+              inputLabel="Product quantity"
+            />
           </View>
 
           <View style={styles.divider} />
@@ -892,27 +875,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xs,
-    backgroundColor: theme.colors.surface,
-    overflow: 'hidden',
+  quantityLabelCol: {
+    flex: 1,
+    paddingRight: theme.spacing.md,
   },
-  stepperButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperButtonDisabled: {
-    opacity: 0.35,
-  },
-  stepperValue: {
-    minWidth: 40,
-    textAlign: 'center',
+  stockWarningText: {
+    marginTop: 2,
   },
   reviewsSection: {
     marginTop: theme.spacing.sm,

@@ -24,6 +24,7 @@ export const AtelierInput = ({
   numberOfLines = 1,
   style,
   inputStyle,
+  ...inputProps
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -71,6 +72,7 @@ export const AtelierInput = ({
             multiline && { textAlignVertical: 'top', paddingTop: theme.spacing.sm },
             inputStyle,
           ]}
+          {...inputProps}
         />
         {secureTextEntry && (
           <AtelierPressable

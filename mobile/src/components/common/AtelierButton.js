@@ -11,6 +11,7 @@ export const AtelierButton = ({
   size = 'md',
   loading = false,
   disabled = false,
+  singleLine = false,
   icon,
   style,
   textStyle,
@@ -76,6 +77,8 @@ export const AtelierButton = ({
           <AtelierText
             variant="button"
             color={getTextColor()}
+            numberOfLines={singleLine ? 1 : undefined}
+            adjustsFontSizeToFit={singleLine}
             style={[styles.buttonLabel, textStyle]}
           >
             {title}
