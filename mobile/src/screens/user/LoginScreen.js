@@ -163,8 +163,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   submitButton: {
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.md,
+    marginTop: 0,
+    marginBottom: theme.spacing.lg,
   },
   switchRow: {
     flexDirection: 'row',

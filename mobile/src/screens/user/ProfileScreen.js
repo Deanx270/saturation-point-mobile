@@ -204,29 +204,32 @@ export const ProfileScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.avatarSection}>
-          <AtelierPressable
-            tone="none"
-            haptic="light"
-            hitSlop={8}
-            onPress={showAvatarPickerOptions}
-            pressedStyle={styles.avatarPressed}
-            style={styles.avatarWrapper}
-            accessibilityLabel="Update profile photo"
-          >
-            {hasAvatar ? (
-              <Image
-                source={{ uri: resolvedAvatar }}
-                style={styles.avatarImage}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Ionicons
-                  name="person-outline"
-                  size={40}
-                  color={theme.colors.inkMuted}
+          <View style={styles.avatarOuter}>
+            <AtelierPressable
+              tone="none"
+              disableRipple
+              haptic="light"
+              hitSlop={8}
+              onPress={showAvatarPickerOptions}
+              pressedStyle={styles.avatarPressed}
+              style={styles.avatarWrapper}
+              accessibilityLabel="Update profile photo"
+            >
+              {hasAvatar ? (
+                <Image
+                  source={{ uri: resolvedAvatar }}
+                  style={styles.avatarImage}
                 />
-              </View>
-            )}
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Ionicons
+                    name="person-outline"
+                    size={40}
+                    color={theme.colors.inkMuted}
+                  />
+                </View>
+              )}
+            </AtelierPressable>
             <View
               pointerEvents="none"
               style={styles.cameraIconBadge}
@@ -237,7 +240,7 @@ export const ProfileScreen = ({ navigation }) => {
                 color="#FFFFFF"
               />
             </View>
-          </AtelierPressable>
+          </View>
 
           <AtelierText
             variant="title1"
@@ -395,15 +398,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: theme.spacing.lg,
   },
+  avatarOuter: {
+    width: 100,
+    height: 100,
+    position: 'relative',
+  },
   avatarWrapper: {
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 2,
     borderColor: theme.colors.gold,
-    position: 'relative',
     backgroundColor: theme.colors.surface,
     padding: 3,
+    overflow: 'hidden',
   },
   avatarPressed: {
     opacity: 0.88,

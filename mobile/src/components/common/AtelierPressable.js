@@ -34,6 +34,7 @@ export const AtelierPressable = ({
   haptic = 'none',
   stopPropagation = false,
   rippleColor,
+  disableRipple = false,
   borderlessRipple = false,
   pressedStyle,
   style,
@@ -61,12 +62,16 @@ export const AtelierPressable = ({
     }
   };
 
-  const resolvedRipple = disabled
-    ? undefined
-    : {
-        color: rippleColor || DEFAULT_RIPPLE_COLORS[tone] || DEFAULT_RIPPLE_COLORS.surface,
-        borderless: borderlessRipple,
-      };
+  const resolvedRipple =
+    disabled || disableRipple
+      ? undefined
+      : {
+          color:
+            rippleColor ||
+            DEFAULT_RIPPLE_COLORS[tone] ||
+            DEFAULT_RIPPLE_COLORS.surface,
+          borderless: borderlessRipple,
+        };
 
   const resolvedToneStyle = TONE_PRESSED_STYLES[tone];
 

@@ -75,7 +75,6 @@ const GoogleNativeAuthButton = ({ clientIds, busy, onToken, onError }) => {
           color={theme.colors.inkPrimary}
         />
       }
-      style={styles.socialButton}
     />
   );
 };
@@ -122,7 +121,6 @@ const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
           color={theme.colors.inkPrimary}
         />
       }
-      style={styles.socialButton}
     />
   );
 };
@@ -203,77 +201,77 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
         <View style={styles.dividerLine} />
       </View>
 
-      {nativeGoogleReady ? (
-        <GoogleNativeAuthButton
-          clientIds={authConfig.googleClientIds}
-          busy={busy}
-          onToken={submitFirebaseIdToken}
-          onError={(msg) => Alert.alert('Google Sign-In Failed', msg)}
-        />
-      ) : (
-        <AtelierButton
-          title="Continue with Google"
-          variant="outline"
-          loading={socialBusy && Platform.OS === 'web'}
-          disabled={busy}
-          onPress={() =>
-            webReady
-              ? handleWebPopup('google')
-              : handleUnconfiguredPress(
-                  'Google',
-                  'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'
-                )
-          }
-          icon={
-            <Ionicons
-              name="logo-google"
-              size={18}
-              color={theme.colors.inkPrimary}
-            />
-          }
-          style={styles.socialButton}
-        />
-      )}
+      <View style={styles.socialButtonsStack}>
+        {nativeGoogleReady ? (
+          <GoogleNativeAuthButton
+            clientIds={authConfig.googleClientIds}
+            busy={busy}
+            onToken={submitFirebaseIdToken}
+            onError={(msg) => Alert.alert('Google Sign-In Failed', msg)}
+          />
+        ) : (
+          <AtelierButton
+            title="Continue with Google"
+            variant="outline"
+            loading={socialBusy && Platform.OS === 'web'}
+            disabled={busy}
+            onPress={() =>
+              webReady
+                ? handleWebPopup('google')
+                : handleUnconfiguredPress(
+                    'Google',
+                    'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'
+                  )
+            }
+            icon={
+              <Ionicons
+                name="logo-google"
+                size={18}
+                color={theme.colors.inkPrimary}
+              />
+            }
+          />
+        )}
 
-      {nativeFacebookReady ? (
-        <FacebookNativeAuthButton
-          appId={authConfig.facebookAppId}
-          busy={busy}
-          onToken={submitFirebaseIdToken}
-          onError={(msg) => Alert.alert('Facebook Sign-In Failed', msg)}
-        />
-      ) : (
-        <AtelierButton
-          title="Continue with Facebook"
-          variant="outline"
-          loading={socialBusy && Platform.OS === 'web'}
-          disabled={busy}
-          onPress={() =>
-            webReady
-              ? handleWebPopup('facebook')
-              : handleUnconfiguredPress(
-                  'Facebook',
-                  'EXPO_PUBLIC_FACEBOOK_APP_ID'
-                )
-          }
-          icon={
-            <Ionicons
-              name="logo-facebook"
-              size={18}
-              color={theme.colors.inkPrimary}
-            />
-          }
-          style={styles.socialButton}
-        />
-      )}
+        {nativeFacebookReady ? (
+          <FacebookNativeAuthButton
+            appId={authConfig.facebookAppId}
+            busy={busy}
+            onToken={submitFirebaseIdToken}
+            onError={(msg) => Alert.alert('Facebook Sign-In Failed', msg)}
+          />
+        ) : (
+          <AtelierButton
+            title="Continue with Facebook"
+            variant="outline"
+            loading={socialBusy && Platform.OS === 'web'}
+            disabled={busy}
+            onPress={() =>
+              webReady
+                ? handleWebPopup('facebook')
+                : handleUnconfiguredPress(
+                    'Facebook',
+                    'EXPO_PUBLIC_FACEBOOK_APP_ID'
+                  )
+            }
+            icon={
+              <Ionicons
+                name="logo-facebook"
+                size={18}
+                color={theme.colors.inkPrimary}
+              />
+            }
+          />
+        )}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.md,
+    marginTop: 0,
+    marginBottom: theme.spacing.lg,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -288,8 +286,8 @@ const styles = StyleSheet.create({
   dividerLabel: {
     marginHorizontal: theme.spacing.md,
   },
-  socialButton: {
-    marginBottom: theme.spacing.sm,
+  socialButtonsStack: {
+    gap: theme.spacing.md,
   },
 });
 

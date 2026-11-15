@@ -29,13 +29,41 @@ export const AtelierBottomSheet = ({
   children,
 }) => {
   const [rendered, setRendered] = useState(visible);
+  const renderedRef = useRef(visible);
+  renderedRef.current = rendered;
+  const prevVisibleRef = useRef(false);
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const sheetHeightRef = useRef(360);
   const closingRef = useRef(false);
-  const visibleRef = useRef(visible);
-  visibleRef.current = visible;
+  const hasOpenedRef = useRef(false);
   const pendingActionRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const runOpenAnimation = useCallback(() => {
+    if (hasOpenedRef.current) {
+      return;
+    }
+    hasOpenedRef.current = true;
+    const startOffset = Math.max(sheetHeightRef.current + 40, 320);
+    backdropOpacity.setValue(0);
+    translateY.setValue(startOffset);
+
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        damping: 24,
+        stiffness: 260,
+      }),
+    ]).start();
+  }, [backdropOpacity, translateY]);
 
   const runCloseAnimation = useCallback(
     (onFinished) => {
@@ -58,6 +86,7 @@ export const AtelierBottomSheet = ({
         }),
       ]).start(() => {
         closingRef.current = false;
+        hasOpenedRef.current = false;
         setRendered(false);
         const queuedAction = pendingActionRef.current;
         pendingActionRef.current = null;
@@ -74,29 +103,37 @@ export const AtelierBottomSheet = ({
 
   const handleDismiss = useCallback(() => {
     runCloseAnimation(() => {
-      if (onClose) {
-        onClose();
+      if (onCloseRef.current) {
+        onCloseRef.current();
       }
     });
-  }, [runCloseAnimation, onClose]);
+  }, [runCloseAnimation]);
 
   const dismissRef = useRef(handleDismiss);
   dismissRef.current = handleDismiss;
 
-  const panResponder = useRef(
+  const dragResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        gestureState.dy > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2,
+        gestureState.dy > 4 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+        gestureState.dy > 6 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2,
+      onPanResponderGrant: () => {
+        translateY.stopAnimation();
+        backdropOpacity.stopAnimation();
+      },
       onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          translateY.setValue(gestureState.dy);
-          const progress = Math.max(0, 1 - gestureState.dy / Math.max(sheetHeightRef.current, 240));
-          backdropOpacity.setValue(progress);
-        }
+        const dy = Math.max(0, gestureState.dy);
+        translateY.setValue(dy);
+        const travelHeight = Math.max(sheetHeightRef.current, 240);
+        backdropOpacity.setValue(Math.max(0, 1 - dy / travelHeight));
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 80 || gestureState.vy > 0.6) {
+        if (gestureState.dy > 65 || gestureState.vy > 0.45) {
           dismissRef.current();
           return;
         }
@@ -109,7 +146,7 @@ export const AtelierBottomSheet = ({
           }),
           Animated.timing(backdropOpacity, {
             toValue: 1,
-            duration: 120,
+            duration: 140,
             useNativeDriver: true,
           }),
         ]).start();
@@ -124,7 +161,7 @@ export const AtelierBottomSheet = ({
           }),
           Animated.timing(backdropOpacity, {
             toValue: 1,
-            duration: 120,
+            duration: 140,
             useNativeDriver: true,
           }),
         ]).start();
@@ -133,43 +170,35 @@ export const AtelierBottomSheet = ({
   ).current;
 
   useEffect(() => {
-    if (visible) {
+    const wasVisible = prevVisibleRef.current;
+    prevVisibleRef.current = visible;
+
+    if (visible && !wasVisible) {
       closingRef.current = false;
+      hasOpenedRef.current = false;
       pendingActionRef.current = null;
-      setRendered(true);
       backdropOpacity.setValue(0);
-      translateY.setValue(Math.max(sheetHeightRef.current + 40, 320));
-      requestAnimationFrame(() => {
-        if (!visibleRef.current) {
-          return;
+      translateY.setValue(SCREEN_HEIGHT);
+      setRendered(true);
+      const fallbackTimer = setTimeout(() => {
+        if (visibleRef.current) {
+          runOpenAnimation();
         }
-        Animated.parallel([
-          Animated.timing(backdropOpacity, {
-            toValue: 1,
-            duration: 180,
-            useNativeDriver: true,
-          }),
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 24,
-            stiffness: 260,
-          }),
-        ]).start();
-      });
-    } else if (rendered && !closingRef.current) {
+      }, 40);
+      return () => clearTimeout(fallbackTimer);
+    }
+    if (!visible && wasVisible && renderedRef.current && !closingRef.current) {
       runCloseAnimation();
     }
-  }, [visible, rendered, backdropOpacity, translateY, runCloseAnimation]);
+    return undefined;
+  }, [visible, backdropOpacity, translateY, runOpenAnimation, runCloseAnimation]);
 
   const handleSelectOption = (option) => {
     pendingActionRef.current = option.onPress || null;
     handleDismiss();
   };
 
-  if (!rendered) {
-    return null;
-  }
+  const sheetPanProps = children ? {} : dragResponder.panHandlers;
 
   return (
     <Modal
@@ -177,92 +206,115 @@ export const AtelierBottomSheet = ({
       transparent
       statusBarTranslucent
       animationType="none"
+      onShow={runOpenAnimation}
       onRequestClose={handleDismiss}
     >
-      <View style={styles.modalRoot}>
-        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+      {rendered ? (
+        <View style={styles.modalRoot}>
           <Pressable
             style={styles.backdropPress}
             onPress={handleDismiss}
             accessibilityLabel="Close dialog backdrop"
-          />
-        </Animated.View>
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          pointerEvents="box-none"
-          style={styles.positioner}
-        >
-          <Animated.View
-            onLayout={(event) => {
-              sheetHeightRef.current = event.nativeEvent.layout.height;
-            }}
-            style={[
-              styles.sheet,
-              maxHeight ? { maxHeight } : null,
-              { transform: [{ translateY }] },
-            ]}
           >
-            <View
-              {...panResponder.panHandlers}
-              style={styles.dragZone}
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.backdrop, { opacity: backdropOpacity }]}
+            />
+          </Pressable>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            pointerEvents="box-none"
+            style={styles.positioner}
+          >
+            <Animated.View
+              collapsable={false}
+              {...sheetPanProps}
+              onLayout={(event) => {
+                sheetHeightRef.current = event.nativeEvent.layout.height;
+              }}
+              style={[
+                styles.sheet,
+                maxHeight ? { maxHeight } : null,
+                { transform: [{ translateY }] },
+              ]}
             >
-              <View style={styles.handleHitArea}>
-                <View style={styles.handleBar} />
-              </View>
-              <View style={styles.header}>
-                <View style={styles.headerText}>
-                  <AtelierText
-                    variant="title2"
-                    color={theme.colors.inkPrimary}
-                  >
-                    {title}
-                  </AtelierText>
-                  {subtitle ? (
+              <View
+                collapsable={false}
+                {...dragResponder.panHandlers}
+                style={styles.dragZone}
+              >
+                <View
+                  collapsable={false}
+                  style={styles.handleHitArea}
+                >
+                  <View style={styles.handleBar} />
+                </View>
+                <View style={styles.header}>
+                  <View style={styles.headerText}>
                     <AtelierText
-                      variant="bodySmall"
-                      color={theme.colors.inkMuted}
-                      style={styles.subtitle}
+                      variant="title2"
+                      color={theme.colors.inkPrimary}
                     >
-                      {subtitle}
+                      {title}
                     </AtelierText>
+                    {subtitle ? (
+                      <AtelierText
+                        variant="bodySmall"
+                        color={theme.colors.inkMuted}
+                        style={styles.subtitle}
+                      >
+                        {subtitle}
+                      </AtelierText>
+                    ) : null}
+                  </View>
+                  {showCloseButton ? (
+                    <AtelierPressable
+                      tone="subtle"
+                      onPress={handleDismiss}
+                      style={styles.closeButton}
+                      accessibilityLabel="Close sheet"
+                    >
+                      <Ionicons
+                        name="close"
+                        size={22}
+                        color={theme.colors.inkSecondary}
+                      />
+                    </AtelierPressable>
                   ) : null}
                 </View>
-                {showCloseButton ? (
-                  <AtelierPressable
-                    tone="subtle"
-                    onPress={handleDismiss}
-                    style={styles.closeButton}
-                    accessibilityLabel="Close sheet"
-                  >
-                    <Ionicons
-                      name="close"
-                      size={22}
-                      color={theme.colors.inkSecondary}
-                    />
-                  </AtelierPressable>
-                ) : null}
               </View>
-            </View>
 
-            {options.length > 0 ? (
-              <View style={styles.optionsList}>
-                {options.map((option, index) => (
-                  <AtelierPressable
-                    key={option.key || option.label || String(index)}
-                    tone="surface"
-                    haptic="selection"
-                    onPress={() => handleSelectOption(option)}
-                    style={[
-                      styles.optionRow,
-                      option.selected && styles.optionRowSelected,
-                    ]}
-                  >
-                    <View style={styles.optionLeft}>
-                      {option.icon ? (
-                        <Ionicons
-                          name={option.icon}
-                          size={20}
+              {options.length > 0 ? (
+                <View style={styles.optionsList}>
+                  {options.map((option, index) => (
+                    <AtelierPressable
+                      key={option.key || option.label || String(index)}
+                      tone="surface"
+                      haptic="selection"
+                      onPress={() => handleSelectOption(option)}
+                      style={[
+                        styles.optionRow,
+                        option.selected && styles.optionRowSelected,
+                      ]}
+                    >
+                      <View style={styles.optionLeft}>
+                        {option.icon ? (
+                          <Ionicons
+                            name={option.icon}
+                            size={20}
+                            color={
+                              option.destructive
+                                ? theme.colors.error
+                                : option.selected
+                                ? theme.colors.goldText
+                                : theme.colors.inkPrimary
+                            }
+                            style={styles.optionIcon}
+                          />
+                        ) : null}
+                        <AtelierText
+                          variant="bodyMedium"
                           color={
                             option.destructive
                               ? theme.colors.error
@@ -270,41 +322,30 @@ export const AtelierBottomSheet = ({
                               ? theme.colors.goldText
                               : theme.colors.inkPrimary
                           }
-                          style={styles.optionIcon}
+                          style={option.selected ? styles.optionLabelSelected : undefined}
+                        >
+                          {option.label}
+                        </AtelierText>
+                      </View>
+                      {option.selected ? (
+                        <Ionicons
+                          name="checkmark"
+                          size={18}
+                          color={theme.colors.goldText}
                         />
                       ) : null}
-                      <AtelierText
-                        variant="bodyMedium"
-                        color={
-                          option.destructive
-                            ? theme.colors.error
-                            : option.selected
-                            ? theme.colors.goldText
-                            : theme.colors.inkPrimary
-                        }
-                        style={option.selected ? styles.optionLabelSelected : undefined}
-                      >
-                        {option.label}
-                      </AtelierText>
-                    </View>
-                    {option.selected ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={theme.colors.goldText}
-                      />
-                    ) : null}
-                  </AtelierPressable>
-                ))}
-              </View>
-            ) : null}
+                    </AtelierPressable>
+                  ))}
+                </View>
+              ) : null}
 
-            {children}
+              {children}
 
-            {footer ? <View style={styles.footer}>{footer}</View> : null}
-          </Animated.View>
-        </KeyboardAvoidingView>
-      </View>
+              {footer ? <View style={styles.footer}>{footer}</View> : null}
+            </Animated.View>
+          </KeyboardAvoidingView>
+        </View>
+      ) : null}
     </Modal>
   );
 };
@@ -314,31 +355,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(28, 25, 23, 0.45)',
-  },
   backdropPress: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  backdrop: {
     flex: 1,
+    backgroundColor: 'rgba(28, 25, 23, 0.45)',
   },
   positioner: {
     justifyContent: 'flex-end',
+    zIndex: 2,
+    elevation: 16,
   },
   sheet: {
     backgroundColor: theme.colors.canvas,
-    borderTopLeftRadius: theme.radii.md,
-    borderTopRightRadius: theme.radii.md,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     paddingHorizontal: theme.spacing.xl,
-    paddingTop: theme.spacing.sm,
+    paddingTop: theme.spacing.xs,
     paddingBottom: theme.spacing.hero,
     borderTopWidth: 1,
     borderColor: theme.colors.border,
+    elevation: 16,
   },
   dragZone: {
+    backgroundColor: 'transparent',
     paddingBottom: theme.spacing.xs,
   },
   handleHitArea: {
-    paddingVertical: theme.spacing.sm,
+    backgroundColor: 'transparent',
+    paddingTop: 12,
+    paddingBottom: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
