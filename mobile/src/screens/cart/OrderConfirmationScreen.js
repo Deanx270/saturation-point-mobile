@@ -1,14 +1,77 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
+import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import { formatPrice } from '../../utils/formatters';
 
 export const OrderConfirmationScreen = ({ route, navigation }) => {
   const { orderId, totalAmount } = route.params || {};
+  const { user } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (!user && navigation.canGoBack()) {
+      navigation.popToTop();
+    }
+  }, [user, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user && navigation.canGoBack()) {
+        navigation.popToTop();
+      }
+    }, [user, navigation])
+  );
+
+  if (!user) {
+    return (
+      <View style={styles.emptyContainer}>
+        <AtelierHeader
+          title="Cart"
+          leftType="drawer"
+          navigation={navigation}
+        />
+        <AtelierEmptyState
+          iconName="lock-closed-outline"
+          title="Sign In Required"
+          description="Sign in to view your order confirmation."
+          actionTitle="Sign In"
+          actionVariant="primary"
+          fullWidthActions
+          onActionPress={() =>
+            navigation.navigate('UserTab', { screen: 'Login' })
+          }
+          secondaryActionTitle="Create Account"
+          onSecondaryActionPress={() =>
+            navigation.navigate('UserTab', { screen: 'Register' })
+          }
+        />
+      </View>
+    );
+  }
+
+  const handleViewOrder = () => {
+    if (navigation.canGoBack()) {
+      navigation.popToTop();
+    }
+    navigation.navigate('OrdersTab', {
+      screen: 'OrderDetails',
+      params: { orderId },
+    });
+  };
+
+  const handleContinueShopping = () => {
+    if (navigation.canGoBack()) {
+      navigation.popToTop();
+    }
+    navigation.navigate('HomeTab');
+  };
 
   return (
     <View style={styles.container}>
@@ -66,7 +129,7 @@ export const OrderConfirmationScreen = ({ route, navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              Total Paid
+              Order Total (COD)
             </AtelierText>
             <AtelierText
               variant="title2"
@@ -79,18 +142,13 @@ export const OrderConfirmationScreen = ({ route, navigation }) => {
 
         <AtelierButton
           title="View Order"
-          onPress={() =>
-            navigation.navigate('OrdersTab', {
-              screen: 'OrderDetails',
-              params: { orderId },
-            })
-          }
+          onPress={handleViewOrder}
           style={styles.viewOrderButton}
         />
 
         <AtelierButton
           title="Continue Shopping"
-          onPress={() => navigation.navigate('HomeTab')}
+          onPress={handleContinueShopping}
           variant="outline"
           style={styles.homeButton}
         />
@@ -100,6 +158,10 @@ export const OrderConfirmationScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  emptyContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.canvas,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,

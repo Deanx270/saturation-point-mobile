@@ -98,10 +98,13 @@ export const RegisterScreen = ({ navigation }) => {
             <View style={styles.formContainer}>
               <AtelierInput
                 label="Full Name"
-                placeholder="e.g. Alex Santos"
+                placeholder="Enter your full name"
                 value={values.displayName}
                 onChangeText={handleChange('displayName')}
                 onBlur={handleBlur('displayName')}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
                 error={errors.displayName}
                 touched={touched.displayName}
               />
@@ -122,7 +125,8 @@ export const RegisterScreen = ({ navigation }) => {
 
               <AtelierInput
                 label="Password"
-                placeholder="Minimum 6 characters"
+                placeholder="Enter your password"
+                helperText="Must be at least 6 characters"
                 value={values.password}
                 onChangeText={handleChange('password')}
                 onBlur={handleBlur('password')}
@@ -140,6 +144,8 @@ export const RegisterScreen = ({ navigation }) => {
                 onChangeText={handleChange('confirmPassword')}
                 onBlur={handleBlur('confirmPassword')}
                 secureTextEntry
+                autoComplete="new-password"
+                textContentType="newPassword"
                 error={errors.confirmPassword}
                 touched={touched.confirmPassword}
               />

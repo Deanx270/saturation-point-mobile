@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -6,6 +6,7 @@ import {
   Image,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
@@ -41,6 +42,14 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
       dispatch(fetchOrderById(orderId));
     }
   }, [dispatch, orderId, user, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user && navigation.canGoBack()) {
+        navigation.popToTop();
+      }
+    }, [user, navigation])
+  );
 
   if (!user) {
     return (

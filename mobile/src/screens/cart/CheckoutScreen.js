@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -6,6 +6,8 @@ import {
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import * as Haptics from 'expo-haptics';
@@ -21,24 +23,47 @@ import { createOrder } from '../../redux/ordersSlice';
 import { formatPrice } from '../../utils/formatters';
 
 const CheckoutSchema = Yup.object().shape({
-  street: Yup.string().required('Street address is required'),
-  city: Yup.string().required('City is required'),
-  postalCode: Yup.string().required('Postal code is required'),
-  country: Yup.string().required('Country is required'),
+  street: Yup.string()
+    .trim()
+    .min(5, 'Enter a complete street address (at least 5 characters)')
+    .max(150, 'Street address must be 150 characters or fewer')
+    .matches(/[a-zA-Z]/, 'Enter a valid street address')
+    .required('Street address is required'),
+  city: Yup.string()
+    .trim()
+    .min(2, 'Enter a valid city name')
+    .max(80, 'City name must be 80 characters or fewer')
+    .matches(/^[a-zA-Z\s.\-']+$/, 'City name should contain letters only')
+    .required('City is required'),
+  postalCode: Yup.string()
+    .trim()
+    .matches(/^\d+$/, 'Postal code must contain numbers only')
+    .test(
+      'postal-length',
+      'Enter a valid numeric ZIP code (4 digits for PH, 4–10 digits)',
+      (value, context) => {
+        if (!value) {
+          return false;
+        }
+        const normalizedCountry = String(context.parent?.country || '')
+          .trim()
+          .toLowerCase();
+        if (normalizedCountry === 'philippines' || normalizedCountry === 'ph') {
+          return /^\d{4}$/.test(value);
+        }
+        return /^\d{4,10}$/.test(value);
+      }
+    )
+    .required('Postal code is required'),
+  country: Yup.string()
+    .trim()
+    .min(2, 'Enter a valid country name')
+    .max(60, 'Country name must be 60 characters or fewer')
+    .matches(/^[a-zA-Z\s.\-']+$/, 'Country name should contain letters only')
+    .required('Country is required'),
 });
 
-const PAYMENT_METHODS = [
-  {
-    id: 'Cash on Delivery',
-    title: 'Cash on Delivery',
-    description: 'Pay in cash when your order arrives',
-  },
-  {
-    id: 'Bank Transfer',
-    title: 'Bank Transfer',
-    description: 'Pay via direct bank transfer before shipping',
-  },
-];
+const PAYMENT_METHOD_COD = 'Cash on Delivery';
 
 export const CheckoutScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -46,13 +71,20 @@ export const CheckoutScreen = ({ navigation }) => {
   const total = useSelector(selectCartTotal);
   const { loading } = useSelector((state) => state.orders);
   const { user } = useSelector((state) => state.auth);
-  const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery');
 
   useEffect(() => {
     if (!user && navigation.canGoBack()) {
       navigation.popToTop();
     }
   }, [user, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user && navigation.canGoBack()) {
+        navigation.popToTop();
+      }
+    }, [user, navigation])
+  );
 
   if (!user) {
     return (
@@ -97,8 +129,13 @@ export const CheckoutScreen = ({ navigation }) => {
         image: i.image,
       })),
       totalAmount: total,
-      paymentMethod,
-      shippingAddress: values,
+      paymentMethod: PAYMENT_METHOD_COD,
+      shippingAddress: {
+        street: values.street.trim(),
+        city: values.city.trim(),
+        postalCode: values.postalCode.trim(),
+        country: values.country.trim(),
+      },
     };
 
     const resultAction = await dispatch(createOrder(orderPayload));
@@ -190,6 +227,7 @@ export const CheckoutScreen = ({ navigation }) => {
             handleChange,
             handleBlur,
             handleSubmit,
+            setFieldValue,
             values,
             errors,
             touched,
@@ -201,6 +239,9 @@ export const CheckoutScreen = ({ navigation }) => {
                 value={values.street}
                 onChangeText={handleChange('street')}
                 onBlur={handleBlur('street')}
+                autoCapitalize="words"
+                autoComplete="street-address"
+                textContentType="fullStreetAddress"
                 error={errors.street}
                 touched={touched.street}
               />
@@ -213,6 +254,9 @@ export const CheckoutScreen = ({ navigation }) => {
                     value={values.city}
                     onChangeText={handleChange('city')}
                     onBlur={handleBlur('city')}
+                    autoCapitalize="words"
+                    autoComplete="postal-address-locality"
+                    textContentType="addressCity"
                     error={errors.city}
                     touched={touched.city}
                   />
@@ -222,8 +266,14 @@ export const CheckoutScreen = ({ navigation }) => {
                     label="Postal Code"
                     placeholder="e.g. 1226"
                     value={values.postalCode}
-                    onChangeText={handleChange('postalCode')}
+                    onChangeText={(text) =>
+                      setFieldValue('postalCode', text.replace(/\D/g, ''))
+                    }
                     onBlur={handleBlur('postalCode')}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    autoComplete="postal-code"
+                    textContentType="postalCode"
                     error={errors.postalCode}
                     touched={touched.postalCode}
                   />
@@ -236,6 +286,9 @@ export const CheckoutScreen = ({ navigation }) => {
                 value={values.country}
                 onChangeText={handleChange('country')}
                 onBlur={handleBlur('country')}
+                autoCapitalize="words"
+                autoComplete="country"
+                textContentType="countryName"
                 error={errors.country}
                 touched={touched.country}
               />
@@ -247,44 +300,35 @@ export const CheckoutScreen = ({ navigation }) => {
                 Payment Method
               </AtelierText>
 
-              {PAYMENT_METHODS.map((method) => {
-                const isSelected = paymentMethod === method.id;
-                return (
-                  <AtelierCard
-                    key={method.id}
-                    onPress={() => setPaymentMethod(method.id)}
-                    style={[
-                      styles.paymentCard,
-                      isSelected && styles.selectedPaymentCard,
-                    ]}
-                  >
-                    <View style={styles.paymentRadioRow}>
-                      <View
-                        style={[
-                          styles.radioOuter,
-                          isSelected && styles.radioOuterSelected,
-                        ]}
-                      >
-                        {isSelected && <View style={styles.radioInner} />}
-                      </View>
-                      <View style={styles.paymentDetails}>
-                        <AtelierText
-                          variant="title2"
-                          style={styles.paymentTitle}
-                        >
-                          {method.title}
-                        </AtelierText>
-                        <AtelierText
-                          variant="bodySmall"
-                          color={theme.colors.inkMuted}
-                        >
-                          {method.description}
-                        </AtelierText>
-                      </View>
-                    </View>
-                  </AtelierCard>
-                );
-              })}
+              <AtelierCard style={[styles.paymentCard, styles.selectedPaymentCard]}>
+                <View style={styles.paymentRadioRow}>
+                  <Ionicons
+                    name="cash-outline"
+                    size={22}
+                    color={theme.colors.goldText}
+                    style={styles.codIcon}
+                  />
+                  <View style={styles.paymentDetails}>
+                    <AtelierText
+                      variant="title2"
+                      style={styles.paymentTitle}
+                    >
+                      Cash on Delivery
+                    </AtelierText>
+                    <AtelierText
+                      variant="bodySmall"
+                      color={theme.colors.inkMuted}
+                    >
+                      Pay in cash when your order arrives
+                    </AtelierText>
+                  </View>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.colors.gold}
+                  />
+                </View>
+              </AtelierCard>
 
               <AtelierButton
                 title={loading ? 'Placing Order...' : `Place Order (${formatPrice(total)})`}
@@ -350,24 +394,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: theme.colors.borderMedium,
-    alignItems: 'center',
-    justifyContent: 'center',
+  codIcon: {
     marginRight: theme.spacing.md,
-  },
-  radioOuterSelected: {
-    borderColor: theme.colors.gold,
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: theme.colors.gold,
   },
   paymentDetails: {
     flex: 1,

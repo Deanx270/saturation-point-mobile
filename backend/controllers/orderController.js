@@ -11,6 +11,28 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'No items in order' });
     }
 
+    if (paymentMethod && paymentMethod !== 'Cash on Delivery') {
+      return res.status(400).json({ message: 'Only Cash on Delivery is supported' });
+    }
+
+    const street = typeof shippingAddress?.street === 'string' ? shippingAddress.street.trim() : '';
+    const city = typeof shippingAddress?.city === 'string' ? shippingAddress.city.trim() : '';
+    const postalCode = typeof shippingAddress?.postalCode === 'string' ? shippingAddress.postalCode.trim() : '';
+    const country = typeof shippingAddress?.country === 'string' ? shippingAddress.country.trim() : '';
+
+    if (street.length < 5 || !/[a-zA-Z]/.test(street)) {
+      return res.status(400).json({ message: 'Please provide a valid street address' });
+    }
+    if (city.length < 2 || !/^[a-zA-Z\s.\-']+$/.test(city)) {
+      return res.status(400).json({ message: 'Please provide a valid city name' });
+    }
+    if (!/^\d{4,10}$/.test(postalCode)) {
+      return res.status(400).json({ message: 'Postal code must contain 4 to 10 digits' });
+    }
+    if (country.length < 2 || !/^[a-zA-Z\s.\-']+$/.test(country)) {
+      return res.status(400).json({ message: 'Please provide a valid country name' });
+    }
+
     for (const item of orderItems) {
       const product = await Product.findById(item.product);
       if (!product) {
@@ -33,8 +55,13 @@ const createOrder = async (req, res) => {
       user: req.user._id,
       orderItems,
       totalAmount,
-      paymentMethod: paymentMethod || 'Cash on Delivery',
-      shippingAddress: shippingAddress || {},
+      paymentMethod: 'Cash on Delivery',
+      shippingAddress: {
+        street,
+        city,
+        postalCode,
+        country,
+      },
       status: 'pending',
     });
 

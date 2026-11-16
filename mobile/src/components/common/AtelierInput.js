@@ -27,6 +27,7 @@ export const AtelierInput = ({
   touched,
   multiline = false,
   numberOfLines = 1,
+  helperText,
   style,
   inputStyle,
   ...inputProps
@@ -126,7 +127,7 @@ export const AtelierInput = ({
           </AtelierPressable>
         ) : null}
       </View>
-      {hasError && (
+      {hasError ? (
         <AtelierText
           variant="bodySmall"
           color={theme.colors.error}
@@ -134,7 +135,15 @@ export const AtelierInput = ({
         >
           {error}
         </AtelierText>
-      )}
+      ) : helperText ? (
+        <AtelierText
+          variant="bodySmall"
+          color={theme.colors.inkMuted}
+          style={styles.helperText}
+        >
+          {helperText}
+        </AtelierText>
+      ) : null}
     </View>
   );
 };
@@ -201,6 +210,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   errorText: {
+    marginTop: theme.spacing.xs,
+  },
+  helperText: {
     marginTop: theme.spacing.xs,
   },
 });
