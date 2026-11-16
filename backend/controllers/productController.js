@@ -4,6 +4,27 @@ const Brand = require('../models/Brand');
 
 const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const normalizeSpaces = (text) => String(text || '').trim().replace(/\s+/g, ' ');
+
+const resolveCanonicalBrand = async (rawBrand) => {
+  const cleanBrand = normalizeSpaces(rawBrand);
+  if (!cleanBrand) {
+    return '';
+  }
+  const existing = await Brand.findOne({
+    name: { $regex: new RegExp(`^${escapeRegex(cleanBrand)}$`, 'i') },
+  });
+  if (existing) {
+    return existing.name;
+  }
+  await Brand.updateOne(
+    { name: cleanBrand },
+    { $setOnInsert: { name: cleanBrand } },
+    { upsert: true }
+  );
+  return cleanBrand;
+};
+
 const parseStringArray = (value) => {
   if (!value) {
     return [];
@@ -164,8 +185,10 @@ const getProductById = async (req, res) => {
 const createProduct = async (req, res) => {
   try {
     const { name, description, price, brand, category, stock } = req.body;
+    const cleanName = normalizeSpaces(name);
+    const cleanCategory = normalizeSpaces(category);
 
-    if (!name || price === undefined || price === '' || !category) {
+    if (!cleanName || price === undefined || price === '' || !cleanCategory) {
       return res.status(400).json({ message: 'Name, price, and category are required' });
     }
 
@@ -175,13 +198,14 @@ const createProduct = async (req, res) => {
     }
 
     const resolvedImages = extractImageUrls(req, []);
+    const resolvedBrand = brand ? await resolveCanonicalBrand(brand) : 'House Selection';
 
     const product = await Product.create({
-      name: String(name).trim(),
+      name: cleanName,
       description: description ? String(description).trim() : '',
       price: numericPrice,
-      brand: brand ? String(brand).trim() : 'House Selection',
-      category: String(category).trim(),
+      brand: resolvedBrand || 'House Selection',
+      category: cleanCategory,
       stock: stock !== undefined && stock !== '' ? Number(stock) : 10,
       images: resolvedImages || [],
     });
@@ -201,14 +225,31 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    product.name = name !== undefined ? String(name).trim() : product.name;
+    if (name !== undefined) {
+      const cleanName = normalizeSpaces(name);
+      if (!cleanName) {
+        return res.status(400).json({ message: 'Product name cannot be empty' });
+      }
+      product.name = cleanName;
+    }
     product.description =
       description !== undefined ? String(description).trim() : product.description;
     product.price =
       price !== undefined && price !== '' ? Number(price) : product.price;
-    product.brand = brand !== undefined ? String(brand).trim() : product.brand;
-    product.category =
-      category !== undefined ? String(category).trim() : product.category;
+    if (brand !== undefined) {
+      const resolvedBrand = await resolveCanonicalBrand(brand);
+      if (!resolvedBrand) {
+        return res.status(400).json({ message: 'Brand cannot be empty' });
+      }
+      product.brand = resolvedBrand;
+    }
+    if (category !== undefined) {
+      const cleanCategory = normalizeSpaces(category);
+      if (!cleanCategory) {
+        return res.status(400).json({ message: 'Category cannot be empty' });
+      }
+      product.category = cleanCategory;
+    }
     product.stock =
       stock !== undefined && stock !== '' ? Number(stock) : product.stock;
 

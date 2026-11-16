@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierCard from '../../components/common/AtelierCard';
@@ -19,6 +20,8 @@ import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import AtelierToast from '../../components/common/AtelierToast';
 import { fetchProducts, deleteProduct } from '../../redux/productsSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
 
@@ -36,6 +39,12 @@ export const AdminProductsScreen = ({ navigation }) => {
     adminError,
   } = useSelector((state) => state.products);
   const [refreshing, setRefreshing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    key: 0,
+  });
   const canGoBack = navigation.canGoBack();
 
   const loadPage = useCallback(
@@ -68,19 +77,28 @@ export const AdminProductsScreen = ({ navigation }) => {
     loadPage(adminPage + 1);
   }, [adminHasMore, adminLoading, adminLoadingMore, loadPage, adminPage]);
 
-  const handleDelete = (productId, name) => {
-    Alert.alert(
-      'Delete Product',
-      `Delete "${name}" from the catalog?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => dispatch(deleteProduct(productId)),
-        },
-      ]
-    );
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    const { _id, name } = deleteTarget;
+    setDeleteTarget(null);
+    const result = await dispatch(deleteProduct(_id));
+    if (deleteProduct.fulfilled.match(result)) {
+      try {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (e) {}
+      setToastState((prev) => ({
+        visible: true,
+        message: `"${name}" deleted from catalog`,
+        key: prev.key + 1,
+      }));
+    } else {
+      Alert.alert(
+        'Delete Failed',
+        result.payload || 'Unable to delete this product.'
+      );
+    }
   };
 
   const renderProductItem = ({ item }) => {
@@ -147,7 +165,8 @@ export const AdminProductsScreen = ({ navigation }) => {
             <View style={styles.actionsRow}>
               <AtelierPressable
                 tone="subtle"
-                hitSlop={8}
+                stopPropagation
+                hitSlop={10}
                 style={styles.editButton}
                 onPress={() =>
                   navigation.navigate('AdminProductForm', {
@@ -158,7 +177,7 @@ export const AdminProductsScreen = ({ navigation }) => {
               >
                 <Ionicons
                   name="create-outline"
-                  size={16}
+                  size={15}
                   color={theme.colors.inkPrimary}
                 />
                 <AtelierText
@@ -172,13 +191,14 @@ export const AdminProductsScreen = ({ navigation }) => {
 
               <AtelierPressable
                 tone="subtle"
-                hitSlop={8}
+                stopPropagation
+                hitSlop={10}
                 style={styles.deleteButton}
-                onPress={() => handleDelete(item._id, item.name)}
+                onPress={() => setDeleteTarget(item)}
               >
                 <Ionicons
                   name="trash-outline"
-                  size={16}
+                  size={15}
                   color={theme.colors.error}
                 />
                 <AtelierText
@@ -290,6 +310,40 @@ export const AdminProductsScreen = ({ navigation }) => {
           }
         />
       )}
+
+      <AtelierBottomSheet
+        visible={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Product"
+        showCloseButton={false}
+        subtitle={
+          deleteTarget
+            ? `Delete "${deleteTarget.name}" from the catalog?`
+            : ''
+        }
+        options={[
+          {
+            key: 'confirm',
+            label: 'Delete Product',
+            icon: 'trash-outline',
+            destructive: true,
+            onPress: handleConfirmDelete,
+          },
+          {
+            key: 'cancel',
+            label: 'Cancel',
+            icon: 'close-outline',
+            onPress: () => setDeleteTarget(null),
+          },
+        ]}
+      />
+
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -319,8 +373,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   thumbnail: {
-    width: 90,
-    height: 90,
+    width: 96,
+    height: 96,
     borderRadius: theme.radii.xs,
     backgroundColor: theme.colors.surfaceSubtle,
   },
@@ -330,6 +384,7 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
+    minHeight: 96,
     marginLeft: theme.spacing.md,
     justifyContent: 'space-between',
   },
@@ -350,21 +405,23 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 16,
+    lineHeight: 20,
     marginTop: 2,
   },
   price: {
-    marginTop: 2,
+    lineHeight: 22,
+    marginTop: 1,
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
+    gap: theme.spacing.md,
+    marginTop: 2,
   },
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: theme.radii.xs,
     overflow: 'hidden',
@@ -372,7 +429,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: theme.radii.xs,
     overflow: 'hidden',

@@ -244,6 +244,24 @@ export const DrawerContent = ({ navigation }) => {
             <AtelierPressable
               tone="surface"
               style={styles.menuItem}
+              onPress={() => navigateTo('AdminTab', 'AdminBrands')}
+            >
+              <Ionicons
+                name="bookmark-outline"
+                size={20}
+                color={theme.colors.inkPrimary}
+              />
+              <AtelierText
+                variant="bodyMedium"
+                style={styles.menuLabel}
+              >
+                Manage Brands
+              </AtelierText>
+            </AtelierPressable>
+
+            <AtelierPressable
+              tone="surface"
+              style={styles.menuItem}
               onPress={() => navigateTo('AdminOrdersTab', 'AdminOrders')}
             >
               <Ionicons

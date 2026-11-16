@@ -16,12 +16,14 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import { fetchProducts } from '../../redux/productsSlice';
 import { fetchAllOrders } from '../../redux/ordersSlice';
 import { fetchCategories } from '../../redux/categoriesSlice';
+import { fetchBrands } from '../../redux/brandsSlice';
 
 export const AdminDashboardScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { adminTotal, adminItems } = useSelector((state) => state.products);
   const { allOrders } = useSelector((state) => state.orders);
   const { items: categories } = useSelector((state) => state.categories);
+  const { items: brands } = useSelector((state) => state.brands);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadSummary = useCallback(async () => {
@@ -29,6 +31,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
       dispatch(fetchProducts({ target: 'admin', page: 1, limit: 8 })),
       dispatch(fetchAllOrders()),
       dispatch(fetchCategories()),
+      dispatch(fetchBrands()),
     ]);
   }, [dispatch]);
 
@@ -98,6 +101,15 @@ export const AdminDashboardScreen = ({ navigation }) => {
       badge: `${categories.length}`,
       badgeStatus: 'default',
       onPress: () => navigation.navigate('AdminCategories'),
+    },
+    {
+      key: 'brands',
+      title: 'Manage Brands',
+      subtitle: 'Curate makers and keep brand filters clean',
+      icon: 'bookmark-outline',
+      badge: `${brands.length}`,
+      badgeStatus: 'default',
+      onPress: () => navigation.navigate('AdminBrands'),
     },
     {
       key: 'promotions',

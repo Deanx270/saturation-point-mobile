@@ -30,10 +30,12 @@ import {
 
 const DEFAULT_CATEGORIES = ['Fountain Pens', 'Inks', 'Paper'];
 
+const normalizeLabel = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+
 const ProductSchema = Yup.object().shape({
-  name: Yup.string().required('Product name is required'),
-  brand: Yup.string().required('Brand is required'),
-  category: Yup.string().required('Category is required'),
+  name: Yup.string().trim().required('Product name is required'),
+  brand: Yup.string().trim().required('Brand is required'),
+  category: Yup.string().trim().required('Category is required'),
   price: Yup.number()
     .typeError('Enter a valid price')
     .positive('Price must be greater than zero')
@@ -42,17 +44,21 @@ const ProductSchema = Yup.object().shape({
     .typeError('Enter a valid stock quantity')
     .min(0, 'Stock cannot be negative')
     .required('Stock is required'),
-  description: Yup.string().required('Description is required'),
+  description: Yup.string().trim().required('Description is required'),
 });
 
 export const AdminProductFormScreen = ({ route, navigation }) => {
   const { product, isEditing } = route.params || {};
   const dispatch = useDispatch();
   const storeCategories = useSelector((state) => state.products.categories);
+  const storeBrands = useSelector((state) => state.products.brands);
 
   const [images, setImages] = useState(product?.images || []);
   const [submitting, setSubmitting] = useState(false);
   const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [brandSheetVisible, setBrandSheetVisible] = useState(false);
+  const [brandQuery, setBrandQuery] = useState('');
 
   useEffect(() => {
     dispatch(fetchProductFilters());
@@ -66,6 +72,14 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
     }
     return merged;
   }, [storeCategories, product?.category]);
+
+  const brandOptions = useMemo(() => {
+    const set = new Set((storeBrands || []).filter((b) => b && b !== 'All'));
+    if (product?.brand) {
+      set.add(product.brand);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [storeBrands, product?.brand]);
 
   const handlePickFromGallery = async () => {
     const selected = await pickImagesFromGallery({ allowsMultipleSelection: true });
@@ -83,6 +97,17 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
 
   const handleRemoveImage = (index) => {
     setImages((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleSetCoverImage = (index) => {
+    if (index <= 0 || index >= images.length) {
+      return;
+    }
+    setImages((prev) => {
+      const target = prev[index];
+      const remaining = prev.filter((_, idx) => idx !== index);
+      return [target, ...remaining];
+    });
   };
 
   const handleMoveImage = (index, direction) => {
@@ -103,9 +128,9 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
     setSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('name', values.name.trim());
-      formData.append('brand', values.brand.trim());
-      formData.append('category', values.category.trim());
+      formData.append('name', normalizeLabel(values.name));
+      formData.append('brand', normalizeLabel(values.brand));
+      formData.append('category', normalizeLabel(values.category));
       formData.append('price', String(Number(values.price)));
       formData.append('stock', String(Number(values.stock)));
       formData.append('description', values.description.trim());
@@ -136,6 +161,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
         createProduct.fulfilled.match(resultAction) ||
         updateProduct.fulfilled.match(resultAction)
       ) {
+        dispatch(fetchProductFilters());
         Alert.alert(
           isEditing ? 'Product Updated' : 'Product Added',
           `Product ${isEditing ? 'updated' : 'added'} successfully.`,
@@ -169,6 +195,13 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
         >
           Product Images
         </AtelierText>
+        <AtelierText
+          variant="bodySmall"
+          color={theme.colors.inkMuted}
+          style={styles.imageHelperText}
+        >
+          First photo is the cover. Tap any photo to set it as cover or reorder.
+        </AtelierText>
 
         <ScrollView
           horizontal
@@ -198,12 +231,18 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
           )}
 
           {images.map((uri, idx) => (
-            <View
+            <AtelierPressable
               key={`${uri}_${idx}`}
+              tone="none"
+              haptic="selection"
+              onPress={() => setSelectedImageIndex(idx)}
               style={[
                 styles.imagePreviewWrapper,
                 idx === 0 && styles.primaryImageBorder,
               ]}
+              accessibilityLabel={
+                idx === 0 ? 'Manage cover image' : `Manage product image ${idx + 1}`
+              }
             >
               <Image
                 source={{ uri }}
@@ -222,6 +261,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
               )}
               <AtelierPressable
                 tone="solid"
+                stopPropagation
                 hitSlop={8}
                 style={styles.removeImageBadge}
                 onPress={() => handleRemoveImage(idx)}
@@ -233,44 +273,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                   color="#FFFFFF"
                 />
               </AtelierPressable>
-              {images.length > 1 && (
-                <View style={styles.reorderBar}>
-                  <AtelierPressable
-                    tone="none"
-                    hitSlop={6}
-                    pressedStyle={styles.reorderBtnPressed}
-                    style={[styles.reorderBtn, idx === 0 && styles.reorderBtnDisabled]}
-                    onPress={() => handleMoveImage(idx, -1)}
-                    disabled={idx === 0}
-                    accessibilityLabel="Move image left"
-                  >
-                    <Ionicons
-                      name="chevron-back"
-                      size={14}
-                      color="#FFFFFF"
-                    />
-                  </AtelierPressable>
-                  <AtelierPressable
-                    tone="none"
-                    hitSlop={6}
-                    pressedStyle={styles.reorderBtnPressed}
-                    style={[
-                      styles.reorderBtn,
-                      idx === images.length - 1 && styles.reorderBtnDisabled,
-                    ]}
-                    onPress={() => handleMoveImage(idx, 1)}
-                    disabled={idx === images.length - 1}
-                    accessibilityLabel="Move image right"
-                  >
-                    <Ionicons
-                      name="chevron-forward"
-                      size={14}
-                      color="#FFFFFF"
-                    />
-                  </AtelierPressable>
-                </View>
-              )}
-            </View>
+            </AtelierPressable>
           ))}
         </ScrollView>
 
@@ -291,111 +294,254 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
             handleBlur,
             handleSubmit,
             setFieldValue,
+            setFieldTouched,
             values,
             errors,
             touched,
-          }) => (
-            <View style={styles.formContainer}>
-              <AtelierInput
-                label="Product Name"
-                placeholder="e.g. Lamy Safari Fountain Pen"
-                value={values.name}
-                onChangeText={handleChange('name')}
-                onBlur={handleBlur('name')}
-                error={errors.name}
-                touched={touched.name}
-              />
+          }) => {
+            const normalizedBrandQuery = normalizeLabel(brandQuery);
+            const filteredBrands = brandOptions.filter((b) =>
+              b.toLowerCase().includes(normalizedBrandQuery.toLowerCase())
+            );
+            const hasExactBrandMatch = brandOptions.some(
+              (b) => b.toLowerCase() === normalizedBrandQuery.toLowerCase()
+            );
+            const selectBrandValue = (nextBrand) => {
+              const clean = normalizeLabel(nextBrand);
+              setFieldValue('brand', clean);
+              setFieldTouched('brand', true, false);
+              setBrandSheetVisible(false);
+              setBrandQuery('');
+            };
 
-              <AtelierInput
-                label="Brand"
-                placeholder="e.g. Lamy"
-                value={values.brand}
-                onChangeText={handleChange('brand')}
-                onBlur={handleBlur('brand')}
-                error={errors.brand}
-                touched={touched.brand}
-              />
+            return (
+              <View style={styles.formContainer}>
+                <AtelierInput
+                  label="Product Name"
+                  placeholder="e.g. Lamy Safari Fountain Pen"
+                  value={values.name}
+                  onChangeText={handleChange('name')}
+                  onBlur={handleBlur('name')}
+                  error={errors.name}
+                  touched={touched.name}
+                />
 
-              <AtelierText
-                variant="caption"
-                color={theme.colors.inkSecondary}
-                style={styles.categoryLabel}
-              >
-                CATEGORY
-              </AtelierText>
-              <View style={styles.categoryRow}>
-                {categoryOptions.map((cat) => {
-                  const isSelected = values.category === cat;
-                  return (
-                    <AtelierPressable
-                      key={cat}
-                      tone={isSelected ? 'solid' : 'surface'}
-                      haptic="selection"
-                      hitSlop={4}
-                      onPress={() => setFieldValue('category', cat)}
-                      style={[
-                        styles.categoryChip,
-                        isSelected && styles.categoryChipSelected,
-                      ]}
+                <View style={styles.brandFieldWrapper}>
+                  <AtelierText
+                    variant="caption"
+                    color={theme.colors.inkSecondary}
+                    style={styles.brandFieldLabel}
+                  >
+                    BRAND
+                  </AtelierText>
+                  <AtelierPressable
+                    tone="surface"
+                    onPress={() => {
+                      setBrandQuery('');
+                      setBrandSheetVisible(true);
+                    }}
+                    style={[
+                      styles.brandSelectorBox,
+                      touched.brand && errors.brand && styles.brandSelectorError,
+                    ]}
+                    accessibilityLabel="Select product brand"
+                  >
+                    <AtelierText
+                      variant="bodyMedium"
+                      color={
+                        values.brand
+                          ? theme.colors.inkPrimary
+                          : theme.colors.inkMuted
+                      }
+                      numberOfLines={1}
+                      style={styles.brandSelectorText}
                     >
-                      <AtelierText
-                        variant="caption"
-                        color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
+                      {values.brand || 'Select or add brand...'}
+                    </AtelierText>
+                    <Ionicons
+                      name="chevron-down"
+                      size={18}
+                      color={theme.colors.inkMuted}
+                    />
+                  </AtelierPressable>
+                  {touched.brand && errors.brand ? (
+                    <AtelierText
+                      variant="bodySmall"
+                      color={theme.colors.error}
+                      style={styles.fieldErrorText}
+                    >
+                      {errors.brand}
+                    </AtelierText>
+                  ) : null}
+                </View>
+
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.inkSecondary}
+                  style={styles.categoryLabel}
+                >
+                  CATEGORY
+                </AtelierText>
+                <View style={styles.categoryRow}>
+                  {categoryOptions.map((cat) => {
+                    const isSelected = values.category === cat;
+                    return (
+                      <AtelierPressable
+                        key={cat}
+                        tone={isSelected ? 'solid' : 'surface'}
+                        haptic="selection"
+                        hitSlop={4}
+                        onPress={() => setFieldValue('category', cat)}
+                        style={[
+                          styles.categoryChip,
+                          isSelected && styles.categoryChipSelected,
+                        ]}
                       >
-                        {cat}
-                      </AtelierText>
-                    </AtelierPressable>
-                  );
-                })}
-              </View>
-
-              <View style={styles.twoColumnRow}>
-                <View style={styles.columnLeft}>
-                  <AtelierInput
-                    label="Price (PHP)"
-                    placeholder="4500.00"
-                    value={values.price}
-                    onChangeText={handleChange('price')}
-                    onBlur={handleBlur('price')}
-                    keyboardType="numeric"
-                    error={errors.price}
-                    touched={touched.price}
-                  />
+                        <AtelierText
+                          variant="caption"
+                          color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
+                        >
+                          {cat}
+                        </AtelierText>
+                      </AtelierPressable>
+                    );
+                  })}
                 </View>
-                <View style={styles.columnRight}>
-                  <AtelierInput
-                    label="Stock"
-                    placeholder="10"
-                    value={values.stock}
-                    onChangeText={handleChange('stock')}
-                    onBlur={handleBlur('stock')}
-                    keyboardType="numeric"
-                    error={errors.stock}
-                    touched={touched.stock}
-                  />
+
+                <View style={styles.twoColumnRow}>
+                  <View style={styles.columnLeft}>
+                    <AtelierInput
+                      label="Price (PHP)"
+                      placeholder="4500.00"
+                      value={values.price}
+                      onChangeText={handleChange('price')}
+                      onBlur={handleBlur('price')}
+                      keyboardType="numeric"
+                      error={errors.price}
+                      touched={touched.price}
+                    />
+                  </View>
+                  <View style={styles.columnRight}>
+                    <AtelierInput
+                      label="Stock"
+                      placeholder="10"
+                      value={values.stock}
+                      onChangeText={handleChange('stock')}
+                      onBlur={handleBlur('stock')}
+                      keyboardType="numeric"
+                      error={errors.stock}
+                      touched={touched.stock}
+                    />
+                  </View>
                 </View>
+
+                <AtelierInput
+                  label="Description"
+                  placeholder="Enter product description, specifications, and materials..."
+                  value={values.description}
+                  onChangeText={handleChange('description')}
+                  onBlur={handleBlur('description')}
+                  multiline
+                  numberOfLines={4}
+                  error={errors.description}
+                  touched={touched.description}
+                />
+
+                <AtelierButton
+                  title={submitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Product'}
+                  onPress={handleSubmit}
+                  loading={submitting}
+                  style={styles.submitButton}
+                />
+
+                <AtelierBottomSheet
+                  visible={brandSheetVisible}
+                  onClose={() => {
+                    setFieldTouched('brand', true, false);
+                    setBrandSheetVisible(false);
+                  }}
+                  title="Select Brand"
+                  subtitle="Choose an existing maker or add a new brand name."
+                  maxHeight="76%"
+                >
+                  <AtelierInput
+                    placeholder="Search or enter new brand..."
+                    value={brandQuery}
+                    onChangeText={setBrandQuery}
+                    autoCapitalize="words"
+                    rightIcon={brandQuery.length > 0 ? 'close-circle' : undefined}
+                    onRightIconPress={() => setBrandQuery('')}
+                    rightIconAccessibilityLabel="Clear brand search"
+                    style={styles.brandSearchInput}
+                  />
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    style={styles.brandPickerScroll}
+                  >
+                    {normalizedBrandQuery.length > 0 && !hasExactBrandMatch ? (
+                      <AtelierPressable
+                        tone="surface"
+                        haptic="selection"
+                        onPress={() => selectBrandValue(normalizedBrandQuery)}
+                        style={[styles.brandOptionRow, styles.brandCreateRow]}
+                      >
+                        <View style={styles.brandOptionLeft}>
+                          <Ionicons
+                            name="add-circle-outline"
+                            size={20}
+                            color={theme.colors.goldText}
+                          />
+                          <AtelierText
+                            variant="bodyMedium"
+                            color={theme.colors.goldText}
+                            style={styles.brandCreateText}
+                          >
+                            {`Use "${normalizedBrandQuery}"`}
+                          </AtelierText>
+                        </View>
+                      </AtelierPressable>
+                    ) : null}
+
+                    {filteredBrands.map((brandName) => {
+                      const isSelected = values.brand === brandName;
+                      return (
+                        <AtelierPressable
+                          key={brandName}
+                          tone="surface"
+                          haptic="selection"
+                          onPress={() => selectBrandValue(brandName)}
+                          style={[
+                            styles.brandOptionRow,
+                            isSelected && styles.brandOptionRowSelected,
+                          ]}
+                        >
+                          <AtelierText
+                            variant="bodyMedium"
+                            color={
+                              isSelected
+                                ? theme.colors.goldText
+                                : theme.colors.inkPrimary
+                            }
+                            style={isSelected ? styles.brandSelectedText : undefined}
+                          >
+                            {brandName}
+                          </AtelierText>
+                          {isSelected ? (
+                            <Ionicons
+                              name="checkmark"
+                              size={18}
+                              color={theme.colors.goldText}
+                            />
+                          ) : null}
+                        </AtelierPressable>
+                      );
+                    })}
+                  </ScrollView>
+                </AtelierBottomSheet>
               </View>
-
-              <AtelierInput
-                label="Description"
-                placeholder="Enter product description, specifications, and materials..."
-                value={values.description}
-                onChangeText={handleChange('description')}
-                onBlur={handleBlur('description')}
-                multiline
-                numberOfLines={4}
-                error={errors.description}
-                touched={touched.description}
-              />
-
-              <AtelierButton
-                title={submitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Product'}
-                onPress={handleSubmit}
-                loading={submitting}
-                style={styles.submitButton}
-              />
-            </View>
-          )}
+            );
+          }}
         </Formik>
       </ScrollView>
 
@@ -419,6 +565,56 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
           },
         ]}
       />
+
+      <AtelierBottomSheet
+        visible={selectedImageIndex !== null && Boolean(images[selectedImageIndex])}
+        onClose={() => setSelectedImageIndex(null)}
+        title="Manage Product Photo"
+        subtitle={
+          selectedImageIndex === 0
+            ? 'This photo is currently the product cover.'
+            : 'Promote to cover, reorder, or remove this photo.'
+        }
+        options={
+          selectedImageIndex !== null
+            ? [
+                ...(selectedImageIndex > 0
+                  ? [
+                      {
+                        key: 'cover',
+                        label: 'Set as Cover Photo',
+                        icon: 'star-outline',
+                        onPress: () => handleSetCoverImage(selectedImageIndex),
+                      },
+                      {
+                        key: 'left',
+                        label: 'Move Left',
+                        icon: 'arrow-back-outline',
+                        onPress: () => handleMoveImage(selectedImageIndex, -1),
+                      },
+                    ]
+                  : []),
+                ...(selectedImageIndex < images.length - 1
+                  ? [
+                      {
+                        key: 'right',
+                        label: 'Move Right',
+                        icon: 'arrow-forward-outline',
+                        onPress: () => handleMoveImage(selectedImageIndex, 1),
+                      },
+                    ]
+                  : []),
+                {
+                  key: 'remove',
+                  label: 'Remove Photo',
+                  icon: 'trash-outline',
+                  destructive: true,
+                  onPress: () => handleRemoveImage(selectedImageIndex),
+                },
+              ]
+            : []
+        }
+      />
     </View>
   );
 };
@@ -433,16 +629,20 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.hero,
   },
   sectionHeading: {
+    marginBottom: theme.spacing.xs,
+  },
+  imageHelperText: {
     marginBottom: theme.spacing.sm,
   },
   imageScroll: {
     gap: theme.spacing.sm,
+    alignItems: 'center',
     paddingVertical: theme.spacing.sm,
     marginBottom: theme.spacing.lg,
   },
   addImageTile: {
-    width: 90,
-    height: 90,
+    width: 96,
+    height: 96,
     borderRadius: theme.radii.xs,
     borderWidth: 1.5,
     borderColor: theme.colors.gold,
@@ -450,10 +650,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surfaceSubtle,
+    overflow: 'hidden',
   },
   imagePreviewWrapper: {
-    width: 100,
-    height: 100,
+    width: 96,
+    height: 96,
     borderRadius: theme.radii.xs,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -492,28 +693,72 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  reorderBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  brandFieldWrapper: {
+    marginBottom: theme.spacing.lg,
+  },
+  brandFieldLabel: {
+    marginBottom: theme.spacing.xs,
+  },
+  brandSelectorBox: {
+    minHeight: theme.touchTarget.minHeight,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.sm,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(28, 25, 23, 0.72)',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  reorderBtn: {
-    width: 26,
-    height: 22,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.lg,
+    overflow: 'hidden',
   },
-  reorderBtnPressed: {
-    opacity: 0.6,
+  brandSelectorError: {
+    borderColor: theme.colors.error,
+    backgroundColor: theme.colors.errorBg,
   },
-  reorderBtnDisabled: {
-    opacity: 0.3,
+  brandSelectorText: {
+    flex: 1,
+    marginRight: theme.spacing.sm,
+  },
+  fieldErrorText: {
+    marginTop: theme.spacing.xs,
+  },
+  brandSearchInput: {
+    marginBottom: theme.spacing.sm,
+  },
+  brandPickerScroll: {
+    maxHeight: 280,
+  },
+  brandOptionRow: {
+    minHeight: theme.touchTarget.minHeight,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.radii.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.xs,
+    overflow: 'hidden',
+  },
+  brandOptionRowSelected: {
+    borderColor: theme.colors.gold,
+    backgroundColor: theme.colors.surfaceSubtle,
+  },
+  brandCreateRow: {
+    borderColor: theme.colors.gold,
+    backgroundColor: theme.colors.surfaceSubtle,
+  },
+  brandOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  brandCreateText: {
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  brandSelectedText: {
+    fontFamily: 'Montserrat_600SemiBold',
   },
   formContainer: {
     marginTop: theme.spacing.sm,

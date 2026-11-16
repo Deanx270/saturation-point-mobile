@@ -1,6 +1,8 @@
 const Brand = require('../models/Brand');
 const Product = require('../models/Product');
 
+const normalizeName = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+
 const getBrands = async (req, res) => {
   try {
     const brands = await Brand.find({}).sort({ name: 1 });
@@ -12,8 +14,8 @@ const getBrands = async (req, res) => {
 
 const createBrand = async (req, res) => {
   try {
-    const name = (req.body.name || '').trim();
-    const origin = (req.body.origin || '').trim();
+    const name = normalizeName(req.body.name);
+    const origin = normalizeName(req.body.origin);
     const description = (req.body.description || '').trim();
 
     if (!name) {
@@ -29,6 +31,50 @@ const createBrand = async (req, res) => {
 
     const brand = await Brand.create({ name, origin, description });
     res.status(201).json(brand);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateBrand = async (req, res) => {
+  try {
+    const brand = await Brand.findById(req.params.id);
+    if (!brand) {
+      return res.status(404).json({ message: 'Brand not found' });
+    }
+
+    const previousName = brand.name;
+    const nextName =
+      req.body.name !== undefined ? normalizeName(req.body.name) : brand.name;
+
+    if (!nextName) {
+      return res.status(400).json({ message: 'Brand name is required' });
+    }
+
+    const conflict = await Brand.findOne({
+      _id: { $ne: brand._id },
+      name: {
+        $regex: new RegExp(`^${nextName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+      },
+    });
+    if (conflict) {
+      return res.status(400).json({ message: 'Another brand with that name already exists' });
+    }
+
+    brand.name = nextName;
+    if (req.body.origin !== undefined) {
+      brand.origin = normalizeName(req.body.origin);
+    }
+    if (req.body.description !== undefined) {
+      brand.description = String(req.body.description).trim();
+    }
+
+    const updated = await brand.save();
+    if (previousName !== nextName) {
+      await Product.updateMany({ brand: previousName }, { brand: nextName });
+    }
+
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -58,5 +104,6 @@ const deleteBrand = async (req, res) => {
 module.exports = {
   getBrands,
   createBrand,
+  updateBrand,
   deleteBrand,
 };

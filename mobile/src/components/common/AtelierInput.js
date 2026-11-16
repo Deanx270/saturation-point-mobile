@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
   },
   multilineContainer: {
-    minHeight: 90,
+    minHeight: 108,
     alignItems: 'flex-start',
   },
   focusedContainer: {
@@ -184,10 +184,11 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
   multilineInput: {
-    minHeight: 88,
+    minHeight: 106,
+    lineHeight: 22,
     textAlignVertical: 'top',
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
   eyeIcon: {
     padding: theme.spacing.xs,
