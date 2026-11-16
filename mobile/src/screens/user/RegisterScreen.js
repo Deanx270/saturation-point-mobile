@@ -36,7 +36,7 @@ export const RegisterScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.auth);
 
-  const handleRegisterSubmit = async (values) => {
+  const handleRegisterSubmit = async (values, formikHelpers) => {
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
       register({
@@ -48,7 +48,12 @@ export const RegisterScreen = ({ navigation }) => {
     );
 
     if (register.fulfilled.match(result)) {
-      navigation.navigate('Profile');
+      formikHelpers.resetForm();
+      if (navigation.canGoBack()) {
+        navigation.popToTop();
+      } else {
+        navigation.navigate('Profile');
+      }
     } else {
       Alert.alert('Registration Failed', result.payload || 'Unable to create account.');
     }
@@ -109,6 +114,8 @@ export const RegisterScreen = ({ navigation }) => {
                 onBlur={handleBlur('email')}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
                 error={errors.email}
                 touched={touched.email}
               />
@@ -120,6 +127,8 @@ export const RegisterScreen = ({ navigation }) => {
                 onChangeText={handleChange('password')}
                 onBlur={handleBlur('password')}
                 secureTextEntry
+                autoComplete="new-password"
+                textContentType="newPassword"
                 error={errors.password}
                 touched={touched.password}
               />
@@ -143,7 +152,11 @@ export const RegisterScreen = ({ navigation }) => {
               />
 
               <SocialAuthSection
-                onAuthenticated={() => navigation.navigate('Profile')}
+                onAuthenticated={() =>
+                  navigation.canGoBack()
+                    ? navigation.popToTop()
+                    : navigation.navigate('Profile')
+                }
               />
 
               <View style={styles.switchRow}>

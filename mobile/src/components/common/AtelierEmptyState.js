@@ -7,6 +7,7 @@ import AtelierButton from './AtelierButton';
 
 export const AtelierEmptyState = ({
   iconName = 'search-outline',
+  iconShape = 'square',
   title = 'Nothing Here Yet',
   description = 'No items to display right now.',
   actionTitle,
@@ -21,7 +22,12 @@ export const AtelierEmptyState = ({
 }) => {
   return (
     <View style={[styles.container, centered && styles.centered, style]}>
-      <View style={styles.iconFrame}>
+      <View
+        style={[
+          styles.iconFrame,
+          iconShape === 'circle' && styles.circleIconFrame,
+        ]}
+      >
         <Ionicons
           name={iconName}
           size={36}
@@ -29,7 +35,7 @@ export const AtelierEmptyState = ({
         />
       </View>
       <AtelierText
-        variant="title2"
+        variant="title1"
         style={styles.title}
       >
         {title}
@@ -68,7 +74,8 @@ export const AtelierEmptyState = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: theme.spacing.hero,
+    paddingVertical: theme.spacing.hero,
+    paddingHorizontal: theme.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -86,6 +93,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: theme.spacing.lg,
   },
+  circleIconFrame: {
+    borderRadius: 36,
+  },
   title: {
     textAlign: 'center',
     marginBottom: theme.spacing.xs,
@@ -93,7 +103,7 @@ const styles = StyleSheet.create({
   description: {
     textAlign: 'center',
     lineHeight: 22,
-    maxWidth: 280,
+    maxWidth: 300,
     marginBottom: theme.spacing.xl,
   },
   actionsWrapper: {

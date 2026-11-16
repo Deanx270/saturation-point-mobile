@@ -14,6 +14,7 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import { fetchOrderById } from '../../redux/ordersSlice';
 import {
   formatPrice,
@@ -30,10 +31,43 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
   const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
+    if (!user) {
+      if (navigation.canGoBack()) {
+        navigation.popToTop();
+      }
+      return;
+    }
     if (orderId) {
       dispatch(fetchOrderById(orderId));
     }
-  }, [dispatch, orderId]);
+  }, [dispatch, orderId, user, navigation]);
+
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <AtelierHeader
+          title="Order Details"
+          leftType="back"
+          navigation={navigation}
+        />
+        <AtelierEmptyState
+          iconName="lock-closed-outline"
+          title="Sign In Required"
+          description="Sign in to view your order details."
+          actionTitle="Sign In"
+          actionVariant="primary"
+          fullWidthActions
+          onActionPress={() =>
+            navigation.navigate('UserTab', { screen: 'Login' })
+          }
+          secondaryActionTitle="Create Account"
+          onSecondaryActionPress={() =>
+            navigation.navigate('UserTab', { screen: 'Register' })
+          }
+        />
+      </View>
+    );
+  }
 
   const isStaleOrder = !selectedOrder || (orderId && selectedOrder._id !== orderId);
 

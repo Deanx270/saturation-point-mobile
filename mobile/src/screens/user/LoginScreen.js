@@ -20,19 +20,19 @@ import { login } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
 import {
   emailSchemaField,
-  passwordSchemaField,
+  loginPasswordSchemaField,
 } from '../../utils/validationSchemas';
 
 const LoginSchema = Yup.object().shape({
   email: emailSchemaField,
-  password: passwordSchemaField,
+  password: loginPasswordSchemaField,
 });
 
 export const LoginScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.auth);
 
-  const handleLoginSubmit = async (values) => {
+  const handleLoginSubmit = async (values, formikHelpers) => {
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
       login({
@@ -43,7 +43,12 @@ export const LoginScreen = ({ navigation }) => {
     );
 
     if (login.fulfilled.match(result)) {
-      navigation.navigate('Profile');
+      formikHelpers.resetForm();
+      if (navigation.canGoBack()) {
+        navigation.popToTop();
+      } else {
+        navigation.navigate('Profile');
+      }
     } else {
       Alert.alert('Sign In Failed', result.payload || 'Invalid email or password.');
     }
@@ -89,6 +94,9 @@ export const LoginScreen = ({ navigation }) => {
                 onBlur={handleBlur('email')}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
+                importantForAutofill="yes"
                 error={errors.email}
                 touched={touched.email}
                 style={styles.compactInput}
@@ -101,6 +109,9 @@ export const LoginScreen = ({ navigation }) => {
                 onChangeText={handleChange('password')}
                 onBlur={handleBlur('password')}
                 secureTextEntry
+                autoComplete="current-password"
+                textContentType="password"
+                importantForAutofill="yes"
                 error={errors.password}
                 touched={touched.password}
                 style={styles.compactInput}
@@ -114,7 +125,11 @@ export const LoginScreen = ({ navigation }) => {
               />
 
               <SocialAuthSection
-                onAuthenticated={() => navigation.navigate('Profile')}
+                onAuthenticated={() =>
+                  navigation.canGoBack()
+                    ? navigation.popToTop()
+                    : navigation.navigate('Profile')
+                }
               />
 
               <View style={styles.switchRow}>

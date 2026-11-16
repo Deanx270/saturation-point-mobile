@@ -11,3 +11,6 @@ export const emailSchemaField = Yup.string()
 export const passwordSchemaField = Yup.string()
   .min(6, 'Minimum 6 characters')
   .required('Password is required');
+
+export const loginPasswordSchemaField = Yup.string()
+  .required('Password is required');

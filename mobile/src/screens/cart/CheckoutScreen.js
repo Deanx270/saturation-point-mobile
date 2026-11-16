@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -15,6 +15,7 @@ import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import { selectCartItems, selectCartTotal } from '../../redux/cartSlice';
 import { createOrder } from '../../redux/ordersSlice';
 import { formatPrice } from '../../utils/formatters';
@@ -44,7 +45,41 @@ export const CheckoutScreen = ({ navigation }) => {
   const items = useSelector(selectCartItems);
   const total = useSelector(selectCartTotal);
   const { loading } = useSelector((state) => state.orders);
+  const { user } = useSelector((state) => state.auth);
   const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery');
+
+  useEffect(() => {
+    if (!user && navigation.canGoBack()) {
+      navigation.popToTop();
+    }
+  }, [user, navigation]);
+
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <AtelierHeader
+          title="Checkout"
+          leftType="back"
+          navigation={navigation}
+        />
+        <AtelierEmptyState
+          iconName="lock-closed-outline"
+          title="Sign In Required"
+          description="Sign in to complete your checkout."
+          actionTitle="Sign In"
+          actionVariant="primary"
+          fullWidthActions
+          onActionPress={() =>
+            navigation.navigate('UserTab', { screen: 'Login' })
+          }
+          secondaryActionTitle="Create Account"
+          onSecondaryActionPress={() =>
+            navigation.navigate('UserTab', { screen: 'Register' })
+          }
+        />
+      </View>
+    );
+  }
 
   const totalQuantity = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
 

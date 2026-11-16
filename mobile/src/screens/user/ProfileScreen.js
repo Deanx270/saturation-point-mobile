@@ -20,6 +20,7 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierToast from '../../components/common/AtelierToast';
 import { updateProfile, requestSignOut, syncPushToken } from '../../redux/authSlice';
@@ -73,39 +74,18 @@ export const ProfileScreen = ({ navigation }) => {
           navigation={navigation}
         />
 
-        <View style={styles.guestContainer}>
-          <View style={styles.guestAvatarPlaceholder}>
-            <Ionicons
-              name="person-outline"
-              size={48}
-              color={theme.colors.inkMuted}
-            />
-          </View>
-          <AtelierText
-            variant="display"
-            style={styles.guestTitle}
-          >
-            Guest
-          </AtelierText>
-          <AtelierText
-            variant="bodyLarge"
-            color={theme.colors.inkSecondary}
-            style={styles.guestSubtitle}
-          >
-            Sign in to view your orders, save your details, and manage your account.
-          </AtelierText>
-          <AtelierButton
-            title="Sign In"
-            onPress={() => navigation.navigate('Login')}
-            style={styles.guestButton}
-          />
-          <AtelierButton
-            title="Create Account"
-            onPress={() => navigation.navigate('Register')}
-            variant="outline"
-            style={styles.guestButton}
-          />
-        </View>
+        <AtelierEmptyState
+          iconName="person-outline"
+          iconShape="circle"
+          title="Guest"
+          description="Sign in to view your orders, save your details, and manage your account."
+          actionTitle="Sign In"
+          actionVariant="primary"
+          fullWidthActions
+          onActionPress={() => navigation.navigate('Login')}
+          secondaryActionTitle="Create Account"
+          onSecondaryActionPress={() => navigation.navigate('Register')}
+        />
       </View>
     );
   }
@@ -443,22 +423,24 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.canvas,
   },
   scrollContent: {
-    padding: theme.spacing.xl,
-    paddingBottom: theme.spacing.hero,
+    paddingHorizontal: theme.spacing.xl,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
   },
   avatarSection: {
     alignItems: 'center',
-    marginVertical: theme.spacing.lg,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
   },
   avatarOuter: {
-    width: 100,
-    height: 100,
+    width: 84,
+    height: 84,
     position: 'relative',
   },
   avatarWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     borderWidth: 2,
     borderColor: theme.colors.gold,
     backgroundColor: theme.colors.surface,
@@ -472,12 +454,12 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 46,
+    borderRadius: 38,
   },
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    borderRadius: 46,
+    borderRadius: 38,
     backgroundColor: theme.colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
@@ -488,7 +470,7 @@ const styles = StyleSheet.create({
     left: 3,
     right: 3,
     bottom: 3,
-    borderRadius: 46,
+    borderRadius: 38,
     backgroundColor: 'rgba(28, 25, 23, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -497,9 +479,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: theme.colors.inkPrimary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -507,19 +489,20 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.surface,
   },
   profileDisplayName: {
-    marginTop: theme.spacing.md,
-  },
-  badgeRow: {
     marginTop: theme.spacing.sm,
   },
+  badgeRow: {
+    marginTop: theme.spacing.xs,
+  },
   infoCard: {
-    marginVertical: theme.spacing.lg,
+    marginTop: 0,
+    marginBottom: theme.spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: 6,
   },
   infoValueText: {
     fontFamily: 'Montserrat_500Medium',
@@ -532,48 +515,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: 6,
     borderRadius: theme.radii.xs,
     overflow: 'hidden',
   },
   sectionHeader: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   saveButton: {
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+    marginTop: 0,
+    marginBottom: theme.spacing.sm,
   },
   logoutButton: {
-    marginBottom: theme.spacing.hero,
-  },
-  guestContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.hero,
-  },
-  guestAvatarPlaceholder: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: theme.colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  guestTitle: {
-    textAlign: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  guestSubtitle: {
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: theme.spacing.xl,
-  },
-  guestButton: {
-    width: '100%',
     marginBottom: theme.spacing.md,
   },
 });
