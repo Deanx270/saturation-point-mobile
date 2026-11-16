@@ -31,6 +31,7 @@ import AtelierBottomSheet, {
   AtelierSheetProvider,
 } from './src/components/common/AtelierBottomSheet';
 import AtelierToast from './src/components/common/AtelierToast';
+import CompleteProfileScreen from './src/screens/user/CompleteProfileScreen';
 
 const GlobalAuthFeedback = () => {
   const dispatch = useDispatch();
@@ -146,6 +147,10 @@ const AppContent = () => {
     }
   }, [dispatch, user?._id, token]);
 
+  const needsProfileSetup = Boolean(
+    user && !user.username && !user.profileCompleted
+  );
+
   return (
     <SafeAreaProvider>
       <AtelierSheetProvider>
@@ -153,7 +158,7 @@ const AppContent = () => {
           style="dark"
           backgroundColor="#FAF9F6"
         />
-        <AppNavigator />
+        {needsProfileSetup ? <CompleteProfileScreen /> : <AppNavigator />}
         <GlobalAuthFeedback />
       </AtelierSheetProvider>
     </SafeAreaProvider>

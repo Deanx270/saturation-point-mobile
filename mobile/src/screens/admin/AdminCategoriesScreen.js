@@ -257,8 +257,8 @@ const AdminCategoriesScreen = ({ navigation }) => {
               />
 
               <AtelierInput
-                label="Description"
-                placeholder="Short description shown to admins"
+                label="Description (Optional)"
+                placeholder="Write a short description (optional)..."
                 value={values.description}
                 onChangeText={handleChange('description')}
                 onBlur={handleBlur('description')}

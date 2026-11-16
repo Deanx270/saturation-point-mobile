@@ -19,12 +19,12 @@ import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { login } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
 import {
-  emailSchemaField,
+  identifierSchemaField,
   loginPasswordSchemaField,
 } from '../../utils/validationSchemas';
 
 const LoginSchema = Yup.object().shape({
-  email: emailSchemaField,
+  identifier: identifierSchemaField,
   password: loginPasswordSchemaField,
 });
 
@@ -33,10 +33,12 @@ export const LoginScreen = ({ navigation }) => {
   const { loading } = useSelector((state) => state.auth);
 
   const handleLoginSubmit = async (values, formikHelpers) => {
+    const cleanIdentifier = values.identifier.trim();
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
       login({
-        email: values.email.trim(),
+        identifier: cleanIdentifier,
+        email: cleanIdentifier,
         password: values.password,
         pushToken,
       })
@@ -73,7 +75,7 @@ export const LoginScreen = ({ navigation }) => {
         />
 
         <Formik
-          initialValues={{ email: '', password: '' }}
+          initialValues={{ identifier: '', password: '' }}
           validationSchema={LoginSchema}
           onSubmit={handleLoginSubmit}
         >
@@ -87,18 +89,19 @@ export const LoginScreen = ({ navigation }) => {
           }) => (
             <View style={styles.formContainer}>
               <AtelierInput
-                label="Email"
-                placeholder="Enter your email address"
-                value={values.email}
-                onChangeText={handleChange('email')}
-                onBlur={handleBlur('email')}
+                label="Email or Username"
+                placeholder="Enter your email or username"
+                value={values.identifier}
+                onChangeText={handleChange('identifier')}
+                onBlur={handleBlur('identifier')}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                autoComplete="email"
-                textContentType="emailAddress"
+                autoCorrect={false}
+                autoComplete="username"
+                textContentType="username"
                 importantForAutofill="yes"
-                error={errors.email}
-                touched={touched.email}
+                error={errors.identifier}
+                touched={touched.identifier}
                 style={styles.compactInput}
               />
 

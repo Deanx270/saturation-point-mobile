@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   RefreshControl,
+  InteractionManager,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -25,8 +26,10 @@ export const AdminDashboardScreen = ({ navigation }) => {
   const { items: categories } = useSelector((state) => state.categories);
   const { items: brands } = useSelector((state) => state.brands);
   const [refreshing, setRefreshing] = useState(false);
+  const lastLoadedAtRef = useRef(0);
 
   const loadSummary = useCallback(async () => {
+    lastLoadedAtRef.current = Date.now();
     await Promise.all([
       dispatch(fetchProducts({ target: 'admin', page: 1, limit: 8 })),
       dispatch(fetchAllOrders()),
@@ -37,7 +40,13 @@ export const AdminDashboardScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      loadSummary();
+      if (Date.now() - lastLoadedAtRef.current < 5000) {
+        return undefined;
+      }
+      const task = InteractionManager.runAfterInteractions(() => {
+        loadSummary();
+      });
+      return () => task.cancel();
     }, [loadSummary])
   );
 

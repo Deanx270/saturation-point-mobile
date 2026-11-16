@@ -31,6 +31,54 @@ const mergeProducts = (existing, incoming) => {
   return merged;
 };
 
+const syncProductAcrossLists = (state, product) => {
+  if (!product?._id) {
+    return;
+  }
+  if (state.selectedProduct?._id === product._id) {
+    state.selectedProduct = product;
+  }
+  const shopIndex = state.items.findIndex((item) => item._id === product._id);
+  if (shopIndex !== -1) {
+    state.items[shopIndex] = product;
+  }
+  const adminIndex = state.adminItems.findIndex(
+    (item) => item._id === product._id
+  );
+  if (adminIndex !== -1) {
+    state.adminItems[adminIndex] = product;
+  }
+};
+
+const applyOrderStockDelta = (state, orderItems, multiplier) => {
+  if (!Array.isArray(orderItems) || orderItems.length === 0) {
+    return;
+  }
+  const deltaMap = new Map();
+  orderItems.forEach((item) => {
+    const id = item?.product?._id || item?.product;
+    const qty = Number(item?.quantity) || 0;
+    if (id && qty > 0) {
+      deltaMap.set(
+        String(id),
+        (deltaMap.get(String(id)) || 0) + qty * multiplier
+      );
+    }
+  });
+  const updateTarget = (product) => {
+    if (!product?._id) {
+      return;
+    }
+    const delta = deltaMap.get(String(product._id));
+    if (typeof delta === 'number') {
+      product.stock = Math.max(0, (Number(product.stock) || 0) + delta);
+    }
+  };
+  updateTarget(state.selectedProduct);
+  state.items.forEach(updateTarget);
+  state.adminItems.forEach(updateTarget);
+};
+
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
   async (filterParams = {}, { rejectWithValue, signal }) => {
@@ -186,6 +234,9 @@ const productsSlice = createSlice({
     clearSelectedProduct: (state) => {
       state.selectedProduct = null;
     },
+    syncProductSnapshot: (state, action) => {
+      syncProductAcrossLists(state, action.payload);
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -279,20 +330,7 @@ const productsSlice = createSlice({
       .addCase(fetchProductDetails.fulfilled, (state, action) => {
         state.loading = false;
         state.selectedProduct = action.payload;
-        if (action.payload?._id) {
-          const shopIndex = state.items.findIndex(
-            (item) => item._id === action.payload._id
-          );
-          if (shopIndex !== -1) {
-            state.items[shopIndex] = action.payload;
-          }
-          const adminIndex = state.adminItems.findIndex(
-            (item) => item._id === action.payload._id
-          );
-          if (adminIndex !== -1) {
-            state.adminItems[adminIndex] = action.payload;
-          }
-        }
+        syncProductAcrossLists(state, action.payload);
       })
       .addCase(fetchProductDetails.rejected, (state, action) => {
         state.loading = false;
@@ -340,20 +378,44 @@ const productsSlice = createSlice({
           state.selectedProduct = null;
         }
       })
+      .addCase('orders/createOrder/fulfilled', (state, action) => {
+        applyOrderStockDelta(state, action.payload?.orderItems, -1);
+      })
+      .addCase('orders/cancelMyOrder/fulfilled', (state, action) => {
+        applyOrderStockDelta(state, action.payload?.orderItems, 1);
+      })
+      .addCase('orders/updateOrderStatus/fulfilled', (state, action) => {
+        const order = action.payload;
+        if (
+          order &&
+          String(order.status || '').toLowerCase() === 'cancelled'
+        ) {
+          applyOrderStockDelta(state, order.orderItems, 1);
+        }
+      })
+      .addCase('auth/logout/fulfilled', (state) => {
+        state.selectedProduct = null;
+      })
       .addCase('auth/updateProfile/fulfilled', (state, action) => {
         const updatedUser = action.payload;
-        if (!updatedUser?._id || !updatedUser?.displayName) {
+        if (!updatedUser?._id) {
           return;
         }
         const targetId = String(updatedUser._id);
         const nextName = updatedUser.displayName;
+        const nextPhoto = updatedUser.photoURL;
         const patchReviews = (product) => {
           if (!product || !Array.isArray(product.reviews)) {
             return;
           }
           product.reviews.forEach((rev) => {
             if (rev?.user && String(rev.user) === targetId) {
-              rev.name = nextName;
+              if (nextName) {
+                rev.name = nextName;
+              }
+              if (nextPhoto !== undefined) {
+                rev.photoURL = nextPhoto;
+              }
             }
           });
         };
@@ -372,6 +434,7 @@ export const {
   setMinRating,
   resetFilters,
   clearSelectedProduct,
+  syncProductSnapshot,
 } = productsSlice.actions;
 
 export default productsSlice.reducer;

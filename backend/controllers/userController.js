@@ -12,18 +12,75 @@ const generateToken = (id) => {
   });
 };
 
+const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
+
+const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const formatFallbackNameFromEmail = (email) => {
+  const localPart = String(email || '').split('@')[0] || 'Customer';
+  const cleaned = localPart
+    .replace(/[._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) {
+    return 'Customer';
+  }
+  return cleaned
+    .split(' ')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
+const buildUserPayload = (user, token) => {
+  const payload = {
+    _id: user._id,
+    email: user.email,
+    displayName: user.displayName,
+    username: user.username || '',
+    photoURL: user.photoURL,
+    role: user.role,
+    profileCompleted: Boolean(user.profileCompleted || user.username),
+  };
+  if (token) {
+    payload.token = token;
+  }
+  return payload;
+};
+
 const registerUser = async (req, res) => {
   try {
     const { email, password, displayName, username, photoURL, pushToken, device } = req.body;
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!email || !password || !displayName) {
-      return res.status(400).json({ message: 'Email, password, and display name are required' });
+    if (!cleanEmail || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: cleanEmail });
     if (userExists) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
+
+    let cleanUsername;
+    if (typeof username === 'string' && username.trim()) {
+      cleanUsername = username.trim().replace(/^@/, '').toLowerCase();
+      if (!USERNAME_REGEX.test(cleanUsername)) {
+        return res.status(400).json({
+          message: 'Username must be 3 to 30 characters using letters, numbers, or underscores',
+        });
+      }
+      const existingUsername = await User.findOne({
+        username: { $regex: new RegExp(`^${escapeRegex(cleanUsername)}$`, 'i') },
+      });
+      if (existingUsername) {
+        return res.status(400).json({ message: 'That username is already taken' });
+      }
+    }
+
+    const cleanDisplayName =
+      typeof displayName === 'string' && displayName.trim()
+        ? displayName.trim()
+        : formatFallbackNameFromEmail(cleanEmail);
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -33,40 +90,53 @@ const registerUser = async (req, res) => {
       initialPushTokens.push({ token: pushToken, device: device || 'mobile', updatedAt: new Date() });
     }
 
-    const user = await User.create({
-      email,
+    const userData = {
+      email: cleanEmail,
       password: hashedPassword,
-      displayName,
-      username: username || email.split('@')[0],
+      displayName: cleanDisplayName,
       photoURL: photoURL || '',
       role: 'user',
       status: 'active',
+      profileCompleted: Boolean(cleanUsername),
       pushTokens: initialPushTokens,
-    });
+    };
+    if (cleanUsername) {
+      userData.username = cleanUsername;
+    }
 
+    const user = await User.create(userData);
     const token = generateToken(user._id);
 
-    res.status(201).json({
-      _id: user._id,
-      email: user.email,
-      displayName: user.displayName,
-      username: user.username,
-      photoURL: user.photoURL,
-      role: user.role,
-      token,
-    });
+    res.status(201).json(buildUserPayload(user, token));
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Email or username is already registered' });
+    }
     res.status(500).json({ message: error.message });
   }
 };
 
 const loginUser = async (req, res) => {
   try {
-    const { email, password, pushToken, device } = req.body;
+    const rawIdentifier = req.body.identifier || req.body.email;
+    const { password, pushToken, device } = req.body;
+    const normalizedIdentifier =
+      typeof rawIdentifier === 'string'
+        ? rawIdentifier.trim().replace(/^@/, '').toLowerCase()
+        : '';
 
-    const user = await User.findOne({ email }).select('+password');
+    if (!normalizedIdentifier || !password) {
+      return res.status(400).json({ message: 'Email or username and password are required' });
+    }
+
+    const user = await User.findOne({
+      $or: [
+        { email: normalizedIdentifier },
+        { username: normalizedIdentifier },
+      ],
+    }).select('+password');
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email, username, or password' });
     }
 
     if (user.status === 'disabled') {
@@ -75,7 +145,7 @@ const loginUser = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email, username, or password' });
     }
 
     if (pushToken) {
@@ -86,15 +156,7 @@ const loginUser = async (req, res) => {
 
     const token = generateToken(user._id);
 
-    res.json({
-      _id: user._id,
-      email: user.email,
-      displayName: user.displayName,
-      username: user.username,
-      photoURL: user.photoURL,
-      role: user.role,
-      token,
-    });
+    res.json(buildUserPayload(user, token));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -144,11 +206,11 @@ const socialLogin = async (req, res) => {
       user = await User.create({
         firebaseUid,
         email,
-        displayName: displayName || email.split('@')[0],
-        username: email.split('@')[0] + Math.floor(Math.random() * 1000),
+        displayName: displayName || formatFallbackNameFromEmail(email),
         photoURL: photoURL || '',
         role: 'user',
         status: 'active',
+        profileCompleted: false,
       });
     } else {
       if (firebaseUid && !user.firebaseUid) {
@@ -170,15 +232,7 @@ const socialLogin = async (req, res) => {
     await user.save();
     const token = generateToken(user._id);
 
-    res.json({
-      _id: user._id,
-      email: user.email,
-      displayName: user.displayName,
-      username: user.username,
-      photoURL: user.photoURL,
-      role: user.role,
-      token,
-    });
+    res.json(buildUserPayload(user, token));
   } catch (error) {
     if (error.code && String(error.code).startsWith('auth/')) {
       return res.status(401).json({ message: 'Invalid or expired social authentication token' });
@@ -212,12 +266,32 @@ const updateUserProfile = async (req, res) => {
       displayNameChanged = true;
     }
     if (typeof req.body.username === 'string' && req.body.username.trim()) {
-      user.username = req.body.username.trim();
+      const cleanUsername = req.body.username.trim().replace(/^@/, '').toLowerCase();
+      if (!USERNAME_REGEX.test(cleanUsername)) {
+        return res.status(400).json({
+          message: 'Username must be 3 to 30 characters using letters, numbers, or underscores',
+        });
+      }
+      const existingOwner = await User.findOne({
+        _id: { $ne: user._id },
+        username: { $regex: new RegExp(`^${escapeRegex(cleanUsername)}$`, 'i') },
+      });
+      if (existingOwner) {
+        return res.status(400).json({ message: 'That username is already taken' });
+      }
+      user.username = cleanUsername;
+      user.profileCompleted = true;
     }
+    if (req.body.skipOnboarding === true || req.body.profileCompleted === true) {
+      user.profileCompleted = true;
+    }
+    let photoURLChanged = false;
     if (req.file && req.file.path) {
       user.photoURL = req.file.path;
+      photoURLChanged = true;
     } else if (req.body.photoURL !== undefined) {
       user.photoURL = req.body.photoURL;
+      photoURLChanged = true;
     }
 
     if (req.body.password) {
@@ -227,7 +301,7 @@ const updateUserProfile = async (req, res) => {
 
     await user.save();
 
-    if (displayNameChanged && user.displayName) {
+    if ((displayNameChanged || photoURLChanged) && user.displayName) {
       await Product.updateMany(
         { 'reviews.user': user._id },
         { $set: { 'reviews.$[elem].name': user.displayName } },
@@ -235,14 +309,7 @@ const updateUserProfile = async (req, res) => {
       );
     }
 
-    res.json({
-      _id: user._id,
-      email: user.email,
-      displayName: user.displayName,
-      username: user.username,
-      photoURL: user.photoURL,
-      role: user.role,
-    });
+    res.json(buildUserPayload(user));
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ message: 'That username is already taken' });
@@ -310,12 +377,39 @@ const removePushToken = async (req, res) => {
   }
 };
 
+const checkUsernameAvailability = async (req, res) => {
+  try {
+    const raw = typeof req.query.username === 'string' ? req.query.username : '';
+    const clean = raw.trim().replace(/^@/, '').toLowerCase();
+    if (!clean || !USERNAME_REGEX.test(clean)) {
+      return res.json({
+        available: false,
+        valid: false,
+        message: 'Use 3 to 30 letters, numbers, or underscores.',
+      });
+    }
+    const existing = await User.findOne({
+      username: { $regex: new RegExp(`^${escapeRegex(clean)}$`, 'i') },
+    })
+      .select('_id')
+      .lean();
+    res.json({
+      available: !existing,
+      valid: true,
+      username: clean,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   socialLogin,
   getUserProfile,
   updateUserProfile,
+  checkUsernameAvailability,
   registerPushToken,
   removePushToken,
 };

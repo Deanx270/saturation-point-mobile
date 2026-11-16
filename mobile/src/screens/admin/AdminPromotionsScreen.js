@@ -147,7 +147,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
 
               <AtelierInput
                 label="Discount (%)"
-                placeholder="15"
+                placeholder="e.g. 15"
                 value={values.discountPercent}
                 onChangeText={handleChange('discountPercent')}
                 onBlur={handleBlur('discountPercent')}

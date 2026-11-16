@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   FlatList,
@@ -9,6 +9,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
+import apiClient from '../../api/client';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
@@ -23,6 +24,7 @@ import {
   removeFromCart,
   clearCart,
 } from '../../redux/cartSlice';
+import { syncProductSnapshot } from '../../redux/productsSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
 
 export const CartScreen = ({ navigation }) => {
@@ -30,6 +32,7 @@ export const CartScreen = ({ navigation }) => {
   const items = useSelector(selectCartItems);
   const total = useSelector(selectCartTotal);
   const { user } = useSelector((state) => state.auth);
+  const [checkingStock, setCheckingStock] = useState(false);
 
   const handleSetQuantity = (item, nextQty) => {
     if (
@@ -62,7 +65,7 @@ export const CartScreen = ({ navigation }) => {
     );
   };
 
-  const handleProceedToCheckout = () => {
+  const handleProceedToCheckout = async () => {
     if (!user) {
       Alert.alert(
         'Sign In Required',
@@ -78,7 +81,46 @@ export const CartScreen = ({ navigation }) => {
       );
       return;
     }
-    navigation.navigate('Checkout');
+
+    if (checkingStock || items.length === 0) {
+      return;
+    }
+
+    setCheckingStock(true);
+    try {
+      const adjustments = [];
+      await Promise.all(
+        items.map(async (item) => {
+          try {
+            const res = await apiClient.get(`/products/${item.product}`);
+            const latest = res.data;
+            if (!latest?._id) {
+              return;
+            }
+            dispatch(syncProductSnapshot(latest));
+            const liveStock = Math.max(0, Number(latest.stock) || 0);
+            if (liveStock <= 0) {
+              dispatch(removeFromCart(item.product));
+              adjustments.push(`${item.name} is now out of stock and was removed.`);
+            } else if (item.quantity > liveStock) {
+              dispatch(updateQuantity({ product: item.product, quantity: liveStock }));
+              adjustments.push(
+                `${item.name} quantity adjusted to ${liveStock} (available stock).`
+              );
+            }
+          } catch (e) {}
+        })
+      );
+
+      if (adjustments.length > 0) {
+        Alert.alert('Cart Stock Updated', adjustments.join('\n'));
+        return;
+      }
+
+      navigation.navigate('Checkout');
+    } finally {
+      setCheckingStock(false);
+    }
   };
 
   const openProductDetails = (productId) => {
@@ -275,7 +317,9 @@ export const CartScreen = ({ navigation }) => {
           </View>
 
           <AtelierButton
-            title="Checkout"
+            title={checkingStock ? 'Checking Stock...' : 'Checkout'}
+            loading={checkingStock}
+            disabled={checkingStock}
             onPress={handleProceedToCheckout}
             style={styles.checkoutButton}
           />

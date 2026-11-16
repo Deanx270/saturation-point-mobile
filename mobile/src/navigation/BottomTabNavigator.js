@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Platform, Pressable } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StackActions } from '@react-navigation/native';
+import { StackActions, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { theme } from '../theme';
@@ -17,20 +17,69 @@ import CartIconBadge from '../components/common/CartIcon';
 
 const Tab = createBottomTabNavigator();
 
+const AtelierTabBarButton = ({
+  children,
+  onPress,
+  onLongPress,
+  style,
+  accessibilityState,
+  accessibilityLabel,
+}) => (
+  <Pressable
+    onPress={onPress}
+    onLongPress={onLongPress}
+    accessibilityRole="button"
+    accessibilityState={accessibilityState}
+    accessibilityLabel={accessibilityLabel}
+    style={({ pressed }) => [style, pressed && styles.tabButtonPressed]}
+  >
+    {children}
+  </Pressable>
+);
+
 export const BottomTabNavigator = () => {
+  const navigation = useNavigation();
   const { user } = useSelector((state) => state.auth);
   const isAdmin = user?.role === 'admin';
+  const sessionKey = `${user?._id || 'guest'}_${user?.role || ''}`;
+  const prevSessionRef = useRef(sessionKey);
+
+  useEffect(() => {
+    if (prevSessionRef.current === sessionKey) {
+      return;
+    }
+    prevSessionRef.current = sessionKey;
+    const tabState = navigation.getState?.();
+    if (!tabState?.routes) {
+      return;
+    }
+    tabState.routes.forEach((route) => {
+      if (
+        route.name !== 'UserTab' &&
+        route.state?.key &&
+        typeof route.state.index === 'number' &&
+        route.state.index > 0
+      ) {
+        navigation.dispatch({
+          ...StackActions.popToTop(),
+          target: route.state.key,
+        });
+      }
+    });
+  }, [sessionKey, navigation]);
 
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
       screenOptions={{
         headerShown: false,
+        animation: 'none',
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: theme.colors.goldText,
         tabBarInactiveTintColor: theme.colors.inkMuted,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
+        tabBarButton: (props) => <AtelierTabBarButton {...props} />,
       }}
     >
       <Tab.Screen
@@ -205,6 +254,9 @@ const styles = StyleSheet.create({
   tabBarLabel: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  tabButtonPressed: {
+    opacity: 0.68,
   },
 });
 

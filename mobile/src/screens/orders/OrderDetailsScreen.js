@@ -330,7 +330,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
             <AtelierCard
               key={index}
               onPress={itemProductId ? () => openProductScreen(itemProductId) : undefined}
-              style={styles.itemCard}
+              style={[styles.itemCard, canReviewItem && styles.itemCardWithCta]}
             >
               <View style={styles.itemRow}>
                 {hasValidImage ? (
@@ -630,8 +630,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    marginHorizontal: -theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    minHeight: 44,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
@@ -647,6 +649,9 @@ const styles = StyleSheet.create({
   itemCard: {
     marginBottom: theme.spacing.md,
     backgroundColor: theme.colors.surface,
+  },
+  itemCardWithCta: {
+    paddingBottom: 0,
   },
   itemRow: {
     flexDirection: 'row',

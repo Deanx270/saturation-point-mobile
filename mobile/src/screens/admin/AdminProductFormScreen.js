@@ -413,7 +413,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                     <AtelierInput
                       label="Price (₱)"
                       prefix="₱"
-                      placeholder="4500.00"
+                      placeholder="e.g. 4500.00"
                       value={values.price}
                       onChangeText={handleChange('price')}
                       onBlur={handleBlur('price')}
@@ -425,7 +425,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                   <View style={styles.columnRight}>
                     <AtelierInput
                       label="Stock"
-                      placeholder="10"
+                      placeholder="e.g. 10"
                       value={values.stock}
                       onChangeText={handleChange('stock')}
                       onBlur={handleBlur('stock')}

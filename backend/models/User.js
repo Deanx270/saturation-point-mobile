@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       trim: true,
+      lowercase: true,
+    },
+    profileCompleted: {
+      type: Boolean,
+      default: false,
     },
     displayName: {
       type: String,

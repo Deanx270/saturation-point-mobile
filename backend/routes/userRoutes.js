@@ -6,12 +6,14 @@ const {
   socialLogin,
   getUserProfile,
   updateUserProfile,
+  checkUsernameAvailability,
   registerPushToken,
   removePushToken,
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const { upload } = require('../utils/cloudinary');
 
+router.get('/check-username', checkUsernameAvailability);
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/social-login', socialLogin);

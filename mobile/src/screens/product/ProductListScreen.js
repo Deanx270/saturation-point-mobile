@@ -13,6 +13,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../../theme';
+import apiClient from '../../api/client';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
@@ -34,6 +35,7 @@ import {
   setPriceFilter,
   setMinRating,
   resetFilters,
+  syncProductSnapshot,
 } from '../../redux/productsSlice';
 import { addToCart, selectCartItems } from '../../redux/cartSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
@@ -72,6 +74,7 @@ export const ProductListScreen = ({ navigation }) => {
 
   const [searchInput, setSearchInput] = useState(searchKeyword);
   const [refreshing, setRefreshing] = useState(false);
+  const [addingProductId, setAddingProductId] = useState(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [minPriceDraft, setMinPriceDraft] = useState(minPrice);
   const [maxPriceDraft, setMaxPriceDraft] = useState(maxPrice);
@@ -191,37 +194,59 @@ export const ProductListScreen = ({ navigation }) => {
   };
 
   const handleAddToCart = async (product) => {
-    if (product.stock <= 0) {
+    if (!product?._id || product.stock <= 0 || addingProductId === product._id) {
       return;
     }
-    const existingItem = cartItems.find((item) => item.product === product._id);
-    const existingQty = existingItem ? existingItem.quantity : 0;
-    if (existingQty >= product.stock) {
-      Alert.alert(
-        'Stock Limit Reached',
-        `You already have the maximum available stock (${product.stock}) for ${product.name} in your cart.`
-      );
-      return;
-    }
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
 
-    dispatch(
-      addToCart({
-        product: product._id,
-        name: product.name,
-        price: product.price,
-        image: product.images?.[0] || '',
-        brand: product.brand,
-        stock: product.stock,
-      })
-    );
-    setToastState({
-      visible: true,
-      message: `${product.name} added to cart`,
-      key: Date.now(),
-    });
+    setAddingProductId(product._id);
+    try {
+      let latestProduct = product;
+      try {
+        const res = await apiClient.get(`/products/${product._id}`);
+        if (res.data?._id) {
+          latestProduct = res.data;
+          dispatch(syncProductSnapshot(latestProduct));
+        }
+      } catch (e) {}
+
+      const liveStock = Math.max(0, Number(latestProduct.stock) || 0);
+      if (liveStock <= 0) {
+        Alert.alert('Out of Stock', `${latestProduct.name} is currently out of stock.`);
+        return;
+      }
+
+      const existingItem = cartItems.find((item) => item.product === latestProduct._id);
+      const existingQty = existingItem ? existingItem.quantity : 0;
+      if (existingQty >= liveStock) {
+        Alert.alert(
+          'Stock Limit Reached',
+          `You already have the maximum available stock (${liveStock}) for ${latestProduct.name} in your cart.`
+        );
+        return;
+      }
+
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (e) {}
+
+      dispatch(
+        addToCart({
+          product: latestProduct._id,
+          name: latestProduct.name,
+          price: latestProduct.price,
+          image: latestProduct.images?.[0] || '',
+          brand: latestProduct.brand,
+          stock: liveStock,
+        })
+      );
+      setToastState({
+        visible: true,
+        message: `${latestProduct.name} added to cart`,
+        key: Date.now(),
+      });
+    } finally {
+      setAddingProductId(null);
+    }
   };
 
   const hasActiveFilter = Boolean(
@@ -306,7 +331,7 @@ export const ProductListScreen = ({ navigation }) => {
                     tone="none"
                     stopPropagation
                     haptic="none"
-                    disabled={item.stock <= 0}
+                    disabled={item.stock <= 0 || addingProductId === item._id}
                     pressedStyle={styles.quickAddPressed}
                     style={[
                       styles.quickAddButton,

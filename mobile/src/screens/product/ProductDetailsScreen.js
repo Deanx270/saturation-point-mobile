@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   ScrollView,
@@ -8,12 +8,14 @@ import {
   Keyboard,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../../theme';
+import apiClient from '../../api/client';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierBadge from '../../components/common/AtelierBadge';
@@ -25,7 +27,10 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
-import { fetchProductDetails } from '../../redux/productsSlice';
+import {
+  fetchProductDetails,
+  syncProductSnapshot,
+} from '../../redux/productsSlice';
 import { addToCart, selectCartItems } from '../../redux/cartSlice';
 import {
   checkEligibility,
@@ -71,6 +76,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
 
   const [quantity, setQuantity] = useState(1);
   const [stockWarning, setStockWarning] = useState('');
+  const [addingToCart, setAddingToCart] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [editingReview, setEditingReview] = useState(null);
   const [deleteReviewTarget, setDeleteReviewTarget] = useState(null);
@@ -90,6 +96,17 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
       dispatch(checkEligibility(productId));
     }
   }, [dispatch, productId, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (productId) {
+        dispatch(fetchProductDetails(productId));
+      }
+      if (user && user.role !== 'admin' && productId) {
+        dispatch(checkEligibility(productId));
+      }
+    }, [dispatch, productId, user])
+  );
 
   useEffect(() => {
     if (submitSuccess) {
@@ -151,34 +168,73 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
 
   const handleAddToCart = async () => {
     Keyboard.dismiss();
-    if (isStaleProduct || selectedProduct.stock <= 0) {
+    if (isStaleProduct || addingToCart || selectedProduct.stock <= 0) {
       return;
     }
-    if (remainingStock <= 0) {
-      Alert.alert(
-        'Stock Limit Reached',
-        `You already have the maximum available stock (${selectedProduct.stock}) for ${selectedProduct.name} in your cart.`
-      );
-      return;
-    }
-    const qtyToAdd = Math.max(1, Math.min(quantity, remainingStock));
-    try {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {}
 
-    dispatch(
-      addToCart({
-        product: selectedProduct._id,
-        name: selectedProduct.name,
-        price: effectiveUnitPrice,
-        quantity: qtyToAdd,
-        image: selectedProduct.images?.[0] || '',
-        brand: selectedProduct.brand,
-        stock: selectedProduct.stock,
-      })
-    );
-    setLastAddedQty(qtyToAdd);
-    setAddedToCartSheetVisible(true);
+    setAddingToCart(true);
+    try {
+      let latestProduct = selectedProduct;
+      try {
+        const res = await apiClient.get(`/products/${selectedProduct._id}`);
+        if (res.data?._id) {
+          latestProduct = res.data;
+          dispatch(syncProductSnapshot(latestProduct));
+        }
+      } catch (e) {}
+
+      const liveStock = Math.max(0, Number(latestProduct.stock) || 0);
+      const liveRemaining = Math.max(0, liveStock - existingCartQty);
+
+      if (liveStock <= 0) {
+        setStockWarning('This item is now out of stock.');
+        Alert.alert('Out of Stock', `${latestProduct.name} is currently out of stock.`);
+        return;
+      }
+
+      if (liveRemaining <= 0) {
+        Alert.alert(
+          'Stock Limit Reached',
+          `You already have the maximum available stock (${liveStock}) for ${latestProduct.name} in your cart.`
+        );
+        return;
+      }
+
+      if (quantity > liveRemaining) {
+        setQuantity(liveRemaining);
+        setStockWarning(`Maximum available to add is ${liveRemaining}.`);
+        Alert.alert(
+          'Stock Updated',
+          `Only ${liveRemaining} more ${liveRemaining === 1 ? 'unit is' : 'units are'} available (${liveStock} total in stock).`
+        );
+        return;
+      }
+
+      const qtyToAdd = Math.max(1, Math.min(quantity, liveRemaining));
+      try {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (e) {}
+
+      const unitPrice = hasPromoDiscount
+        ? Math.round(latestProduct.price * (1 - parsedDiscount / 100))
+        : latestProduct.price;
+
+      dispatch(
+        addToCart({
+          product: latestProduct._id,
+          name: latestProduct.name,
+          price: unitPrice,
+          quantity: qtyToAdd,
+          image: latestProduct.images?.[0] || '',
+          brand: latestProduct.brand,
+          stock: liveStock,
+        })
+      );
+      setLastAddedQty(qtyToAdd);
+      setAddedToCartSheetVisible(true);
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
   const handleReviewSubmit = async (values, { resetForm }) => {
@@ -232,6 +288,23 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     setDeleteReviewTarget(null);
     await dispatch(removeReview({ productId, reviewId: targetId }));
   };
+
+  const sortedReviews = useMemo(() => {
+    const list = Array.isArray(selectedProduct?.reviews)
+      ? [...selectedProduct.reviews]
+      : [];
+    const currentUserId = user?._id ? String(user._id) : null;
+    return list.sort((a, b) => {
+      const aOwn = Boolean(currentUserId && a?.user && String(a.user) === currentUserId);
+      const bOwn = Boolean(currentUserId && b?.user && String(b.user) === currentUserId);
+      if (aOwn !== bOwn) {
+        return aOwn ? -1 : 1;
+      }
+      const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [selectedProduct?.reviews, user?._id]);
 
   if (error && isStaleProduct) {
     return (
@@ -660,12 +733,13 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
               </AtelierCard>
             ) : null}
 
-            {selectedProduct.reviews && selectedProduct.reviews.length > 0 ? (
-              selectedProduct.reviews.map((rev) => {
+            {sortedReviews.length > 0 ? (
+              sortedReviews.map((rev) => {
                 const isOwnReview = Boolean(
                   user?._id && rev.user && String(user._id) === String(rev.user)
                 );
                 const canDelete = user?.role === 'admin' || isOwnReview;
+                const hasReviewerAvatar = isValidRemoteOrLocalUri(rev.photoURL);
 
                 return (
                   <AtelierCard
@@ -673,12 +747,37 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                     style={styles.reviewItemCard}
                   >
                     <View style={styles.reviewHeaderRow}>
-                      <AtelierText
-                        variant="title2"
-                        style={styles.reviewerName}
-                      >
-                        {rev.name}
-                      </AtelierText>
+                      <View style={styles.reviewerIdentityRow}>
+                        {hasReviewerAvatar ? (
+                          <Image
+                            source={{ uri: rev.photoURL }}
+                            style={styles.reviewerAvatar}
+                          />
+                        ) : (
+                          <View style={styles.reviewerAvatarPlaceholder}>
+                            <Ionicons
+                              name="person-outline"
+                              size={15}
+                              color={theme.colors.inkMuted}
+                            />
+                          </View>
+                        )}
+                        <View style={styles.reviewerNameGroup}>
+                          <AtelierText
+                            variant="title2"
+                            numberOfLines={1}
+                            style={styles.reviewerName}
+                          >
+                            {rev.name}
+                          </AtelierText>
+                          {isOwnReview ? (
+                            <AtelierBadge
+                              label="Your Review"
+                              status="gold"
+                            />
+                          ) : null}
+                        </View>
+                      </View>
                       <View style={styles.ratingStars}>
                         {[1, 2, 3, 4, 5].map((s) => (
                           <Ionicons
@@ -770,7 +869,8 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                   : `Add to Cart — ${formatPrice(effectiveUnitPrice * quantity)}`
             }
             onPress={handleAddToCart}
-            disabled={selectedProduct.stock <= 0}
+            loading={addingToCart}
+            disabled={selectedProduct.stock <= 0 || addingToCart}
             style={styles.addToCartButton}
           />
         )}
@@ -1014,7 +1114,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.xs,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  reviewerIdentityRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  reviewerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceSubtle,
+  },
+  reviewerAvatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewerNameGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
   },
   reviewerName: {
     fontSize: 15,

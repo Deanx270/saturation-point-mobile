@@ -50,24 +50,25 @@ const syncProductReviewAuthors = async (input) => {
 
   if (userIdsSet.size > 0) {
     const users = await User.find({ _id: { $in: Array.from(userIdsSet) } })
-      .select('displayName')
+      .select('displayName photoURL')
       .lean();
-    const displayNameMap = new Map(
+    const userMap = new Map(
       users
-        .filter((u) => u && u.displayName)
-        .map((u) => [String(u._id), u.displayName])
+        .filter((u) => u && u._id)
+        .map((u) => [String(u._id), { displayName: u.displayName, photoURL: u.photoURL || '' }])
     );
 
     normalized.forEach((product) => {
       if (Array.isArray(product.reviews)) {
         product.reviews = product.reviews.map((rev) => {
-          const latestName = rev?.user ? displayNameMap.get(String(rev.user)) : null;
-          if (!latestName) {
+          const userInfo = rev?.user ? userMap.get(String(rev.user)) : null;
+          if (!userInfo) {
             return rev;
           }
           return {
             ...rev,
-            name: latestName,
+            name: userInfo.displayName || rev.name,
+            photoURL: userInfo.photoURL || '',
           };
         });
       }

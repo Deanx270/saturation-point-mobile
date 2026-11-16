@@ -24,7 +24,6 @@ import {
 } from '../../utils/validationSchemas';
 
 const RegisterSchema = Yup.object().shape({
-  displayName: Yup.string().trim().required('Full name is required'),
   email: emailSchemaField,
   password: passwordSchemaField,
   confirmPassword: Yup.string()
@@ -40,7 +39,6 @@ export const RegisterScreen = ({ navigation }) => {
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
       register({
-        displayName: values.displayName.trim(),
         email: values.email.trim(),
         password: values.password,
         pushToken,
@@ -79,7 +77,6 @@ export const RegisterScreen = ({ navigation }) => {
 
         <Formik
           initialValues={{
-            displayName: '',
             email: '',
             password: '',
             confirmPassword: '',
@@ -96,19 +93,6 @@ export const RegisterScreen = ({ navigation }) => {
             touched,
           }) => (
             <View style={styles.formContainer}>
-              <AtelierInput
-                label="Full Name"
-                placeholder="Enter your full name"
-                value={values.displayName}
-                onChangeText={handleChange('displayName')}
-                onBlur={handleBlur('displayName')}
-                autoCapitalize="words"
-                autoComplete="name"
-                textContentType="name"
-                error={errors.displayName}
-                touched={touched.displayName}
-              />
-
               <AtelierInput
                 label="Email"
                 placeholder="Enter your email address"

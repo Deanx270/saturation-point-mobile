@@ -31,9 +31,18 @@ import {
   pickImagesFromGallery,
   captureImageWithCamera,
 } from '../../utils/imagePickerHelper';
+import { USERNAME_REGEX } from '../../utils/validationSchemas';
 
 const ProfileSchema = Yup.object().shape({
   displayName: Yup.string().trim().required('Display name is required'),
+  username: Yup.string()
+    .trim()
+    .transform((v) => (v ? v.replace(/^@/, '') : ''))
+    .test(
+      'optional-username',
+      'Username must be 3–30 characters (letters, numbers, underscores)',
+      (value) => !value || USERNAME_REGEX.test(value)
+    ),
 });
 
 export const ProfileScreen = ({ navigation }) => {
@@ -146,6 +155,9 @@ export const ProfileScreen = ({ navigation }) => {
     const payload = {
       displayName: values.displayName.trim(),
     };
+    if (!user?.username && typeof values.username === 'string' && values.username.trim()) {
+      payload.username = values.username.trim().replace(/^@/, '').toLowerCase();
+    }
     const result = await dispatch(updateProfile(payload));
     if (updateProfile.fulfilled.match(result)) {
       setToastState((prev) => ({
@@ -346,6 +358,7 @@ export const ProfileScreen = ({ navigation }) => {
           enableReinitialize
           initialValues={{
             displayName: user.displayName || '',
+            username: '',
           }}
           validationSchema={ProfileSchema}
           onSubmit={handleProfileSubmit}
@@ -361,12 +374,29 @@ export const ProfileScreen = ({ navigation }) => {
             <View>
               <AtelierInput
                 label="Display Name"
+                placeholder="Enter your display name"
                 value={values.displayName}
                 onChangeText={handleChange('displayName')}
                 onBlur={handleBlur('displayName')}
                 error={errors.displayName}
                 touched={touched.displayName}
               />
+
+              {!user.username ? (
+                <AtelierInput
+                  label="Username (Optional)"
+                  prefix="@"
+                  placeholder="e.g. alex_santos"
+                  helperText="Set a handle to sign in with username"
+                  value={values.username}
+                  onChangeText={handleChange('username')}
+                  onBlur={handleBlur('username')}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  error={errors.username}
+                  touched={touched.username}
+                />
+              ) : null}
 
               <AtelierButton
                 title={loading ? 'Saving...' : 'Save Changes'}
