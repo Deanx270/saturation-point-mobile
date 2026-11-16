@@ -10,6 +10,8 @@ STARTUP_GUIDE.md
 .env
 .env.local
 .env.*.local
+*firebase-adminsdk*.json
+serviceAccountKey.json
 *.log
 npm-debug.log*
 yarn-debug.log*
