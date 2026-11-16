@@ -143,10 +143,10 @@ export const AdminProductsScreen = ({ navigation }) => {
               <AtelierBadge
                 label={
                   item.stock <= 0
-                    ? 'OUT OF STOCK'
+                    ? 'Out of Stock'
                     : item.stock <= 5
-                    ? `${item.stock} LOW STOCK`
-                    : `${item.stock} IN STOCK`
+                    ? `${item.stock} Low Stock`
+                    : `${item.stock} in Stock`
                 }
                 status={
                   item.stock <= 0
@@ -197,7 +197,7 @@ export const AdminProductsScreen = ({ navigation }) => {
                   color={theme.colors.inkPrimary}
                   style={styles.actionLabel}
                 >
-                  EDIT
+                  Edit
                 </AtelierText>
               </AtelierPressable>
 
@@ -218,7 +218,7 @@ export const AdminProductsScreen = ({ navigation }) => {
                   color={theme.colors.error}
                   style={styles.actionLabel}
                 >
-                  DELETE
+                  Delete
                 </AtelierText>
               </AtelierPressable>
             </View>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import * as Notifications from 'expo-notifications';
@@ -13,14 +13,72 @@ import {
   Montserrat_600SemiBold,
 } from '@expo-google-fonts/montserrat';
 import { store } from './src/redux/store';
+import { theme } from './src/theme';
 import AppNavigator, {
   navigateFromNotification,
   navigationRef,
 } from './src/navigation/AppNavigator';
 import { initDatabase } from './src/services/sqliteService';
 import { hydrateCart } from './src/redux/cartSlice';
-import { loadStoredAuth, syncPushToken } from './src/redux/authSlice';
-import { AtelierSheetProvider } from './src/components/common/AtelierBottomSheet';
+import {
+  loadStoredAuth,
+  syncPushToken,
+  logout,
+  cancelSignOut,
+  clearAuthNotice,
+} from './src/redux/authSlice';
+import AtelierBottomSheet, {
+  AtelierSheetProvider,
+} from './src/components/common/AtelierBottomSheet';
+import AtelierToast from './src/components/common/AtelierToast';
+
+const GlobalAuthFeedback = () => {
+  const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
+  const { signOutPromptVisible, signingOut, authNotice } = useSelector(
+    (state) => state.auth
+  );
+
+  return (
+    <>
+      <AtelierBottomSheet
+        visible={signOutPromptVisible}
+        onClose={() => {
+          if (!signingOut) {
+            dispatch(cancelSignOut());
+          }
+        }}
+        title="Sign Out"
+        subtitle="Are you sure you want to sign out of your account?"
+        showCloseButton={false}
+        options={[
+          {
+            key: 'confirm-sign-out',
+            label: signingOut ? 'Signing Out...' : 'Sign Out',
+            icon: 'log-out-outline',
+            destructive: true,
+            disabled: signingOut,
+            onPress: () => dispatch(logout()),
+          },
+          {
+            key: 'cancel-sign-out',
+            label: 'Cancel',
+            icon: 'close-outline',
+            disabled: signingOut,
+            onPress: () => dispatch(cancelSignOut()),
+          },
+        ]}
+      />
+      <AtelierToast
+        visible={Boolean(authNotice?.message)}
+        toastKey={authNotice?.key}
+        message={authNotice?.message}
+        onDismiss={() => dispatch(clearAuthNotice())}
+        style={{ bottom: Math.max(insets.bottom, theme.spacing.md) + 74 }}
+      />
+    </>
+  );
+};
 
 const AppContent = () => {
   const dispatch = useDispatch();
@@ -96,6 +154,7 @@ const AppContent = () => {
           backgroundColor="#FAF9F6"
         />
         <AppNavigator />
+        <GlobalAuthFeedback />
       </AtelierSheetProvider>
     </SafeAreaProvider>
   );

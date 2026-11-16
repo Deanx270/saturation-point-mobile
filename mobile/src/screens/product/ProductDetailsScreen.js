@@ -381,7 +381,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                 color={theme.colors.goldText}
                 style={styles.promoBannerText}
               >
-                {`${promoTitle ? `${promoTitle} — ` : ''}${parsedDiscount}% OFF APPLIED`}
+                {`${promoTitle ? `${promoTitle} — ` : ''}${parsedDiscount}% Off Applied`}
               </AtelierText>
             </View>
           )}

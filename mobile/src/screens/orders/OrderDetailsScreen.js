@@ -15,7 +15,11 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import { fetchOrderById } from '../../redux/ordersSlice';
-import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+import {
+  formatPrice,
+  formatOrderStatus,
+  isValidRemoteOrLocalUri,
+} from '../../utils/formatters';
 
 const ORDER_STEPS = ['pending', 'processing', 'shipped', 'delivered'];
 
@@ -96,10 +100,10 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
               variant="caption"
               color={theme.colors.goldText}
             >
-              ORDER STATUS
+              Order Status
             </AtelierText>
             <AtelierBadge
-              label={selectedOrder.status.toUpperCase()}
+              label={formatOrderStatus(selectedOrder.status)}
               status={selectedOrder.status}
             />
           </View>
@@ -142,7 +146,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
                       color={isPassed ? theme.colors.inkPrimary : theme.colors.inkMuted}
                       style={styles.stepLabel}
                     >
-                      {step}
+                      {formatOrderStatus(step)}
                     </AtelierText>
                   </View>
                 );
@@ -223,7 +227,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
                 variant="caption"
                 color={theme.colors.goldText}
               >
-                CUSTOMER
+                Customer
               </AtelierText>
               <AtelierText
                 variant="bodyMedium"
@@ -293,7 +297,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
               variant="caption"
               color={theme.colors.goldText}
             >
-              FREE
+              Free
             </AtelierText>
           </View>
           <View style={styles.divider} />
@@ -360,8 +364,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   stepLabel: {
-    fontSize: 9,
-    textTransform: 'uppercase',
+    fontSize: 10,
   },
   sectionTitle: {
     marginBottom: theme.spacing.sm,

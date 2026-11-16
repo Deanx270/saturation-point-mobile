@@ -41,7 +41,7 @@ export const AtelierErrorBanner = ({
               variant="caption"
               color={theme.colors.error}
             >
-              RETRY
+              Retry
             </AtelierText>
           </AtelierPressable>
         )}

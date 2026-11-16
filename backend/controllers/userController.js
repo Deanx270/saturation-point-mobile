@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Product = require('../models/Product');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -205,8 +206,10 @@ const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    let displayNameChanged = false;
     if (typeof req.body.displayName === 'string' && req.body.displayName.trim()) {
       user.displayName = req.body.displayName.trim();
+      displayNameChanged = true;
     }
     if (typeof req.body.username === 'string' && req.body.username.trim()) {
       user.username = req.body.username.trim();
@@ -223,6 +226,14 @@ const updateUserProfile = async (req, res) => {
     }
 
     await user.save();
+
+    if (displayNameChanged && user.displayName) {
+      await Product.updateMany(
+        { 'reviews.user': user._id },
+        { $set: { 'reviews.$[elem].name': user.displayName } },
+        { arrayFilters: [{ 'elem.user': user._id }] }
+      );
+    }
 
     res.json({
       _id: user._id,
@@ -256,6 +267,14 @@ const registerPushToken = async (req, res) => {
     user.pushTokens.push({ token: pushToken, device: device || 'mobile', updatedAt: new Date() });
     await user.save();
 
+    if (displayNameChanged && user.displayName) {
+      await Product.updateMany(
+        { 'reviews.user': user._id },
+        { $set: { 'reviews.$[elem].name': user.displayName } },
+        { arrayFilters: [{ 'elem.user': user._id }] }
+      );
+    }
+
     res.json({ message: 'Push token registered successfully', tokensCount: user.pushTokens.length });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -276,6 +295,14 @@ const removePushToken = async (req, res) => {
 
     user.pushTokens = user.pushTokens.filter((item) => item.token !== pushToken);
     await user.save();
+
+    if (displayNameChanged && user.displayName) {
+      await Product.updateMany(
+        { 'reviews.user': user._id },
+        { $set: { 'reviews.$[elem].name': user.displayName } },
+        { arrayFilters: [{ 'elem.user': user._id }] }
+      );
+    }
 
     res.json({ message: 'Push token removed successfully' });
   } catch (error) {

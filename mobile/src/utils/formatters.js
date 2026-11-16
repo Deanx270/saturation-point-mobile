@@ -28,3 +28,10 @@ export const isValidRemoteOrLocalUri = (uri) => {
     uri.startsWith('content://')
   );
 };
+
+export const formatOrderStatus = (status) => {
+  if (!status || typeof status !== 'string') {
+    return 'Pending';
+  }
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+};

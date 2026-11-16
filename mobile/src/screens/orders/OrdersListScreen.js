@@ -22,6 +22,7 @@ import { fetchMyOrders } from '../../redux/ordersSlice';
 import {
   formatPrice,
   formatDate,
+  formatOrderStatus,
   isValidRemoteOrLocalUri,
 } from '../../utils/formatters';
 
@@ -72,7 +73,7 @@ export const OrdersListScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              ORDER ID
+              Order ID
             </AtelierText>
             <AtelierText
               variant="title2"
@@ -82,7 +83,7 @@ export const OrdersListScreen = ({ navigation }) => {
             </AtelierText>
           </View>
           <AtelierBadge
-            label={item.status.toUpperCase()}
+            label={formatOrderStatus(item.status)}
             status={item.status}
           />
         </View>
@@ -138,7 +139,7 @@ export const OrdersListScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              DATE
+              Date
             </AtelierText>
             <AtelierText
               variant="bodyMedium"
@@ -152,7 +153,7 @@ export const OrdersListScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              ITEMS
+              Items
             </AtelierText>
             <AtelierText
               variant="bodyMedium"
@@ -166,7 +167,7 @@ export const OrdersListScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              TOTAL
+              Total
             </AtelierText>
             <AtelierText
               variant="title2"
@@ -238,7 +239,7 @@ export const OrdersListScreen = ({ navigation }) => {
                   variant="caption"
                   color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
                 >
-                  {status.toUpperCase()}
+                  {status === 'All' ? 'All' : formatOrderStatus(status)}
                 </AtelierText>
               </AtelierPressable>
             );

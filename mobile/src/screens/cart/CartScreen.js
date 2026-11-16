@@ -258,7 +258,7 @@ export const CartScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.goldText}
             >
-              FREE
+              Free
             </AtelierText>
           </View>
 

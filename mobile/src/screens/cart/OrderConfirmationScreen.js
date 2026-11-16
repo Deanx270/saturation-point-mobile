@@ -26,7 +26,7 @@ export const OrderConfirmationScreen = ({ route, navigation }) => {
           color={theme.colors.goldText}
           style={styles.statusSub}
         >
-          ORDER CONFIRMED
+          Order Confirmed
         </AtelierText>
         <AtelierText
           variant="display"

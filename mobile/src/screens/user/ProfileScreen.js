@@ -22,7 +22,7 @@ import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierToast from '../../components/common/AtelierToast';
-import { updateProfile, logout, syncPushToken } from '../../redux/authSlice';
+import { updateProfile, requestSignOut, syncPushToken } from '../../redux/authSlice';
 import { getNotificationPermissionGranted } from '../../services/pushNotificationService';
 import { isValidRemoteOrLocalUri } from '../../utils/formatters';
 import { appendImageToFormData } from '../../utils/formDataHelper';
@@ -179,7 +179,7 @@ export const ProfileScreen = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    dispatch(logout());
+    dispatch(requestSignOut());
   };
 
   const handleTogglePushSync = async () => {
@@ -304,7 +304,7 @@ export const ProfileScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              USERNAME
+              Username
             </AtelierText>
             <AtelierText
               variant="bodyMedium"
@@ -322,7 +322,7 @@ export const ProfileScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              ACCOUNT ROLE
+              Account Role
             </AtelierText>
             <AtelierText
               variant="bodyMedium"
@@ -346,10 +346,10 @@ export const ProfileScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              PUSH NOTIFICATIONS
+              Push Notifications
             </AtelierText>
             <AtelierBadge
-              label={syncingPush ? 'SYNCING...' : pushEnabled ? 'ENABLED' : 'ENABLE'}
+              label={syncingPush ? 'Syncing...' : pushEnabled ? 'Enabled' : 'Enable'}
               status={pushEnabled ? 'success' : 'gold'}
             />
           </AtelierPressable>

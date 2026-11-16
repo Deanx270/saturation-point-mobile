@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Brand = require('../models/Brand');
+const User = require('../models/User');
 
 const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -23,6 +24,57 @@ const resolveCanonicalBrand = async (rawBrand) => {
     { upsert: true }
   );
   return cleanBrand;
+};
+
+const syncProductReviewAuthors = async (input) => {
+  const isArray = Array.isArray(input);
+  const rawList = isArray ? input : input ? [input] : [];
+  if (rawList.length === 0) {
+    return input;
+  }
+
+  const normalized = rawList.map((doc) =>
+    doc && typeof doc.toObject === 'function' ? doc.toObject() : { ...doc }
+  );
+
+  const userIdsSet = new Set();
+  normalized.forEach((product) => {
+    if (Array.isArray(product.reviews)) {
+      product.reviews.forEach((rev) => {
+        if (rev?.user) {
+          userIdsSet.add(String(rev.user));
+        }
+      });
+    }
+  });
+
+  if (userIdsSet.size > 0) {
+    const users = await User.find({ _id: { $in: Array.from(userIdsSet) } })
+      .select('displayName')
+      .lean();
+    const displayNameMap = new Map(
+      users
+        .filter((u) => u && u.displayName)
+        .map((u) => [String(u._id), u.displayName])
+    );
+
+    normalized.forEach((product) => {
+      if (Array.isArray(product.reviews)) {
+        product.reviews = product.reviews.map((rev) => {
+          const latestName = rev?.user ? displayNameMap.get(String(rev.user)) : null;
+          if (!latestName) {
+            return rev;
+          }
+          return {
+            ...rev,
+            name: latestName,
+          };
+        });
+      }
+    });
+  }
+
+  return isArray ? normalized : normalized[0];
 };
 
 const parseStringArray = (value) => {
@@ -153,8 +205,10 @@ const getProducts = async (req, res) => {
         Product.find(query).sort(sortOption).skip(skip).limit(limit),
       ]);
 
+      const syncedProducts = await syncProductReviewAuthors(products);
+
       return res.json({
-        products,
+        products: syncedProducts,
         page,
         limit,
         total,
@@ -164,7 +218,8 @@ const getProducts = async (req, res) => {
     }
 
     const products = await Product.find(query).sort(sortOption);
-    res.json(products);
+    const syncedProducts = await syncProductReviewAuthors(products);
+    res.json(syncedProducts);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -176,7 +231,8 @@ const getProductById = async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    res.json(product);
+    const syncedProduct = await syncProductReviewAuthors(product);
+    res.json(syncedProduct);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

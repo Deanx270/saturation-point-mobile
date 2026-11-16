@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Platform, Alert } from 'react-native';
+import { View, StyleSheet, Platform, Alert, Image } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as Facebook from 'expo-auth-session/providers/facebook';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from '../common/AtelierText';
 import AtelierButton from '../common/AtelierButton';
@@ -20,6 +19,25 @@ import {
 } from '../../services/firebaseClient';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_LOGO = require('../../../assets/brand/google-g.png');
+const FACEBOOK_LOGO = require('../../../assets/brand/facebook-f.png');
+
+const GoogleMark = () => (
+  <Image
+    source={GOOGLE_LOGO}
+    style={styles.socialBrandIcon}
+    resizeMode="contain"
+  />
+);
+
+const FacebookMark = () => (
+  <Image
+    source={FACEBOOK_LOGO}
+    style={styles.socialBrandIcon}
+    resizeMode="contain"
+  />
+);
 
 const getNativeGoogleClientId = (clientIds) => {
   if (Platform.OS === 'ios') {
@@ -66,15 +84,11 @@ const GoogleNativeAuthButton = ({ clientIds, busy, onToken, onError }) => {
     <AtelierButton
       title="Continue with Google"
       variant="outline"
+      iconAlign="left"
       disabled={!request || busy}
       onPress={() => promptAsync()}
-      icon={
-        <Ionicons
-          name="logo-google"
-          size={18}
-          color={theme.colors.inkPrimary}
-        />
-      }
+      style={styles.socialButton}
+      icon={<GoogleMark />}
     />
   );
 };
@@ -112,15 +126,11 @@ const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
     <AtelierButton
       title="Continue with Facebook"
       variant="outline"
+      iconAlign="left"
       disabled={!request || busy}
       onPress={() => promptAsync()}
-      icon={
-        <Ionicons
-          name="logo-facebook"
-          size={18}
-          color={theme.colors.inkPrimary}
-        />
-      }
+      style={styles.socialButton}
+      icon={<FacebookMark />}
     />
   );
 };
@@ -196,7 +206,7 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
           color={theme.colors.inkMuted}
           style={styles.dividerLabel}
         >
-          OR CONTINUE WITH
+          Or continue with
         </AtelierText>
         <View style={styles.dividerLine} />
       </View>
@@ -213,6 +223,7 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
           <AtelierButton
             title="Continue with Google"
             variant="outline"
+            iconAlign="left"
             loading={socialBusy && Platform.OS === 'web'}
             disabled={busy}
             onPress={() =>
@@ -223,13 +234,8 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
                     'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'
                   )
             }
-            icon={
-              <Ionicons
-                name="logo-google"
-                size={18}
-                color={theme.colors.inkPrimary}
-              />
-            }
+            style={styles.socialButton}
+            icon={<GoogleMark />}
           />
         )}
 
@@ -244,6 +250,7 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
           <AtelierButton
             title="Continue with Facebook"
             variant="outline"
+            iconAlign="left"
             loading={socialBusy && Platform.OS === 'web'}
             disabled={busy}
             onPress={() =>
@@ -254,13 +261,8 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
                     'EXPO_PUBLIC_FACEBOOK_APP_ID'
                   )
             }
-            icon={
-              <Ionicons
-                name="logo-facebook"
-                size={18}
-                color={theme.colors.inkPrimary}
-              />
-            }
+            style={styles.socialButton}
+            icon={<FacebookMark />}
           />
         )}
       </View>
@@ -288,6 +290,15 @@ const styles = StyleSheet.create({
   },
   socialButtonsStack: {
     gap: theme.spacing.md,
+  },
+  socialButton: {
+    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.borderMedium,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  socialBrandIcon: {
+    width: 20,
+    height: 20,
   },
 });
 

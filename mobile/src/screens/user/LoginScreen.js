@@ -83,7 +83,7 @@ export const LoginScreen = ({ navigation }) => {
             <View style={styles.formContainer}>
               <AtelierInput
                 label="Email"
-                placeholder="name@example.com"
+                placeholder="Enter your email address"
                 value={values.email}
                 onChangeText={handleChange('email')}
                 onBlur={handleBlur('email')}

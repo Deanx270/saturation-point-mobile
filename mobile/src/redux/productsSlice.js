@@ -325,6 +325,27 @@ const productsSlice = createSlice({
         if (state.selectedProduct?._id === action.payload) {
           state.selectedProduct = null;
         }
+      })
+      .addCase('auth/updateProfile/fulfilled', (state, action) => {
+        const updatedUser = action.payload;
+        if (!updatedUser?._id || !updatedUser?.displayName) {
+          return;
+        }
+        const targetId = String(updatedUser._id);
+        const nextName = updatedUser.displayName;
+        const patchReviews = (product) => {
+          if (!product || !Array.isArray(product.reviews)) {
+            return;
+          }
+          product.reviews.forEach((rev) => {
+            if (rev?.user && String(rev.user) === targetId) {
+              rev.name = nextName;
+            }
+          });
+        };
+        patchReviews(state.selectedProduct);
+        state.items.forEach(patchReviews);
+        state.adminItems.forEach(patchReviews);
       });
   },
 });

@@ -30,7 +30,7 @@ export const AtelierBrandMark = ({
             The Saturation Point
           </AtelierText>
           <AtelierText
-            variant="caption"
+            variant="overline"
             color={theme.colors.goldText}
             style={styles.drawerTagline}
           >
@@ -51,7 +51,7 @@ export const AtelierBrandMark = ({
             resizeMode="contain"
           />
           <AtelierText
-            variant="caption"
+            variant="overline"
             color={theme.colors.goldText}
             style={styles.authBrandLabel}
           >

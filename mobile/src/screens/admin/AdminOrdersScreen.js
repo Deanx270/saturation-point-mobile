@@ -21,7 +21,11 @@ import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import { fetchAllOrders, updateOrderStatus } from '../../redux/ordersSlice';
-import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+import {
+  formatPrice,
+  formatOrderStatus,
+  isValidRemoteOrLocalUri,
+} from '../../utils/formatters';
 
 const STATUS_FILTERS = ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -66,7 +70,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
     if (updateOrderStatus.fulfilled.match(result)) {
       Alert.alert(
         'Status Updated',
-        `Order status updated to ${nextStatus.toUpperCase()}. Notification sent to customer.`
+        `Order status updated to ${formatOrderStatus(nextStatus)}. Notification sent to customer.`
       );
     } else {
       Alert.alert(
@@ -132,7 +136,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.goldText}
             >
-              ORDER #{item._id.slice(-8).toUpperCase()}
+              Order #{item._id.slice(-8).toUpperCase()}
             </AtelierText>
             <AtelierText
               variant="title2"
@@ -143,7 +147,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
           </View>
           {isFinalized ? (
             <AtelierBadge
-              label={item.status.toUpperCase()}
+              label={formatOrderStatus(item.status)}
               status={item.status}
             />
           ) : (
@@ -155,7 +159,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
               accessibilityLabel={`Change status for order ${item._id.slice(-8).toUpperCase()}`}
             >
               <AtelierBadge
-                label={`${item.status.toUpperCase()} ▾`}
+                label={`${formatOrderStatus(item.status)} ▾`}
                 status={item.status}
               />
             </AtelierPressable>
@@ -213,7 +217,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              ITEMS
+              Items
             </AtelierText>
             <AtelierText
               variant="bodyMedium"
@@ -228,7 +232,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              TOTAL
+              Total
             </AtelierText>
             <AtelierText
               variant="title2"
@@ -249,7 +253,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
                 variant="caption"
                 color={theme.colors.inkMuted}
               >
-                {normalizedStatus === 'delivered' ? 'COMPLETED' : 'CLOSED'}
+                {normalizedStatus === 'delivered' ? 'Completed' : 'Closed'}
               </AtelierText>
             </View>
           ) : (
@@ -264,7 +268,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
                 variant="caption"
                 color={theme.colors.inkPrimary}
               >
-                UPDATE STATUS
+                Update Status
               </AtelierText>
             </AtelierPressable>
           )}
@@ -308,7 +312,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
                   variant="caption"
                   color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
                 >
-                  {status.toUpperCase()}
+                  {status === 'All' ? 'All' : formatOrderStatus(status)}
                 </AtelierText>
               </AtelierPressable>
             );
@@ -373,7 +377,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
         title="Advance Order Status"
         subtitle={
           selectedOrder
-            ? `Order #${selectedOrder._id.slice(-8).toUpperCase()} • Currently ${selectedOrder.status.toUpperCase()}`
+            ? `Order #${selectedOrder._id.slice(-8).toUpperCase()} • Currently ${formatOrderStatus(selectedOrder.status)}`
             : ''
         }
         options={availableTransitions.map((option) => ({

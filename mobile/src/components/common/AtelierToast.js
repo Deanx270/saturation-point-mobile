@@ -13,6 +13,7 @@ export const AtelierToast = ({
   onActionPress,
   onDismiss,
   duration = 3000,
+  style,
 }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(16)).current;
@@ -71,6 +72,7 @@ export const AtelierToast = ({
       pointerEvents="box-none"
       style={[
         styles.wrapper,
+        style,
         {
           opacity,
           transform: [{ translateY }],

@@ -143,11 +143,23 @@ const authSlice = createSlice({
     token: null,
     loading: false,
     initialLoading: true,
+    signingOut: false,
+    signOutPromptVisible: false,
+    authNotice: null,
     error: null,
   },
   reducers: {
     clearAuthError: (state) => {
       state.error = null;
+    },
+    requestSignOut: (state) => {
+      state.signOutPromptVisible = true;
+    },
+    cancelSignOut: (state) => {
+      state.signOutPromptVisible = false;
+    },
+    clearAuthNotice: (state) => {
+      state.authNotice = null;
     },
   },
   extraReducers: (builder) => {
@@ -214,14 +226,32 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      .addCase(logout.pending, (state) => {
+        state.signingOut = true;
+      })
       .addCase(logout.fulfilled, (state) => {
+        state.signingOut = false;
+        state.signOutPromptVisible = false;
         state.user = null;
         state.token = null;
         state.error = null;
+        state.authNotice = {
+          key: Date.now(),
+          message: 'Signed out successfully',
+        };
+      })
+      .addCase(logout.rejected, (state) => {
+        state.signingOut = false;
+        state.signOutPromptVisible = false;
       });
   },
 });
 
-export const { clearAuthError } = authSlice.actions;
+export const {
+  clearAuthError,
+  requestSignOut,
+  cancelSignOut,
+  clearAuthNotice,
+} = authSlice.actions;
 
 export default authSlice.reducer;

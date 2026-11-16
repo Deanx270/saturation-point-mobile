@@ -13,7 +13,7 @@ import AtelierText from '../components/common/AtelierText';
 import AtelierBadge from '../components/common/AtelierBadge';
 import AtelierBrandMark from '../components/common/AtelierBrandMark';
 import AtelierPressable from '../components/common/AtelierPressable';
-import { logout } from '../redux/authSlice';
+import { requestSignOut } from '../redux/authSlice';
 import { isValidRemoteOrLocalUri } from '../utils/formatters';
 
 export const DrawerContent = ({ navigation }) => {
@@ -22,8 +22,8 @@ export const DrawerContent = ({ navigation }) => {
   const { user } = useSelector((state) => state.auth);
 
   const handleLogout = () => {
-    dispatch(logout());
     navigation.closeDrawer();
+    dispatch(requestSignOut());
   };
 
   const navigateTo = (tabName, screenName) => {

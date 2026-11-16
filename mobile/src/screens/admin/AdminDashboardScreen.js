@@ -146,7 +146,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
           color={theme.colors.inkMuted}
           style={styles.sectionLabel}
         >
-          STORE OVERVIEW
+          Store Overview
         </AtelierText>
 
         <View style={styles.statsGrid}>
@@ -158,7 +158,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              PRODUCTS
+              Products
             </AtelierText>
             <AtelierText
               variant="title1"
@@ -177,7 +177,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.goldText}
             >
-              PENDING ORDERS
+              Pending Orders
             </AtelierText>
             <AtelierText
               variant="title1"
@@ -196,7 +196,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              IN FULFILLMENT
+              In Fulfillment
             </AtelierText>
             <AtelierText
               variant="title1"
@@ -215,7 +215,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
-              CATEGORIES
+              Categories
             </AtelierText>
             <AtelierText
               variant="title1"
@@ -232,7 +232,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
           color={theme.colors.inkMuted}
           style={styles.sectionLabel}
         >
-          MANAGEMENT TOOLS
+          Management Tools
         </AtelierText>
 
         {tools.map((tool) => (

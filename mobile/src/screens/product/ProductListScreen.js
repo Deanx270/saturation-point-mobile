@@ -595,7 +595,7 @@ export const ProductListScreen = ({ navigation }) => {
             color={theme.colors.inkSecondary}
             style={styles.filterSectionLabel}
           >
-            PRICE RANGE (PHP)
+            Price Range (₱)
           </AtelierText>
           <View style={styles.priceInputsRow}>
             <View style={styles.priceInputColumn}>
@@ -625,7 +625,7 @@ export const ProductListScreen = ({ navigation }) => {
             color={theme.colors.inkSecondary}
             style={styles.filterSectionLabel}
           >
-            MINIMUM RATING
+            Minimum Rating
           </AtelierText>
           <View style={styles.filterChipsWrap}>
             {RATING_OPTIONS.map((option) => {
@@ -658,7 +658,7 @@ export const ProductListScreen = ({ navigation }) => {
             color={theme.colors.inkSecondary}
             style={styles.filterSectionLabel}
           >
-            BRAND
+            Brand
           </AtelierText>
           <View style={styles.filterChipsWrap}>
             {(brands || ['All']).map((brandName) => {

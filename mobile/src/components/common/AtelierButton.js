@@ -13,6 +13,7 @@ export const AtelierButton = ({
   disabled = false,
   singleLine = false,
   icon,
+  iconAlign = 'inline',
   style,
   textStyle,
 }) => {
@@ -71,6 +72,20 @@ export const AtelierButton = ({
           size="small"
           color={getTextColor()}
         />
+      ) : iconAlign === 'left' && icon ? (
+        <View style={styles.leftAlignedRow}>
+          <View style={styles.leftIconSlot}>{icon}</View>
+          <AtelierText
+            variant="button"
+            color={getTextColor()}
+            numberOfLines={singleLine ? 1 : undefined}
+            adjustsFontSizeToFit={singleLine}
+            style={[styles.buttonLabel, styles.flexLabel, textStyle]}
+          >
+            {title}
+          </AtelierText>
+          <View style={styles.rightBalanceSlot} />
+        </View>
       ) : (
         <View style={styles.contentRow}>
           {icon && <View style={styles.iconMargin}>{icon}</View>}
@@ -128,6 +143,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  leftAlignedRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  leftIconSlot: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flexLabel: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  rightBalanceSlot: {
+    width: 24,
   },
   iconMargin: {
     marginRight: theme.spacing.sm,

@@ -255,7 +255,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                     color="#FFFFFF"
                     style={styles.coverBadgeText}
                   >
-                    COVER
+                    Cover
                   </AtelierText>
                 </View>
               )}
@@ -332,7 +332,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                     color={theme.colors.inkSecondary}
                     style={styles.brandFieldLabel}
                   >
-                    BRAND
+                    Brand
                   </AtelierText>
                   <AtelierPressable
                     tone="surface"
@@ -380,7 +380,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                   color={theme.colors.inkSecondary}
                   style={styles.categoryLabel}
                 >
-                  CATEGORY
+                  Category
                 </AtelierText>
                 <View style={styles.categoryRow}>
                   {categoryOptions.map((cat) => {
@@ -411,7 +411,8 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                 <View style={styles.twoColumnRow}>
                   <View style={styles.columnLeft}>
                     <AtelierInput
-                      label="Price (PHP)"
+                      label="Price (₱)"
+                      prefix="₱"
                       placeholder="4500.00"
                       value={values.price}
                       onChangeText={handleChange('price')}

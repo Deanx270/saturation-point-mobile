@@ -94,7 +94,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
             color={theme.colors.goldText}
             style={styles.infoLabel}
           >
-            PROMOTIONAL NOTIFICATIONS
+            Promotional Notifications
           </AtelierText>
           <AtelierText
             variant="bodyMedium"
@@ -161,7 +161,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                 color={theme.colors.inkSecondary}
                 style={styles.pickerLabel}
               >
-                FEATURED PRODUCT
+                Featured Product
               </AtelierText>
 
               <ScrollView
