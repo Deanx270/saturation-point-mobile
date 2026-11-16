@@ -184,7 +184,11 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
         })
       );
       if (socialLogin.fulfilled.match(result)) {
-        if (onAuthenticated) {
+        const signedInUser = result.payload?.user;
+        const requiresOnboarding = Boolean(
+          signedInUser && !signedInUser.username && !signedInUser.profileCompleted
+        );
+        if (!requiresOnboarding && onAuthenticated) {
           onAuthenticated();
         }
       } else {

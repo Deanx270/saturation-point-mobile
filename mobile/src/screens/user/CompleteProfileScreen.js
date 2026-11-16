@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Formik } from 'formik';
@@ -16,6 +17,7 @@ import AtelierButton from '../../components/common/AtelierButton';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBrandMark from '../../components/common/AtelierBrandMark';
 import AtelierPressable from '../../components/common/AtelierPressable';
+import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import { updateProfile, requestSignOut } from '../../redux/authSlice';
 import {
   USERNAME_REGEX,
@@ -52,6 +54,7 @@ export const CompleteProfileScreen = () => {
     message: '',
   });
   const [skipping, setSkipping] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const checkTimerRef = useRef(null);
   const latestQueryRef = useRef('');
 
@@ -114,9 +117,17 @@ export const CompleteProfileScreen = () => {
     };
   }, [suggestedUsername]);
 
+  const reportError = (title, message) => {
+    setSubmitError(message);
+    if (Platform.OS !== 'web') {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleCompleteSubmit = async (values) => {
+    setSubmitError('');
     if (availabilityState.status === 'taken') {
-      Alert.alert('Username Taken', 'Please choose another username.');
+      reportError('Username Taken', 'Please choose another username.');
       return;
     }
     const cleanUsername = values.username
@@ -130,7 +141,7 @@ export const CompleteProfileScreen = () => {
       })
     );
     if (!updateProfile.fulfilled.match(result)) {
-      Alert.alert(
+      reportError(
         'Unable to Save',
         result.payload || 'Could not complete your profile. Please try again.'
       );
@@ -141,11 +152,12 @@ export const CompleteProfileScreen = () => {
     if (skipping || loading) {
       return;
     }
+    setSubmitError('');
     setSkipping(true);
     try {
       const result = await dispatch(updateProfile({ skipOnboarding: true }));
       if (!updateProfile.fulfilled.match(result)) {
-        Alert.alert(
+        reportError(
           'Unable to Continue',
           result.payload || 'Please try again.'
         );
@@ -236,6 +248,11 @@ export const CompleteProfileScreen = () => {
                   touched={touched.username || availabilityState.status === 'taken'}
                 />
 
+                <AtelierErrorBanner
+                  message={submitError}
+                  style={styles.errorBanner}
+                />
+
                 <AtelierButton
                   title={loading && !skipping ? 'Saving...' : 'Continue'}
                   onPress={handleSubmit}
@@ -294,6 +311,10 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  errorBanner: {
+    marginHorizontal: 0,
     marginBottom: theme.spacing.md,
   },
   signOutLink: {

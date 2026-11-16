@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { NavigationContext } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
@@ -21,7 +21,7 @@ export const AtelierHeader = ({
   navigation: navigationProp,
   style,
 }) => {
-  const hookNavigation = useNavigation();
+  const hookNavigation = useContext(NavigationContext);
   const navigation = navigationProp || hookNavigation;
   const insets = useSafeAreaInsets();
 
@@ -30,11 +30,11 @@ export const AtelierHeader = ({
       onLeftPress();
       return;
     }
-    if (leftType === 'drawer' && typeof navigation.openDrawer === 'function') {
+    if (leftType === 'drawer' && typeof navigation?.openDrawer === 'function') {
       navigation.openDrawer();
       return;
     }
-    if (typeof navigation.goBack === 'function') {
+    if (typeof navigation?.goBack === 'function') {
       navigation.goBack();
     }
   };

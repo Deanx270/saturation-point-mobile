@@ -20,6 +20,7 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { register } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
+import { useRedirectIfAuthenticated } from '../../utils/authNavigation';
 import {
   emailSchemaField,
   passwordSchemaField,
@@ -38,6 +39,8 @@ export const RegisterScreen = ({ navigation }) => {
   const { loading } = useSelector((state) => state.auth);
   const [submitError, setSubmitError] = useState('');
 
+  const navigateToProfile = useRedirectIfAuthenticated(navigation);
+
   const handleRegisterSubmit = async (values, formikHelpers) => {
     setSubmitError('');
     const pushToken = await registerForPushNotificationsAsync();
@@ -51,10 +54,12 @@ export const RegisterScreen = ({ navigation }) => {
 
     if (register.fulfilled.match(result)) {
       formikHelpers.resetForm();
-      if (navigation.canGoBack()) {
-        navigation.popToTop();
-      } else {
-        navigation.navigate('Profile');
+      const signedInUser = result.payload?.user;
+      const requiresOnboarding = Boolean(
+        signedInUser && !signedInUser.username && !signedInUser.profileCompleted
+      );
+      if (!requiresOnboarding) {
+        navigateToProfile();
       }
     } else {
       const errorMsg = result.payload || 'Unable to create account.';
@@ -155,11 +160,7 @@ export const RegisterScreen = ({ navigation }) => {
               />
 
               <SocialAuthSection
-                onAuthenticated={() =>
-                  navigation.canGoBack()
-                    ? navigation.popToTop()
-                    : navigation.navigate('Profile')
-                }
+                onAuthenticated={navigateToProfile}
               />
 
               <View style={styles.switchRow}>

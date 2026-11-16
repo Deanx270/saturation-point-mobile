@@ -20,6 +20,7 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { login } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
+import { useRedirectIfAuthenticated } from '../../utils/authNavigation';
 import {
   identifierSchemaField,
   loginPasswordSchemaField,
@@ -34,6 +35,8 @@ export const LoginScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.auth);
   const [submitError, setSubmitError] = useState('');
+
+  const navigateToProfile = useRedirectIfAuthenticated(navigation);
 
   const handleLoginSubmit = async (values, formikHelpers) => {
     setSubmitError('');
@@ -50,10 +53,12 @@ export const LoginScreen = ({ navigation }) => {
 
     if (login.fulfilled.match(result)) {
       formikHelpers.resetForm();
-      if (navigation.canGoBack()) {
-        navigation.popToTop();
-      } else {
-        navigation.navigate('Profile');
+      const signedInUser = result.payload?.user;
+      const requiresOnboarding = Boolean(
+        signedInUser && !signedInUser.username && !signedInUser.profileCompleted
+      );
+      if (!requiresOnboarding) {
+        navigateToProfile();
       }
     } else {
       const errorMsg = result.payload || 'Invalid email or password.';
@@ -141,11 +146,7 @@ export const LoginScreen = ({ navigation }) => {
               />
 
               <SocialAuthSection
-                onAuthenticated={() =>
-                  navigation.canGoBack()
-                    ? navigation.popToTop()
-                    : navigation.navigate('Profile')
-                }
+                onAuthenticated={navigateToProfile}
               />
 
               <View style={styles.switchRow}>
