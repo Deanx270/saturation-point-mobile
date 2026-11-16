@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { StackActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { theme } from '../theme';
@@ -51,6 +52,44 @@ export const BottomTabNavigator = () => {
         <Tab.Screen
           name="CartTab"
           component={CartNavigator}
+          listeners={({ navigation, route }) => ({
+            blur: () => {
+              const subState = route?.state;
+              const activeSubRoute =
+                subState && typeof subState.index === 'number'
+                  ? subState.routes?.[subState.index]?.name
+                  : null;
+              if (
+                activeSubRoute === 'OrderConfirmation' &&
+                subState?.key &&
+                subState.index > 0
+              ) {
+                navigation.dispatch({
+                  ...StackActions.popToTop(),
+                  target: subState.key,
+                });
+              }
+            },
+            tabPress: () => {
+              const tabState = navigation.getState();
+              const cartRoute = tabState?.routes?.find((r) => r.name === 'CartTab');
+              const subState = cartRoute?.state;
+              const activeSubRoute =
+                subState && typeof subState.index === 'number'
+                  ? subState.routes?.[subState.index]?.name
+                  : null;
+              if (
+                activeSubRoute === 'OrderConfirmation' &&
+                subState?.key &&
+                subState.index > 0
+              ) {
+                navigation.dispatch({
+                  ...StackActions.popToTop(),
+                  target: subState.key,
+                });
+              }
+            },
+          })}
           options={{
             tabBarLabel: 'Cart',
             tabBarIcon: ({ color, focused }) => (

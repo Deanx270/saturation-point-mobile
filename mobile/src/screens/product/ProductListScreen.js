@@ -25,7 +25,6 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBrandMark from '../../components/common/AtelierBrandMark';
-import CartIconBadge from '../../components/common/CartIcon';
 import {
   fetchProducts,
   fetchProductFilters,
@@ -358,27 +357,6 @@ export const ProductListScreen = ({ navigation }) => {
         leftType="drawer"
         navigation={navigation}
         centerComponent={<AtelierBrandMark variant="header" />}
-        rightComponent={
-          !isAdmin ? (
-            <AtelierPressable
-              tone="subtle"
-              borderlessRipple
-              hitSlop={6}
-              style={styles.headerIconButton}
-              onPress={() => navigation.navigate('CartTab')}
-              accessibilityLabel="View shopping cart"
-            >
-              <View>
-                <Ionicons
-                  name="cart-outline"
-                  size={24}
-                  color={theme.colors.inkPrimary}
-                />
-                <CartIconBadge />
-              </View>
-            </AtelierPressable>
-          ) : undefined
-        }
       />
 
       <View style={styles.searchSection}>
@@ -704,12 +682,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.canvas,
-  },
-  headerIconButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   searchSection: {
     paddingHorizontal: theme.spacing.lg,

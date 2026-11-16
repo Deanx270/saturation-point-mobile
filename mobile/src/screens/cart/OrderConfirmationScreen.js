@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, BackHandler } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,24 +9,37 @@ import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
+import { selectCartItems } from '../../redux/cartSlice';
 import { formatPrice } from '../../utils/formatters';
 
 export const OrderConfirmationScreen = ({ route, navigation }) => {
   const { orderId, totalAmount } = route.params || {};
   const { user } = useSelector((state) => state.auth);
+  const cartItems = useSelector(selectCartItems);
 
   useEffect(() => {
-    if (!user && navigation.canGoBack()) {
+    if ((!user || cartItems.length > 0) && navigation.canGoBack()) {
       navigation.popToTop();
     }
-  }, [user, navigation]);
+  }, [user, cartItems.length, navigation]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!user && navigation.canGoBack()) {
+      if ((!user || cartItems.length > 0) && navigation.canGoBack()) {
         navigation.popToTop();
+        return undefined;
       }
-    }, [user, navigation])
+
+      const backSub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (navigation.canGoBack()) {
+          navigation.popToTop();
+        }
+        navigation.navigate('HomeTab');
+        return true;
+      });
+
+      return () => backSub.remove();
+    }, [user, cartItems.length, navigation])
   );
 
   if (!user) {
