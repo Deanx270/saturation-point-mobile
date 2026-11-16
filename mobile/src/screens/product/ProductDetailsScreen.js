@@ -1060,6 +1060,8 @@ const styles = StyleSheet.create({
   },
   quantityLabelCol: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 100,
     paddingRight: theme.spacing.md,
   },
   stockWarningText: {

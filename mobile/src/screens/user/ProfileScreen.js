@@ -6,6 +6,7 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,6 +24,7 @@ import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierToast from '../../components/common/AtelierToast';
+import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import { updateProfile, requestSignOut, syncPushToken } from '../../redux/authSlice';
 import { getNotificationPermissionGranted } from '../../services/pushNotificationService';
 import { isValidRemoteOrLocalUri } from '../../utils/formatters';
@@ -32,20 +34,22 @@ import {
   captureImageWithCamera,
 } from '../../utils/imagePickerHelper';
 import {
-  USERNAME_REGEX,
   displayNameSchemaField,
+  usernameSchemaField,
 } from '../../utils/validationSchemas';
+import {
+  buildSuggestedUsername,
+  getUsernameFeedback,
+  sanitizeUsernameInput,
+  useUsernameAvailability,
+} from '../../utils/useUsernameAvailability';
 
 const ProfileSchema = Yup.object().shape({
   displayName: displayNameSchemaField,
-  username: Yup.string()
-    .trim()
-    .transform((v) => (v ? v.replace(/^@/, '') : ''))
-    .test(
-      'optional-username',
-      'Username must be 3–30 characters (letters, numbers, underscores)',
-      (value) => !value || USERNAME_REGEX.test(value)
-    ),
+});
+
+const SetUsernameSchema = Yup.object().shape({
+  username: usernameSchemaField,
 });
 
 export const ProfileScreen = ({ navigation }) => {
@@ -56,11 +60,20 @@ export const ProfileScreen = ({ navigation }) => {
   const [syncingPush, setSyncingPush] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
+  const [usernameSheetVisible, setUsernameSheetVisible] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [usernameErrorMsg, setUsernameErrorMsg] = useState('');
   const [toastState, setToastState] = useState({
     visible: false,
     message: '',
     key: 0,
   });
+  const suggestedUsername = buildSuggestedUsername(user?.email);
+  const {
+    availabilityState,
+    runUsernameCheck,
+    resetAvailability,
+  } = useUsernameAvailability(usernameSheetVisible ? suggestedUsername : '');
 
   const refreshPushPermission = useCallback(async () => {
     const granted = await getNotificationPermissionGranted();
@@ -155,13 +168,12 @@ export const ProfileScreen = ({ navigation }) => {
   };
 
   const handleProfileSubmit = async (values) => {
-    const payload = {
-      displayName: values.displayName.trim(),
-    };
-    if (!user?.username && typeof values.username === 'string' && values.username.trim()) {
-      payload.username = values.username.trim().replace(/^@/, '').toLowerCase();
-    }
-    const result = await dispatch(updateProfile(payload));
+    setProfileError('');
+    const result = await dispatch(
+      updateProfile({
+        displayName: values.displayName.trim(),
+      })
+    );
     if (updateProfile.fulfilled.match(result)) {
       setToastState((prev) => ({
         visible: true,
@@ -169,7 +181,54 @@ export const ProfileScreen = ({ navigation }) => {
         key: prev.key + 1,
       }));
     } else {
-      Alert.alert('Update Failed', result.payload || 'Unable to update profile.');
+      const errorMsg = result.payload || 'Unable to update profile.';
+      setProfileError(errorMsg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Update Failed', errorMsg);
+      }
+    }
+  };
+
+  const handleOpenUsernameSheet = () => {
+    setUsernameErrorMsg('');
+    setUsernameSheetVisible(true);
+  };
+
+  const handleCloseUsernameSheet = () => {
+    if (loading) {
+      return;
+    }
+    setUsernameSheetVisible(false);
+    setUsernameErrorMsg('');
+    resetAvailability();
+  };
+
+  const handleSetUsernameSubmit = async (values) => {
+    setUsernameErrorMsg('');
+    if (availabilityState.status === 'taken') {
+      setUsernameErrorMsg('That username is already taken.');
+      return;
+    }
+    const cleanUsername = values.username.trim().replace(/^@/, '').toLowerCase();
+    const result = await dispatch(
+      updateProfile({
+        username: cleanUsername,
+      })
+    );
+    if (updateProfile.fulfilled.match(result)) {
+      setUsernameSheetVisible(false);
+      resetAvailability();
+      setToastState((prev) => ({
+        visible: true,
+        message: 'Username saved',
+        key: prev.key + 1,
+      }));
+    } else {
+      const errorMsg = result.payload || 'Unable to save username.';
+      setUsernameErrorMsg(errorMsg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Unable to Save', errorMsg);
+      }
     }
   };
 
@@ -294,21 +353,42 @@ export const ProfileScreen = ({ navigation }) => {
           subtle
           style={styles.infoCard}
         >
-          <View style={styles.infoRow}>
-            <AtelierText
-              variant="caption"
-              color={theme.colors.inkMuted}
+          {user.username ? (
+            <View style={styles.infoRow}>
+              <AtelierText
+                variant="caption"
+                color={theme.colors.inkMuted}
+              >
+                Username
+              </AtelierText>
+              <AtelierText
+                variant="bodyMedium"
+                color={theme.colors.inkPrimary}
+                style={styles.infoValueText}
+              >
+                {`@${user.username}`}
+              </AtelierText>
+            </View>
+          ) : (
+            <AtelierPressable
+              tone="surface"
+              hitSlop={6}
+              style={styles.infoActionRow}
+              onPress={handleOpenUsernameSheet}
+              accessibilityLabel="Set username"
             >
-              Username
-            </AtelierText>
-            <AtelierText
-              variant="bodyMedium"
-              color={theme.colors.inkPrimary}
-              style={styles.infoValueText}
-            >
-              {user.username ? `@${user.username}` : 'Not set'}
-            </AtelierText>
-          </View>
+              <AtelierText
+                variant="caption"
+                color={theme.colors.inkMuted}
+              >
+                Username
+              </AtelierText>
+              <AtelierBadge
+                label="Set Username"
+                status="gold"
+              />
+            </AtelierPressable>
+          )}
 
           <View style={styles.infoDivider} />
 
@@ -361,7 +441,6 @@ export const ProfileScreen = ({ navigation }) => {
           enableReinitialize
           initialValues={{
             displayName: user.displayName || '',
-            username: '',
           }}
           validationSchema={ProfileSchema}
           onSubmit={handleProfileSubmit}
@@ -385,21 +464,10 @@ export const ProfileScreen = ({ navigation }) => {
                 touched={touched.displayName}
               />
 
-              {!user.username ? (
-                <AtelierInput
-                  label="Username (Optional)"
-                  prefix="@"
-                  placeholder="e.g. alex_santos"
-                  helperText="Set a handle to sign in with username"
-                  value={values.username}
-                  onChangeText={handleChange('username')}
-                  onBlur={handleBlur('username')}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  error={errors.username}
-                  touched={touched.username}
-                />
-              ) : null}
+              <AtelierErrorBanner
+                message={profileError}
+                style={styles.errorBanner}
+              />
 
               <AtelierButton
                 title={loading ? 'Saving...' : 'Save Changes'}
@@ -446,6 +514,76 @@ export const ProfileScreen = ({ navigation }) => {
           },
         ]}
       />
+
+      <AtelierBottomSheet
+        visible={usernameSheetVisible}
+        onClose={handleCloseUsernameSheet}
+        title="Set Username"
+        subtitle="Choose a unique @username so you can sign in with either email or username."
+      >
+        <Formik
+          enableReinitialize
+          initialValues={{
+            username: suggestedUsername,
+          }}
+          validationSchema={SetUsernameSchema}
+          onSubmit={handleSetUsernameSubmit}
+        >
+          {({
+            handleBlur,
+            handleSubmit,
+            setFieldValue,
+            values,
+            errors,
+            touched,
+          }) => {
+            const usernameFeedback = getUsernameFeedback(
+              errors.username,
+              availabilityState
+            );
+
+            return (
+              <View style={styles.sheetForm}>
+                <AtelierInput
+                  label="Username"
+                  prefix="@"
+                  placeholder="e.g. alex_santos"
+                  helperText={usernameFeedback.helperText}
+                  value={values.username}
+                  onChangeText={(text) => {
+                    const sanitized = sanitizeUsernameInput(text);
+                    setFieldValue('username', sanitized);
+                    runUsernameCheck(sanitized);
+                  }}
+                  onBlur={handleBlur('username')}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="username"
+                  textContentType="username"
+                  error={usernameFeedback.error}
+                  touched={touched.username || usernameFeedback.isTaken}
+                />
+
+                <AtelierErrorBanner
+                  message={usernameErrorMsg}
+                  style={styles.errorBanner}
+                />
+
+                <AtelierButton
+                  title={loading ? 'Saving...' : 'Save Username'}
+                  onPress={handleSubmit}
+                  loading={loading}
+                  disabled={
+                    availabilityState.status === 'checking' ||
+                    availabilityState.status === 'taken'
+                  }
+                  style={styles.sheetSaveButton}
+                />
+              </View>
+            );
+          }}
+        </Formik>
+      </AtelierBottomSheet>
     </View>
   );
 };
@@ -558,6 +696,17 @@ const styles = StyleSheet.create({
   saveButton: {
     marginTop: 0,
     marginBottom: theme.spacing.sm,
+  },
+  errorBanner: {
+    marginHorizontal: 0,
+    marginBottom: theme.spacing.md,
+  },
+  sheetForm: {
+    paddingTop: theme.spacing.xs,
+    paddingBottom: theme.spacing.sm,
+  },
+  sheetSaveButton: {
+    marginTop: theme.spacing.xs,
   },
   logoutButton: {
     marginBottom: theme.spacing.md,

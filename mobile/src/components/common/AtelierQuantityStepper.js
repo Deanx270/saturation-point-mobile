@@ -182,6 +182,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xs,
@@ -214,6 +215,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   regularInput: {
+    width: 48,
     minWidth: 48,
     height: theme.touchTarget.minHeight,
     fontFamily: theme.typography.title2.fontFamily,
@@ -223,6 +225,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   compactInput: {
+    width: 36,
     minWidth: 36,
     height: 36,
     fontFamily: theme.typography.bodyMedium.fontFamily,

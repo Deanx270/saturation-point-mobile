@@ -213,9 +213,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-    height: Platform.OS === 'ios' ? 88 : 64,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+    height: Platform.OS === 'ios' ? 88 : 68,
+    paddingTop: 6,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
     ...theme.shadows.subtle,
   },
   tabBarItem: {

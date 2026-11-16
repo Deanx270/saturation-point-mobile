@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   ScrollView,
@@ -10,7 +10,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { theme } from '../../theme';
-import apiClient from '../../api/client';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
@@ -20,100 +19,28 @@ import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import { updateProfile, requestSignOut } from '../../redux/authSlice';
 import {
-  USERNAME_REGEX,
   displayNameSchemaField,
   usernameSchemaField,
 } from '../../utils/validationSchemas';
+import {
+  buildSuggestedUsername,
+  getUsernameFeedback,
+  sanitizeUsernameInput,
+  useUsernameAvailability,
+} from '../../utils/useUsernameAvailability';
 
 const CompleteProfileSchema = Yup.object().shape({
   displayName: displayNameSchemaField,
   username: usernameSchemaField,
 });
 
-const buildSuggestedUsername = (email) => {
-  const local = String(email || '').split('@')[0] || '';
-  const sanitized = local
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  if (sanitized.length >= 3) {
-    return sanitized.slice(0, 24);
-  }
-  return '';
-};
-
 export const CompleteProfileScreen = () => {
   const dispatch = useDispatch();
   const { user, loading } = useSelector((state) => state.auth);
   const suggestedUsername = buildSuggestedUsername(user?.email);
-  const [availabilityState, setAvailabilityState] = useState({
-    status: 'idle',
-    message: '',
-  });
+  const { availabilityState, runUsernameCheck } = useUsernameAvailability(suggestedUsername);
   const [skipping, setSkipping] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const checkTimerRef = useRef(null);
-  const latestQueryRef = useRef('');
-
-  const runUsernameCheck = (rawUsername) => {
-    if (checkTimerRef.current) {
-      clearTimeout(checkTimerRef.current);
-    }
-    const normalized = String(rawUsername || '')
-      .trim()
-      .replace(/^@/, '')
-      .toLowerCase();
-
-    if (!normalized || !USERNAME_REGEX.test(normalized)) {
-      latestQueryRef.current = '';
-      setAvailabilityState({ status: 'idle', message: '' });
-      return;
-    }
-
-    latestQueryRef.current = normalized;
-    setAvailabilityState({
-      status: 'checking',
-      message: 'Checking availability...',
-    });
-
-    checkTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await apiClient.get('/users/check-username', {
-          params: { username: normalized },
-        });
-        if (latestQueryRef.current !== normalized) {
-          return;
-        }
-        if (res.data?.available) {
-          setAvailabilityState({
-            status: 'available',
-            message: `@${normalized} is available`,
-          });
-        } else {
-          setAvailabilityState({
-            status: 'taken',
-            message: 'That username is already taken',
-          });
-        }
-      } catch (e) {
-        if (latestQueryRef.current === normalized) {
-          setAvailabilityState({ status: 'idle', message: '' });
-        }
-      }
-    }, 350);
-  };
-
-  useEffect(() => {
-    if (suggestedUsername) {
-      runUsernameCheck(suggestedUsername);
-    }
-    return () => {
-      if (checkTimerRef.current) {
-        clearTimeout(checkTimerRef.current);
-      }
-    };
-  }, [suggestedUsername]);
 
   const reportError = (title, message) => {
     setSubmitError(message);
@@ -200,16 +127,10 @@ export const CompleteProfileScreen = () => {
             errors,
             touched,
           }) => {
-            const usernameHelper =
-              availabilityState.status === 'available' ||
-              availabilityState.status === 'checking'
-                ? availabilityState.message
-                : 'Letters, numbers, and underscores only (3–30 characters)';
-            const usernameError =
-              errors.username ||
-              (availabilityState.status === 'taken'
-                ? availabilityState.message
-                : undefined);
+            const usernameFeedback = getUsernameFeedback(
+              errors.username,
+              availabilityState
+            );
 
             return (
               <View style={styles.formContainer}>
@@ -230,10 +151,10 @@ export const CompleteProfileScreen = () => {
                   label="Username"
                   prefix="@"
                   placeholder="e.g. alex_santos"
-                  helperText={usernameHelper}
+                  helperText={usernameFeedback.helperText}
                   value={values.username}
                   onChangeText={(text) => {
-                    const sanitized = text.replace(/^@/, '').replace(/\s+/g, '');
+                    const sanitized = sanitizeUsernameInput(text);
                     setFieldValue('username', sanitized);
                     runUsernameCheck(sanitized);
                   }}
@@ -242,8 +163,8 @@ export const CompleteProfileScreen = () => {
                   autoCorrect={false}
                   autoComplete="username"
                   textContentType="username"
-                  error={usernameError}
-                  touched={touched.username || availabilityState.status === 'taken'}
+                  error={usernameFeedback.error}
+                  touched={touched.username || usernameFeedback.isTaken}
                 />
 
                 <AtelierErrorBanner
