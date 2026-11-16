@@ -31,10 +31,13 @@ import {
   pickImagesFromGallery,
   captureImageWithCamera,
 } from '../../utils/imagePickerHelper';
-import { USERNAME_REGEX } from '../../utils/validationSchemas';
+import {
+  USERNAME_REGEX,
+  displayNameSchemaField,
+} from '../../utils/validationSchemas';
 
 const ProfileSchema = Yup.object().shape({
-  displayName: Yup.string().trim().required('Display name is required'),
+  displayName: displayNameSchemaField,
   username: Yup.string()
     .trim()
     .transform((v) => (v ? v.replace(/^@/, '') : ''))

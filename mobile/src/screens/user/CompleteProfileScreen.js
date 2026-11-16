@@ -21,14 +21,12 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import { updateProfile, requestSignOut } from '../../redux/authSlice';
 import {
   USERNAME_REGEX,
+  displayNameSchemaField,
   usernameSchemaField,
 } from '../../utils/validationSchemas';
 
 const CompleteProfileSchema = Yup.object().shape({
-  displayName: Yup.string()
-    .trim()
-    .min(2, 'Full name must be at least 2 characters')
-    .required('Full name is required'),
+  displayName: displayNameSchemaField,
   username: usernameSchemaField,
 });
 
@@ -182,7 +180,7 @@ export const CompleteProfileScreen = () => {
         <AtelierBrandMark
           variant="auth"
           title="Complete Your Profile"
-          subtitle="Add your name and choose a @username so you can sign in with either email or username."
+          subtitle="Add your display name and choose a @username so you can sign in with either email or username."
         />
 
         <Formik
@@ -216,8 +214,8 @@ export const CompleteProfileScreen = () => {
             return (
               <View style={styles.formContainer}>
                 <AtelierInput
-                  label="Full Name"
-                  placeholder="Enter your full name"
+                  label="Display Name"
+                  placeholder="Enter your display name"
                   value={values.displayName}
                   onChangeText={handleChange('displayName')}
                   onBlur={handleBlur('displayName')}

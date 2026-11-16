@@ -42,3 +42,8 @@ export const passwordSchemaField = Yup.string()
 
 export const loginPasswordSchemaField = Yup.string()
   .required('Password is required');
+
+export const displayNameSchemaField = Yup.string()
+  .trim()
+  .min(2, 'Display name must be at least 2 characters')
+  .required('Display name is required');
