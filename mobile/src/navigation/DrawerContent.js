@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   StyleSheet,
-  Image,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,8 +12,8 @@ import AtelierText from '../components/common/AtelierText';
 import AtelierBadge from '../components/common/AtelierBadge';
 import AtelierBrandMark from '../components/common/AtelierBrandMark';
 import AtelierPressable from '../components/common/AtelierPressable';
+import AtelierAvatar from '../components/common/AtelierAvatar';
 import { requestSignOut } from '../redux/authSlice';
-import { isValidRemoteOrLocalUri } from '../utils/formatters';
 
 export const DrawerContent = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -35,7 +34,6 @@ export const DrawerContent = ({ navigation }) => {
   };
 
   const isAdmin = user?.role === 'admin';
-  const hasAvatar = isValidRemoteOrLocalUri(user?.photoURL);
 
   return (
     <View style={styles.container}>
@@ -52,20 +50,11 @@ export const DrawerContent = ({ navigation }) => {
 
       <View style={styles.profileHeader}>
         <View style={styles.avatarBorder}>
-          {hasAvatar ? (
-            <Image
-              source={{ uri: user.photoURL }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons
-                name="person-outline"
-                size={26}
-                color={theme.colors.inkMuted}
-              />
-            </View>
-          )}
+          <AtelierAvatar
+            uri={user?.photoURL}
+            name={user?.displayName}
+            size={50}
+          />
         </View>
         <View style={styles.profileDetails}>
           <AtelierText
@@ -368,17 +357,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.borderMedium,
     padding: 2,
     backgroundColor: theme.colors.surface,
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 26,
-  },
-  avatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 26,
-    backgroundColor: theme.colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },

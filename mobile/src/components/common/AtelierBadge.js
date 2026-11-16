@@ -23,22 +23,22 @@ export const AtelierBadge = ({ label, status = 'default', style }) => {
       case 'warning':
       case 'lowstock':
         return {
-          bg: '#FFFBEB',
+          bg: '#FEF7E6',
           text: '#B45309',
-          border: '#FCD34D',
+          border: '#F3D393',
         };
       case 'processing':
       case 'gold':
         return {
           bg: theme.colors.goldLight,
-          text: theme.colors.gold,
-          border: 'rgba(202, 138, 4, 0.3)',
+          text: theme.colors.goldText,
+          border: 'rgba(161, 98, 7, 0.28)',
         };
       case 'shipped':
         return {
-          bg: '#F0F9FF',
-          text: '#0369A1',
-          border: '#BAE6FD',
+          bg: '#EFF5FA',
+          text: '#1E4E79',
+          border: '#BDD5EB',
         };
       case 'pending':
       case 'default':

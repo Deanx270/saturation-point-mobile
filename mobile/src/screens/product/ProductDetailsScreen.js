@@ -27,6 +27,7 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierAvatar from '../../components/common/AtelierAvatar';
 import {
   fetchProductDetails,
   syncProductSnapshot,
@@ -739,7 +740,6 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                   user?._id && rev.user && String(user._id) === String(rev.user)
                 );
                 const canDelete = user?.role === 'admin' || isOwnReview;
-                const hasReviewerAvatar = isValidRemoteOrLocalUri(rev.photoURL);
 
                 return (
                   <AtelierCard
@@ -748,20 +748,11 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                   >
                     <View style={styles.reviewHeaderRow}>
                       <View style={styles.reviewerIdentityRow}>
-                        {hasReviewerAvatar ? (
-                          <Image
-                            source={{ uri: rev.photoURL }}
-                            style={styles.reviewerAvatar}
-                          />
-                        ) : (
-                          <View style={styles.reviewerAvatarPlaceholder}>
-                            <Ionicons
-                              name="person-outline"
-                              size={15}
-                              color={theme.colors.inkMuted}
-                            />
-                          </View>
-                        )}
+                        <AtelierAvatar
+                          uri={rev.photoURL}
+                          name={rev.name}
+                          size={32}
+                        />
                         <View style={styles.reviewerNameGroup}>
                           <AtelierText
                             variant="title2"
@@ -1124,22 +1115,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-  },
-  reviewerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.surfaceSubtle,
-  },
-  reviewerAvatarPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   reviewerNameGroup: {
     flex: 1,

@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  Image,
   Alert,
   ActivityIndicator,
   Platform,
@@ -25,9 +24,9 @@ import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierToast from '../../components/common/AtelierToast';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
+import AtelierAvatar from '../../components/common/AtelierAvatar';
 import { updateProfile, requestSignOut, syncPushToken } from '../../redux/authSlice';
 import { getNotificationPermissionGranted } from '../../services/pushNotificationService';
-import { isValidRemoteOrLocalUri } from '../../utils/formatters';
 import { appendImageToFormData } from '../../utils/formDataHelper';
 import {
   pickImagesFromGallery,
@@ -267,7 +266,6 @@ export const ProfileScreen = ({ navigation }) => {
   };
 
   const resolvedAvatar = avatarUri || user.photoURL;
-  const hasAvatar = isValidRemoteOrLocalUri(resolvedAvatar);
 
   return (
     <View style={styles.container}>
@@ -294,20 +292,11 @@ export const ProfileScreen = ({ navigation }) => {
               style={styles.avatarWrapper}
               accessibilityLabel="Update profile photo"
             >
-              {hasAvatar ? (
-                <Image
-                  source={{ uri: resolvedAvatar }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Ionicons
-                    name="person-outline"
-                    size={40}
-                    color={theme.colors.inkMuted}
-                  />
-                </View>
-              )}
+              <AtelierAvatar
+                uri={resolvedAvatar}
+                name={user.displayName}
+                size={74}
+              />
               {uploadingPhoto ? (
                 <View style={styles.avatarUploadingOverlay}>
                   <ActivityIndicator
@@ -344,7 +333,7 @@ export const ProfileScreen = ({ navigation }) => {
           <View style={styles.badgeRow}>
             <AtelierBadge
               label={user.role === 'admin' ? 'Admin' : 'Member'}
-              status={user.role === 'admin' ? 'gold' : 'success'}
+              status={user.role === 'admin' ? 'gold' : 'default'}
             />
           </View>
         </View>
@@ -383,10 +372,20 @@ export const ProfileScreen = ({ navigation }) => {
               >
                 Username
               </AtelierText>
-              <AtelierBadge
-                label="Set Username"
-                status="gold"
-              />
+              <View style={styles.inlineActionChip}>
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.goldText}
+                  style={styles.inlineActionText}
+                >
+                  Set Username
+                </AtelierText>
+                <Ionicons
+                  name="chevron-forward"
+                  size={13}
+                  color={theme.colors.goldText}
+                />
+              </View>
             </AtelierPressable>
           )}
 
@@ -423,10 +422,29 @@ export const ProfileScreen = ({ navigation }) => {
             >
               Push Notifications
             </AtelierText>
-            <AtelierBadge
-              label={syncingPush ? 'Syncing...' : pushEnabled ? 'Enabled' : 'Enable'}
-              status={pushEnabled ? 'success' : 'gold'}
-            />
+            {pushEnabled && !syncingPush ? (
+              <AtelierBadge
+                label="Enabled"
+                status="success"
+              />
+            ) : (
+              <View style={styles.inlineActionChip}>
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.goldText}
+                  style={styles.inlineActionText}
+                >
+                  {syncingPush ? 'Syncing...' : 'Enable'}
+                </AtelierText>
+                {!syncingPush ? (
+                  <Ionicons
+                    name="chevron-forward"
+                    size={13}
+                    color={theme.colors.goldText}
+                  />
+                ) : null}
+              </View>
+            )}
           </AtelierPressable>
         </AtelierCard>
 
@@ -616,24 +634,13 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.gold,
     backgroundColor: theme.colors.surface,
     padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
   },
   avatarPressed: {
     opacity: 0.88,
     transform: [{ scale: 0.97 }],
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 38,
-  },
-  avatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 38,
-    backgroundColor: theme.colors.surfaceSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   avatarUploadingOverlay: {
     position: 'absolute',
@@ -689,6 +696,20 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: theme.radii.xs,
     overflow: 'hidden',
+  },
+  inlineActionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(161, 98, 7, 0.4)',
+    borderRadius: theme.radii.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  inlineActionText: {
+    fontSize: 11,
   },
   sectionHeader: {
     marginBottom: theme.spacing.sm,
