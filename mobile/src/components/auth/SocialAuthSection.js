@@ -41,12 +41,22 @@ const FacebookMark = () => (
 
 const getNativeGoogleClientId = (clientIds) => {
   if (Platform.OS === 'ios') {
-    return clientIds.iosClientId || clientIds.webClientId || '';
+    return clientIds.iosClientId || '';
   }
   if (Platform.OS === 'android') {
-    return clientIds.androidClientId || clientIds.webClientId || '';
+    return clientIds.androidClientId || '';
   }
   return clientIds.webClientId || '';
+};
+
+const getMissingGoogleEnvKey = () => {
+  if (Platform.OS === 'android') {
+    return 'EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID';
+  }
+  if (Platform.OS === 'ios') {
+    return 'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID';
+  }
+  return 'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID';
 };
 
 const GoogleNativeAuthButton = ({ clientIds, busy, onToken, onError }) => {
@@ -231,7 +241,7 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
                 ? handleWebPopup('google')
                 : handleUnconfiguredPress(
                     'Google',
-                    'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'
+                    getMissingGoogleEnvKey()
                   )
             }
             style={styles.socialButton}
