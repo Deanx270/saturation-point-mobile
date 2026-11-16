@@ -20,37 +20,31 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierToast from '../../components/common/AtelierToast';
 import { fetchAllOrders, updateOrderStatus } from '../../redux/ordersSlice';
 import {
   formatPrice,
   formatOrderStatus,
   isValidRemoteOrLocalUri,
 } from '../../utils/formatters';
+import { ORDER_STATUS_TRANSITIONS } from '../../utils/orderStatus';
 
 const STATUS_FILTERS = ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
-const STATUS_TRANSITIONS = {
-  pending: [
-    { key: 'processing', label: 'Mark as Processing', icon: 'construct-outline' },
-    { key: 'cancelled', label: 'Cancel Order', icon: 'close-circle-outline', destructive: true },
-  ],
-  processing: [
-    { key: 'shipped', label: 'Mark as Shipped', icon: 'airplane-outline' },
-    { key: 'cancelled', label: 'Cancel Order', icon: 'close-circle-outline', destructive: true },
-  ],
-  shipped: [
-    { key: 'delivered', label: 'Mark as Delivered', icon: 'checkmark-done-circle-outline' },
-  ],
-  delivered: [],
-  cancelled: [],
-};
-
 export const AdminOrdersScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { allOrders, loading, error } = useSelector((state) => state.orders);
+  const { allOrders, loading, updatingOrderId, error } = useSelector(
+    (state) => state.orders
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [activeStatus, setActiveStatus] = useState('All');
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [cancelConfirmOrder, setCancelConfirmOrder] = useState(null);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    key: 0,
+  });
   const canGoBack = navigation.canGoBack();
 
   useEffect(() => {
@@ -64,14 +58,18 @@ export const AdminOrdersScreen = ({ navigation }) => {
   };
 
   const handleStatusChange = async (order, nextStatus) => {
+    if (!order?._id || updatingOrderId === order._id) {
+      return;
+    }
     const result = await dispatch(
       updateOrderStatus({ orderId: order._id, status: nextStatus })
     );
     if (updateOrderStatus.fulfilled.match(result)) {
-      Alert.alert(
-        'Status Updated',
-        `Order status updated to ${formatOrderStatus(nextStatus)}. Notification sent to customer.`
-      );
+      setToastState((prev) => ({
+        visible: true,
+        message: `Order #${order._id.slice(-8).toUpperCase()} updated to ${formatOrderStatus(nextStatus)}`,
+        key: prev.key + 1,
+      }));
     } else {
       Alert.alert(
         'Update Failed',
@@ -82,26 +80,18 @@ export const AdminOrdersScreen = ({ navigation }) => {
 
   const handleSelectTransition = (order, nextStatus) => {
     if (nextStatus === 'cancelled') {
-      Alert.alert(
-        'Cancel Order?',
-        `Cancel Order #${order._id.slice(-8).toUpperCase()}? Item stock will be restored and the customer will be notified.`,
-        [
-          { text: 'Keep Order', style: 'cancel' },
-          {
-            text: 'Cancel Order',
-            style: 'destructive',
-            onPress: () => handleStatusChange(order, nextStatus),
-          },
-        ]
-      );
+      setCancelConfirmOrder(order);
       return;
     }
     handleStatusChange(order, nextStatus);
   };
 
   const handleStatusChangePrompt = (order) => {
+    if (updatingOrderId === order._id) {
+      return;
+    }
     const normalized = String(order.status || 'pending').toLowerCase();
-    const transitions = STATUS_TRANSITIONS[normalized] || [];
+    const transitions = ORDER_STATUS_TRANSITIONS[normalized] || [];
     if (transitions.length === 0) {
       return;
     }
@@ -119,8 +109,9 @@ export const AdminOrdersScreen = ({ navigation }) => {
     const totalCount =
       item.orderItems?.reduce((sum, i) => sum + (i.quantity || 1), 0) || 0;
     const normalizedStatus = String(item.status || 'pending').toLowerCase();
-    const transitions = STATUS_TRANSITIONS[normalizedStatus] || [];
+    const transitions = ORDER_STATUS_TRANSITIONS[normalizedStatus] || [];
     const isFinalized = transitions.length === 0;
+    const isUpdating = updatingOrderId === item._id;
     const firstItem = item.orderItems?.[0];
     const extraProductsCount = Math.max(0, (item.orderItems?.length || 0) - 1);
     const hasThumb = isValidRemoteOrLocalUri(firstItem?.image);
@@ -154,12 +145,17 @@ export const AdminOrdersScreen = ({ navigation }) => {
             <AtelierPressable
               tone="subtle"
               stopPropagation
+              disabled={isUpdating}
               hitSlop={8}
               onPress={() => handleStatusChangePrompt(item)}
               accessibilityLabel={`Change status for order ${item._id.slice(-8).toUpperCase()}`}
             >
               <AtelierBadge
-                label={`${formatOrderStatus(item.status)} ▾`}
+                label={
+                  isUpdating
+                    ? 'Updating...'
+                    : `${formatOrderStatus(item.status)} ▾`
+                }
                 status={item.status}
               />
             </AtelierPressable>
@@ -260,15 +256,16 @@ export const AdminOrdersScreen = ({ navigation }) => {
             <AtelierPressable
               tone="surface"
               stopPropagation
+              disabled={isUpdating}
               hitSlop={6}
-              style={styles.updateButton}
+              style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
               onPress={() => handleStatusChangePrompt(item)}
             >
               <AtelierText
                 variant="caption"
-                color={theme.colors.inkPrimary}
+                color={isUpdating ? theme.colors.inkMuted : theme.colors.inkPrimary}
               >
-                Update Status
+                {isUpdating ? 'Updating...' : 'Update Status'}
               </AtelierText>
             </AtelierPressable>
           )}
@@ -278,7 +275,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
   };
 
   const availableTransitions = selectedOrder
-    ? STATUS_TRANSITIONS[String(selectedOrder.status || 'pending').toLowerCase()] || []
+    ? ORDER_STATUS_TRANSITIONS[String(selectedOrder.status || 'pending').toLowerCase()] || []
     : [];
 
   return (
@@ -388,6 +385,40 @@ export const AdminOrdersScreen = ({ navigation }) => {
           onPress: () => handleSelectTransition(selectedOrder, option.key),
         }))}
       />
+
+      <AtelierBottomSheet
+        visible={Boolean(cancelConfirmOrder)}
+        onClose={() => setCancelConfirmOrder(null)}
+        title="Cancel Order?"
+        subtitle={
+          cancelConfirmOrder
+            ? `Cancel Order #${cancelConfirmOrder._id.slice(-8).toUpperCase()}? Item stock will be restored and the customer will be notified.`
+            : ''
+        }
+        showCloseButton={false}
+        options={[
+          {
+            key: 'confirm-cancel',
+            label: 'Cancel Order',
+            icon: 'close-circle-outline',
+            destructive: true,
+            onPress: () => handleStatusChange(cancelConfirmOrder, 'cancelled'),
+          },
+          {
+            key: 'keep-order',
+            label: 'Keep Order',
+            icon: 'arrow-back-outline',
+            onPress: () => setCancelConfirmOrder(null),
+          },
+        ]}
+      />
+
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -486,6 +517,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.borderMedium,
     backgroundColor: theme.colors.surfaceSubtle,
     overflow: 'hidden',
+  },
+  updateButtonDisabled: {
+    opacity: 0.6,
   },
   lockedStatusPill: {
     flexDirection: 'row',

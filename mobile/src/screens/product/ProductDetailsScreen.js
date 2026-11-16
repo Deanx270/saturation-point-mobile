@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -53,9 +53,14 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     productId,
     discountPercent = 0,
     promoTitle = '',
+    focusReview = false,
   } = route.params || {};
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef(null);
+  const contentOffsetY = useRef(0);
+  const reviewsOffsetY = useRef(null);
+  const didAutoScrollRef = useRef(false);
   const { selectedProduct, loading, error } = useSelector((state) => state.products);
   const { isEligible, submitting, submitSuccess, error: reviewError } = useSelector(
     (state) => state.reviews
@@ -72,6 +77,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   const [addedToCartSheetVisible, setAddedToCartSheetVisible] = useState(false);
 
   useEffect(() => {
+    didAutoScrollRef.current = false;
+    contentOffsetY.current = 0;
+    reviewsOffsetY.current = null;
     setSelectedImageIndex(0);
     setQuantity(1);
     setStockWarning('');
@@ -108,6 +116,27 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
       ? Math.round(selectedProduct.price * (1 - parsedDiscount / 100))
       : selectedProduct.price
     : 0;
+
+  useEffect(() => {
+    if (
+      focusReview &&
+      !isStaleProduct &&
+      reviewsOffsetY.current !== null &&
+      !didAutoScrollRef.current
+    ) {
+      didAutoScrollRef.current = true;
+      const targetY = Math.max(
+        0,
+        contentOffsetY.current + reviewsOffsetY.current - 16
+      );
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: targetY,
+          animated: true,
+        });
+      }, 150);
+    }
+  }, [focusReview, isStaleProduct, isEligible]);
 
   useEffect(() => {
     if (!isStaleProduct && remainingStock >= 1 && quantity > remainingStock) {
@@ -273,6 +302,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -336,7 +366,12 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
           </ScrollView>
         )}
 
-        <View style={styles.contentContainer}>
+        <View
+          style={styles.contentContainer}
+          onLayout={(event) => {
+            contentOffsetY.current = event.nativeEvent.layout.y;
+          }}
+        >
           <View style={styles.brandCategoryRow}>
             <AtelierText
               variant="caption"
@@ -490,7 +525,27 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
 
           <View style={styles.divider} />
 
-          <View style={styles.reviewsSection}>
+          <View
+            style={styles.reviewsSection}
+            onLayout={(event) => {
+              const nextY = event.nativeEvent.layout.y;
+              reviewsOffsetY.current = nextY;
+              if (
+                focusReview &&
+                !isStaleProduct &&
+                !didAutoScrollRef.current
+              ) {
+                didAutoScrollRef.current = true;
+                const targetY = Math.max(0, contentOffsetY.current + nextY - 16);
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollTo({
+                    y: targetY,
+                    animated: true,
+                  });
+                }, 150);
+              }
+            }}
+          >
             <AtelierText
               variant="title2"
               style={styles.sectionHeading}

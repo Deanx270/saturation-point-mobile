@@ -116,6 +116,49 @@ const ALLOWED_STATUS_TRANSITIONS = {
 
 const VALID_ORDER_STATUSES = Object.keys(ALLOWED_STATUS_TRANSITIONS);
 
+const restoreOrderItemStock = async (order) => {
+  for (const item of order.orderItems || []) {
+    if (item.product && item.quantity > 0) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: item.quantity },
+      });
+    }
+  }
+};
+
+const cancelMyOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate(
+      'user',
+      'displayName email photoURL'
+    );
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const ownerId = order.user?._id ? order.user._id.toString() : String(order.user || '');
+    if (ownerId !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const currentStatus = String(order.status || 'pending').toLowerCase();
+    if (currentStatus !== 'pending') {
+      return res.status(400).json({
+        message: 'Only pending orders can be cancelled.',
+      });
+    }
+
+    await restoreOrderItemStock(order);
+    order.status = 'cancelled';
+    await order.save();
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 const updateOrderStatus = async (req, res) => {
   try {
     const nextStatus = typeof req.body.status === 'string'
@@ -168,13 +211,7 @@ const updateOrderStatus = async (req, res) => {
     }
 
     if (nextStatus === 'cancelled') {
-      for (const item of order.orderItems || []) {
-        if (item.product && item.quantity > 0) {
-          await Product.findByIdAndUpdate(item.product, {
-            $inc: { stock: item.quantity },
-          });
-        }
-      }
+      await restoreOrderItemStock(order);
     }
 
     order.status = nextStatus;
@@ -195,7 +232,7 @@ const updateOrderStatus = async (req, res) => {
           orderId: order._id.toString(),
         },
       }));
-      await sendExpoPushNotifications(messages);
+      Promise.resolve(sendExpoPushNotifications(messages)).catch(() => {});
     }
 
     res.json(order);
@@ -210,4 +247,5 @@ module.exports = {
   getOrderById,
   getAllOrders,
   updateOrderStatus,
+  cancelMyOrder,
 };

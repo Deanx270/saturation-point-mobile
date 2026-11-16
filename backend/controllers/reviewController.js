@@ -116,6 +116,7 @@ const updateReview = async (req, res) => {
       message: 'Review updated successfully',
       review,
       productRating: product.rating,
+      numReviews: product.numReviews,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -149,7 +150,11 @@ const deleteReview = async (req, res) => {
         : 0;
 
     await product.save();
-    res.json({ message: 'Review removed successfully' });
+    res.json({
+      message: 'Review removed successfully',
+      productRating: product.rating,
+      numReviews: product.numReviews,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

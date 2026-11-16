@@ -20,8 +20,8 @@ export const submitReview = createAsyncThunk(
   async ({ productId, rating, comment }, { dispatch, rejectWithValue }) => {
     try {
       const response = await apiClient.post(`/reviews/${productId}`, { rating, comment });
-      dispatch(fetchProductDetails(productId));
-      return response.data;
+      await dispatch(fetchProductDetails(productId));
+      return { productId, ...response.data };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to submit review');
     }
@@ -36,8 +36,8 @@ export const editReview = createAsyncThunk(
         rating,
         comment,
       });
-      dispatch(fetchProductDetails(productId));
-      return response.data;
+      await dispatch(fetchProductDetails(productId));
+      return { productId, ...response.data };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update review');
     }
@@ -48,9 +48,9 @@ export const removeReview = createAsyncThunk(
   'reviews/removeReview',
   async ({ productId, reviewId }, { dispatch, rejectWithValue }) => {
     try {
-      await apiClient.delete(`/reviews/${productId}/${reviewId}`);
-      dispatch(fetchProductDetails(productId));
-      return reviewId;
+      const response = await apiClient.delete(`/reviews/${productId}/${reviewId}`);
+      await dispatch(fetchProductDetails(productId));
+      return { productId, reviewId, ...response.data };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to delete review');
     }

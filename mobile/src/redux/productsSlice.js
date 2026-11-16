@@ -279,6 +279,20 @@ const productsSlice = createSlice({
       .addCase(fetchProductDetails.fulfilled, (state, action) => {
         state.loading = false;
         state.selectedProduct = action.payload;
+        if (action.payload?._id) {
+          const shopIndex = state.items.findIndex(
+            (item) => item._id === action.payload._id
+          );
+          if (shopIndex !== -1) {
+            state.items[shopIndex] = action.payload;
+          }
+          const adminIndex = state.adminItems.findIndex(
+            (item) => item._id === action.payload._id
+          );
+          if (adminIndex !== -1) {
+            state.adminItems[adminIndex] = action.payload;
+          }
+        }
       })
       .addCase(fetchProductDetails.rejected, (state, action) => {
         state.loading = false;

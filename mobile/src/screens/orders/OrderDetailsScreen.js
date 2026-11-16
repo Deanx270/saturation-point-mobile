@@ -1,9 +1,10 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Image,
+  Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,24 +13,42 @@ import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBadge from '../../components/common/AtelierBadge';
+import AtelierButton from '../../components/common/AtelierButton';
+import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
-import { fetchOrderById } from '../../redux/ordersSlice';
+import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import AtelierToast from '../../components/common/AtelierToast';
+import {
+  fetchOrderById,
+  updateOrderStatus,
+  cancelMyOrder,
+} from '../../redux/ordersSlice';
 import {
   formatPrice,
   formatOrderStatus,
   isValidRemoteOrLocalUri,
 } from '../../utils/formatters';
+import { ORDER_STATUS_TRANSITIONS } from '../../utils/orderStatus';
 
 const ORDER_STEPS = ['pending', 'processing', 'shipped', 'delivered'];
 
 export const OrderDetailsScreen = ({ route, navigation }) => {
   const { orderId } = route.params || {};
   const dispatch = useDispatch();
-  const { selectedOrder, loading, error } = useSelector((state) => state.orders);
+  const { selectedOrder, loading, updatingOrderId, error } = useSelector(
+    (state) => state.orders
+  );
   const { user } = useSelector((state) => state.auth);
+  const [statusSheetVisible, setStatusSheetVisible] = useState(false);
+  const [cancelSheetMode, setCancelSheetMode] = useState(null);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    key: 0,
+  });
 
   useEffect(() => {
     if (!user) {
@@ -121,9 +140,72 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
     );
   }
 
-  const normalizedStatus = selectedOrder.status?.toLowerCase();
+  const normalizedStatus = selectedOrder.status?.toLowerCase() || 'pending';
   const isCancelled = normalizedStatus === 'cancelled';
+  const isAdmin = user?.role === 'admin';
+  const isUpdatingOrder = updatingOrderId === selectedOrder._id;
   const currentStepIndex = ORDER_STEPS.indexOf(normalizedStatus);
+  const availableTransitions = ORDER_STATUS_TRANSITIONS[normalizedStatus] || [];
+
+  const handleAdminStatusChange = async (nextStatus) => {
+    if (isUpdatingOrder) {
+      return;
+    }
+    const result = await dispatch(
+      updateOrderStatus({ orderId: selectedOrder._id, status: nextStatus })
+    );
+    if (updateOrderStatus.fulfilled.match(result)) {
+      setToastState((prev) => ({
+        visible: true,
+        message: `Order updated to ${formatOrderStatus(nextStatus)}`,
+        key: prev.key + 1,
+      }));
+    } else {
+      Alert.alert(
+        'Update Failed',
+        result.payload || 'Unable to update order status.'
+      );
+    }
+  };
+
+  const handleSelectAdminTransition = (nextStatus) => {
+    if (nextStatus === 'cancelled') {
+      setCancelSheetMode('admin');
+      return;
+    }
+    handleAdminStatusChange(nextStatus);
+  };
+
+  const handleCustomerCancelConfirm = async () => {
+    if (isUpdatingOrder) {
+      return;
+    }
+    const result = await dispatch(cancelMyOrder(selectedOrder._id));
+    if (cancelMyOrder.fulfilled.match(result)) {
+      setToastState((prev) => ({
+        visible: true,
+        message: 'Order cancelled and item stock restored',
+        key: prev.key + 1,
+      }));
+    } else {
+      Alert.alert(
+        'Unable to Cancel',
+        result.payload || 'Only pending orders can be cancelled.'
+      );
+    }
+  };
+
+  const openProductScreen = (targetProductId, focusReview = false) => {
+    if (!targetProductId) {
+      return;
+    }
+    navigation.navigate('HomeTab', {
+      screen: 'ProductDetails',
+      params: focusReview
+        ? { productId: targetProductId, focusReview: true }
+        : { productId: targetProductId },
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -196,6 +278,39 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
               })}
             </View>
           )}
+          {isAdmin && availableTransitions.length > 0 ? (
+            <View style={styles.statusActionsContainer}>
+              <AtelierButton
+                title={isUpdatingOrder ? 'Updating Status...' : 'Update Status'}
+                loading={isUpdatingOrder}
+                disabled={isUpdatingOrder}
+                onPress={() => setStatusSheetVisible(true)}
+              />
+            </View>
+          ) : null}
+
+          {!isAdmin && normalizedStatus === 'pending' ? (
+            <View style={styles.statusActionsContainer}>
+              <AtelierButton
+                title={isUpdatingOrder ? 'Cancelling Order...' : 'Cancel Order'}
+                variant="outline"
+                loading={isUpdatingOrder}
+                disabled={isUpdatingOrder}
+                onPress={() => setCancelSheetMode('customer')}
+                style={styles.cancelButtonOutline}
+                textStyle={styles.cancelButtonText}
+              />
+            </View>
+          ) : !isAdmin &&
+            (normalizedStatus === 'processing' || normalizedStatus === 'shipped') ? (
+            <AtelierText
+              variant="bodySmall"
+              color={theme.colors.inkMuted}
+              style={styles.statusHelperNote}
+            >
+              Order cancellation closes once preparation begins.
+            </AtelierText>
+          ) : null}
         </AtelierCard>
 
         <AtelierText
@@ -207,9 +322,14 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
 
         {selectedOrder.orderItems?.map((item, index) => {
           const hasValidImage = isValidRemoteOrLocalUri(item.image);
+          const itemProductId = item.product?._id || item.product;
+          const canReviewItem =
+            !isAdmin && normalizedStatus === 'delivered' && Boolean(itemProductId);
+
           return (
             <AtelierCard
               key={index}
+              onPress={itemProductId ? () => openProductScreen(itemProductId) : undefined}
               style={styles.itemCard}
             >
               <View style={styles.itemRow}>
@@ -249,6 +369,35 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
                   </AtelierText>
                 </View>
               </View>
+
+              {canReviewItem ? (
+                <AtelierPressable
+                  tone="surface"
+                  stopPropagation
+                  hitSlop={6}
+                  style={styles.reviewCtaRow}
+                  onPress={() => openProductScreen(itemProductId, true)}
+                >
+                  <View style={styles.reviewCtaLeft}>
+                    <Ionicons
+                      name="star-outline"
+                      size={16}
+                      color={theme.colors.goldText}
+                    />
+                    <AtelierText
+                      variant="caption"
+                      color={theme.colors.goldText}
+                    >
+                      Write a Review
+                    </AtelierText>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={theme.colors.goldText}
+                  />
+                </AtelierPressable>
+              ) : null}
             </AtelierCard>
           );
         })}
@@ -355,6 +504,57 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
           </View>
         </AtelierCard>
       </ScrollView>
+
+      <AtelierBottomSheet
+        visible={statusSheetVisible}
+        onClose={() => setStatusSheetVisible(false)}
+        title="Advance Order Status"
+        subtitle={`Order #${selectedOrder._id.slice(-8).toUpperCase()} • Currently ${formatOrderStatus(selectedOrder.status)}`}
+        options={availableTransitions.map((option) => ({
+          key: option.key,
+          label: option.label,
+          icon: option.icon,
+          destructive: Boolean(option.destructive),
+          onPress: () => handleSelectAdminTransition(option.key),
+        }))}
+      />
+
+      <AtelierBottomSheet
+        visible={Boolean(cancelSheetMode)}
+        onClose={() => setCancelSheetMode(null)}
+        title="Cancel Order?"
+        subtitle={
+          cancelSheetMode === 'admin'
+            ? `Cancel Order #${selectedOrder._id.slice(-8).toUpperCase()}? Item stock will be restored and the customer will be notified.`
+            : `Cancel Order #${selectedOrder._id.slice(-8).toUpperCase()}? Your items will be restocked immediately and this cannot be undone.`
+        }
+        showCloseButton={false}
+        options={[
+          {
+            key: 'confirm-cancel',
+            label: 'Cancel Order',
+            icon: 'close-circle-outline',
+            destructive: true,
+            onPress: () =>
+              cancelSheetMode === 'admin'
+                ? handleAdminStatusChange('cancelled')
+                : handleCustomerCancelConfirm(),
+          },
+          {
+            key: 'keep-order',
+            label: 'Keep Order',
+            icon: 'arrow-back-outline',
+            onPress: () => setCancelSheetMode(null),
+          },
+        ]}
+      />
+
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -408,6 +608,37 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     fontSize: 10,
+  },
+  statusActionsContainer: {
+    marginTop: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  cancelButtonOutline: {
+    borderColor: theme.colors.error,
+  },
+  cancelButtonText: {
+    color: theme.colors.error,
+  },
+  statusHelperNote: {
+    marginTop: theme.spacing.md,
+    textAlign: 'center',
+  },
+  reviewCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  reviewCtaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
   },
   sectionTitle: {
     marginBottom: theme.spacing.sm,

@@ -72,6 +72,35 @@ export const updateOrderStatus = createAsyncThunk(
   }
 );
 
+export const cancelMyOrder = createAsyncThunk(
+  'orders/cancelMyOrder',
+  async (orderId, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.put(`/orders/${orderId}/cancel`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(getApiErrorMessage(error, 'Failed to cancel order'));
+    }
+  }
+);
+
+const syncOrderInState = (state, updatedOrder) => {
+  if (!updatedOrder?._id) {
+    return;
+  }
+  const index = state.allOrders.findIndex((o) => o._id === updatedOrder._id);
+  if (index !== -1) {
+    state.allOrders[index] = updatedOrder;
+  }
+  const myIndex = state.myOrders.findIndex((o) => o._id === updatedOrder._id);
+  if (myIndex !== -1) {
+    state.myOrders[myIndex] = updatedOrder;
+  }
+  if (state.selectedOrder?._id === updatedOrder._id) {
+    state.selectedOrder = updatedOrder;
+  }
+};
+
 const ordersSlice = createSlice({
   name: 'orders',
   initialState: {
@@ -79,6 +108,7 @@ const ordersSlice = createSlice({
     allOrders: [],
     selectedOrder: null,
     loading: false,
+    updatingOrderId: null,
     error: null,
     checkoutSuccess: false,
   },
@@ -144,23 +174,31 @@ const ordersSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      .addCase(updateOrderStatus.pending, (state, action) => {
+        state.updatingOrderId = action.meta.arg?.orderId || null;
+      })
       .addCase(updateOrderStatus.fulfilled, (state, action) => {
-        const index = state.allOrders.findIndex((o) => o._id === action.payload._id);
-        if (index !== -1) {
-          state.allOrders[index] = action.payload;
-        }
-        const myIndex = state.myOrders.findIndex((o) => o._id === action.payload._id);
-        if (myIndex !== -1) {
-          state.myOrders[myIndex] = action.payload;
-        }
-        if (state.selectedOrder?._id === action.payload._id) {
-          state.selectedOrder = action.payload;
-        }
+        state.updatingOrderId = null;
+        syncOrderInState(state, action.payload);
+      })
+      .addCase(updateOrderStatus.rejected, (state) => {
+        state.updatingOrderId = null;
+      })
+      .addCase(cancelMyOrder.pending, (state, action) => {
+        state.updatingOrderId = action.meta.arg || null;
+      })
+      .addCase(cancelMyOrder.fulfilled, (state, action) => {
+        state.updatingOrderId = null;
+        syncOrderInState(state, action.payload);
+      })
+      .addCase(cancelMyOrder.rejected, (state) => {
+        state.updatingOrderId = null;
       })
       .addCase(logout.fulfilled, (state) => {
         state.myOrders = [];
         state.allOrders = [];
         state.selectedOrder = null;
+        state.updatingOrderId = null;
         state.checkoutSuccess = false;
         state.error = null;
       });
