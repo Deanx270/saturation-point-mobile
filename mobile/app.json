@@ -13,9 +13,11 @@
     },
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.saturationpoint.mobile"
     },
     "android": {
+      "package": "com.saturationpoint.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#FAF9F6",
         "foregroundImage": "./assets/android-icon-foreground.png",

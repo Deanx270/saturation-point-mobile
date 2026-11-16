@@ -334,14 +334,6 @@ const registerPushToken = async (req, res) => {
     user.pushTokens.push({ token: pushToken, device: device || 'mobile', updatedAt: new Date() });
     await user.save();
 
-    if (displayNameChanged && user.displayName) {
-      await Product.updateMany(
-        { 'reviews.user': user._id },
-        { $set: { 'reviews.$[elem].name': user.displayName } },
-        { arrayFilters: [{ 'elem.user': user._id }] }
-      );
-    }
-
     res.json({ message: 'Push token registered successfully', tokensCount: user.pushTokens.length });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -362,14 +354,6 @@ const removePushToken = async (req, res) => {
 
     user.pushTokens = user.pushTokens.filter((item) => item.token !== pushToken);
     await user.save();
-
-    if (displayNameChanged && user.displayName) {
-      await Product.updateMany(
-        { 'reviews.user': user._id },
-        { $set: { 'reviews.$[elem].name': user.displayName } },
-        { arrayFilters: [{ 'elem.user': user._id }] }
-      );
-    }
 
     res.json({ message: 'Push token removed successfully' });
   } catch (error) {
