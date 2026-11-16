@@ -29,23 +29,24 @@ const PromoSchema = Yup.object().shape({
 
 export const AdminPromotionsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { items } = useSelector((state) => state.products);
+  const { adminItems, items } = useSelector((state) => state.products);
+  const productOptions = adminItems.length > 0 ? adminItems : items;
   const [selectedProductId, setSelectedProductId] = useState(
-    items.length > 0 ? items[0]._id : ''
+    productOptions.length > 0 ? productOptions[0]._id : ''
   );
   const [broadcasting, setBroadcasting] = useState(false);
 
   useEffect(() => {
-    if (items.length === 0) {
-      dispatch(fetchProducts({}));
+    if (productOptions.length === 0) {
+      dispatch(fetchProducts({ target: 'admin', page: 1, limit: 20 }));
     }
-  }, [dispatch, items.length]);
+  }, [dispatch, productOptions.length]);
 
   useEffect(() => {
-    if (!selectedProductId && items.length > 0) {
-      setSelectedProductId(items[0]._id);
+    if (!selectedProductId && productOptions.length > 0) {
+      setSelectedProductId(productOptions[0]._id);
     }
-  }, [items, selectedProductId]);
+  }, [productOptions, selectedProductId]);
 
   const handleBroadcast = async (values, { resetForm }) => {
     setBroadcasting(true);
@@ -76,7 +77,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
     <View style={styles.container}>
       <AtelierHeader
         title="Send Promotions"
-        leftType="drawer"
+        leftType={navigation.canGoBack() ? 'back' : 'drawer'}
         navigation={navigation}
       />
 
@@ -168,7 +169,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.productPickerScroll}
               >
-                {items.slice(0, 12).map((prod) => {
+                {productOptions.slice(0, 12).map((prod) => {
                   const isSelected = selectedProductId === prod._id;
                   return (
                     <AtelierPressable

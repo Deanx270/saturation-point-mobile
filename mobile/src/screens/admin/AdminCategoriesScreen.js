@@ -162,7 +162,7 @@ const AdminCategoriesScreen = ({ navigation }) => {
     <View style={styles.container}>
       <AtelierHeader
         title="Manage Categories"
-        leftType="drawer"
+        leftType={navigation.canGoBack() ? 'back' : 'drawer'}
         navigation={navigation}
         rightIcon="add-outline"
         rightIconColor={theme.colors.gold}

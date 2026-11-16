@@ -8,13 +8,17 @@ import HomeNavigator from './HomeNavigator';
 import CartNavigator from './CartNavigator';
 import OrdersNavigator from './OrdersNavigator';
 import UserNavigator from './UserNavigator';
-import AdminNavigator from './AdminNavigator';
+import AdminNavigator, {
+  AdminProductsNavigator,
+  AdminOrdersNavigator,
+} from './AdminNavigator';
 import CartIconBadge from '../components/common/CartIcon';
 
 const Tab = createBottomTabNavigator();
 
 export const BottomTabNavigator = () => {
   const { user } = useSelector((state) => state.auth);
+  const isAdmin = user?.role === 'admin';
 
   return (
     <Tab.Navigator
@@ -43,38 +47,93 @@ export const BottomTabNavigator = () => {
         }}
       />
 
-      <Tab.Screen
-        name="CartTab"
-        component={CartNavigator}
-        options={{
-          tabBarLabel: 'Cart',
-          tabBarIcon: ({ color, focused }) => (
-            <View>
+      {!isAdmin && (
+        <Tab.Screen
+          name="CartTab"
+          component={CartNavigator}
+          options={{
+            tabBarLabel: 'Cart',
+            tabBarIcon: ({ color, focused }) => (
+              <View>
+                <Ionicons
+                  name={focused ? 'cart' : 'cart-outline'}
+                  size={22}
+                  color={color}
+                />
+                <CartIconBadge />
+              </View>
+            ),
+          }}
+        />
+      )}
+
+      {!isAdmin && (
+        <Tab.Screen
+          name="OrdersTab"
+          component={OrdersNavigator}
+          options={{
+            tabBarLabel: 'Orders',
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
-                name={focused ? 'cart' : 'cart-outline'}
+                name={focused ? 'receipt' : 'receipt-outline'}
                 size={22}
                 color={color}
               />
-              <CartIconBadge />
-            </View>
-          ),
-        }}
-      />
+            ),
+          }}
+        />
+      )}
 
-      <Tab.Screen
-        name="OrdersTab"
-        component={OrdersNavigator}
-        options={{
-          tabBarLabel: 'Orders',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'receipt' : 'receipt-outline'}
-              size={22}
-              color={color}
-            />
-          ),
-        }}
-      />
+      {isAdmin && (
+        <Tab.Screen
+          name="AdminProductsTab"
+          component={AdminProductsNavigator}
+          options={{
+            tabBarLabel: 'Products',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? 'cube' : 'cube-outline'}
+                size={22}
+                color={color}
+              />
+            ),
+          }}
+        />
+      )}
+
+      {isAdmin && (
+        <Tab.Screen
+          name="AdminOrdersTab"
+          component={AdminOrdersNavigator}
+          options={{
+            tabBarLabel: 'Orders',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? 'clipboard' : 'clipboard-outline'}
+                size={22}
+                color={color}
+              />
+            ),
+          }}
+        />
+      )}
+
+      {isAdmin && (
+        <Tab.Screen
+          name="AdminTab"
+          component={AdminNavigator}
+          options={{
+            tabBarLabel: 'Admin',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? 'grid' : 'grid-outline'}
+                size={22}
+                color={color}
+              />
+            ),
+          }}
+        />
+      )}
 
       <Tab.Screen
         name="UserTab"
@@ -90,23 +149,6 @@ export const BottomTabNavigator = () => {
           ),
         }}
       />
-
-      {user?.role === 'admin' && (
-        <Tab.Screen
-          name="AdminTab"
-          component={AdminNavigator}
-          options={{
-            tabBarLabel: 'Admin',
-            tabBarIcon: ({ color, focused }) => (
-              <Ionicons
-                name={focused ? 'settings' : 'settings-outline'}
-                size={22}
-                color={color}
-              />
-            ),
-          }}
-        />
-      )}
     </Tab.Navigator>
   );
 };

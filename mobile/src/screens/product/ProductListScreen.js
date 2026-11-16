@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +39,8 @@ import {
 import { addToCart, selectCartItems } from '../../redux/cartSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
 
+const SHOP_PAGE_LIMIT = 8;
+
 const RATING_OPTIONS = [
   { label: 'Any', value: '' },
   { label: '3★ & up', value: '3' },
@@ -48,11 +51,17 @@ const RATING_OPTIONS = [
 export const ProductListScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const cartItems = useSelector(selectCartItems);
+  const { user } = useSelector((state) => state.auth);
+  const isAdmin = user?.role === 'admin';
   const {
     items,
+    page,
+    total,
+    hasMore,
     categories,
     brands,
     loading,
+    loadingMore,
     error,
     searchKeyword,
     selectedCategory,
@@ -74,43 +83,79 @@ export const ProductListScreen = ({ navigation }) => {
     message: '',
     key: 0,
   });
+  const activeRequestRef = useRef(null);
 
   useEffect(() => {
     dispatch(fetchProductFilters());
   }, [dispatch]);
 
-  const loadData = useCallback(() => {
-    dispatch(
-      fetchProducts({
-        keyword: searchKeyword || undefined,
-        category: selectedCategory === 'All' ? undefined : selectedCategory,
-        brand: selectedBrand === 'All' ? undefined : selectedBrand,
-        minPrice: minPrice || undefined,
-        maxPrice: maxPrice || undefined,
-        minRating: minRating || undefined,
-      })
-    );
-  }, [dispatch, searchKeyword, selectedCategory, selectedBrand, minPrice, maxPrice, minRating]);
+  const loadPage = useCallback(
+    (targetPage = 1) => {
+      if (targetPage === 1 && activeRequestRef.current) {
+        activeRequestRef.current.abort();
+      }
+      const promise = dispatch(
+        fetchProducts({
+          target: 'shop',
+          page: targetPage,
+          limit: SHOP_PAGE_LIMIT,
+          keyword: searchKeyword || undefined,
+          category: selectedCategory === 'All' ? undefined : selectedCategory,
+          brand: selectedBrand === 'All' ? undefined : selectedBrand,
+          minPrice: minPrice || undefined,
+          maxPrice: maxPrice || undefined,
+          minRating: minRating || undefined,
+        })
+      );
+      activeRequestRef.current = promise;
+      return promise;
+    },
+    [
+      dispatch,
+      searchKeyword,
+      selectedCategory,
+      selectedBrand,
+      minPrice,
+      maxPrice,
+      minRating,
+    ]
+  );
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadPage(1);
+    return () => {
+      if (activeRequestRef.current) {
+        activeRequestRef.current.abort();
+      }
+    };
+  }, [loadPage]);
 
   useEffect(() => {
     if (searchInput === searchKeyword) {
       return undefined;
     }
+    if (searchInput.trim() === '') {
+      dispatch(setSearchKeyword(''));
+      return undefined;
+    }
     const handler = setTimeout(() => {
       dispatch(setSearchKeyword(searchInput));
-    }, 220);
+    }, 150);
     return () => clearTimeout(handler);
   }, [searchInput, searchKeyword, dispatch]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadPage(1);
     setRefreshing(false);
   };
+
+  const handleLoadMore = useCallback(() => {
+    if (!hasMore || loading || loadingMore) {
+      return;
+    }
+    loadPage(page + 1);
+  }, [hasMore, loading, loadingMore, loadPage, page]);
 
   const handleCategorySelect = (category) => {
     dispatch(setSelectedCategory(category));
@@ -256,48 +301,50 @@ export const ProductListScreen = ({ navigation }) => {
               >
                 {formatPrice(item.price)}
               </AtelierText>
-              <View style={styles.quickAddWrapper}>
-                <AtelierPressable
-                  tone="none"
-                  stopPropagation
-                  haptic="none"
-                  disabled={item.stock <= 0}
-                  pressedStyle={styles.quickAddPressed}
-                  style={[
-                    styles.quickAddButton,
-                    inCartQty > 0 && styles.quickAddInCart,
-                    item.stock <= 0 && styles.quickAddDisabled,
-                  ]}
-                  onPress={() => handleAddToCart(item)}
-                  accessibilityLabel={`Add ${item.name} to cart`}
-                >
-                  <Ionicons
-                    name="add"
-                    size={20}
-                    color={
-                      item.stock <= 0
-                        ? theme.colors.inkMuted
-                        : inCartQty > 0
-                        ? theme.colors.goldText
-                        : theme.colors.inkPrimary
-                    }
-                  />
-                </AtelierPressable>
-                {inCartQty > 0 ? (
-                  <View
-                    pointerEvents="none"
-                    style={styles.quickAddBadge}
+              {!isAdmin ? (
+                <View style={styles.quickAddWrapper}>
+                  <AtelierPressable
+                    tone="none"
+                    stopPropagation
+                    haptic="none"
+                    disabled={item.stock <= 0}
+                    pressedStyle={styles.quickAddPressed}
+                    style={[
+                      styles.quickAddButton,
+                      inCartQty > 0 && styles.quickAddInCart,
+                      item.stock <= 0 && styles.quickAddDisabled,
+                    ]}
+                    onPress={() => handleAddToCart(item)}
+                    accessibilityLabel={`Add ${item.name} to cart`}
                   >
-                    <AtelierText
-                      variant="caption"
-                      color="#FFFFFF"
-                      style={styles.quickAddBadgeText}
+                    <Ionicons
+                      name="add"
+                      size={20}
+                      color={
+                        item.stock <= 0
+                          ? theme.colors.inkMuted
+                          : inCartQty > 0
+                          ? theme.colors.goldText
+                          : theme.colors.inkPrimary
+                      }
+                    />
+                  </AtelierPressable>
+                  {inCartQty > 0 ? (
+                    <View
+                      pointerEvents="none"
+                      style={styles.quickAddBadge}
                     >
-                      {inCartQty > 99 ? '99+' : inCartQty}
-                    </AtelierText>
-                  </View>
-                ) : null}
-              </View>
+                      <AtelierText
+                        variant="caption"
+                        color="#FFFFFF"
+                        style={styles.quickAddBadgeText}
+                      >
+                        {inCartQty > 99 ? '99+' : inCartQty}
+                      </AtelierText>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
           </View>
         </AtelierCard>
@@ -312,23 +359,25 @@ export const ProductListScreen = ({ navigation }) => {
         navigation={navigation}
         centerComponent={<AtelierBrandMark variant="header" />}
         rightComponent={
-          <AtelierPressable
-            tone="subtle"
-            borderlessRipple
-            hitSlop={6}
-            style={styles.headerIconButton}
-            onPress={() => navigation.navigate('CartTab')}
-            accessibilityLabel="View shopping cart"
-          >
-            <View>
-              <Ionicons
-                name="cart-outline"
-                size={24}
-                color={theme.colors.inkPrimary}
-              />
-              <CartIconBadge />
-            </View>
-          </AtelierPressable>
+          !isAdmin ? (
+            <AtelierPressable
+              tone="subtle"
+              borderlessRipple
+              hitSlop={6}
+              style={styles.headerIconButton}
+              onPress={() => navigation.navigate('CartTab')}
+              accessibilityLabel="View shopping cart"
+            >
+              <View>
+                <Ionicons
+                  name="cart-outline"
+                  size={24}
+                  color={theme.colors.inkPrimary}
+                />
+                <CartIconBadge />
+              </View>
+            </AtelierPressable>
+          ) : undefined
         }
       />
 
@@ -338,6 +387,12 @@ export const ProductListScreen = ({ navigation }) => {
             placeholder="Search pens, inks, paper..."
             value={searchInput}
             onChangeText={setSearchInput}
+            rightIcon={searchInput.length > 0 ? 'close-circle' : undefined}
+            onRightIconPress={() => {
+              setSearchInput('');
+              dispatch(setSearchKeyword(''));
+            }}
+            rightIconAccessibilityLabel="Clear search"
             returnKeyType="search"
             onSubmitEditing={() => dispatch(setSearchKeyword(searchInput))}
             style={styles.searchInputWrapper}
@@ -396,9 +451,24 @@ export const ProductListScreen = ({ navigation }) => {
       {error && (
         <AtelierErrorBanner
           message={error}
-          onRetry={loadData}
+          onRetry={() => loadPage(1)}
         />
       )}
+
+      {loading && items.length > 0 && !refreshing ? (
+        <View style={styles.updatingRow}>
+          <ActivityIndicator
+            size="small"
+            color={theme.colors.gold}
+          />
+          <AtelierText
+            variant="caption"
+            color={theme.colors.inkMuted}
+          >
+            Updating results...
+          </AtelierText>
+        </View>
+      ) : null}
 
       {loading && items.length === 0 ? (
         <View style={styles.skeletonContainer}>
@@ -436,6 +506,8 @@ export const ProductListScreen = ({ navigation }) => {
           keyExtractor={(item) => item._id}
           renderItem={renderProductItem}
           numColumns={2}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
           contentContainerStyle={[
             styles.listContent,
             items.length === 0 && styles.emptyListContent,
@@ -447,6 +519,35 @@ export const ProductListScreen = ({ navigation }) => {
               onRefresh={onRefresh}
               tintColor={theme.colors.gold}
             />
+          }
+          ListFooterComponent={
+            items.length > 0 ? (
+              <View style={styles.listFooter}>
+                {loadingMore ? (
+                  <>
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.colors.gold}
+                    />
+                    <AtelierText
+                      variant="bodySmall"
+                      color={theme.colors.inkMuted}
+                    >
+                      Loading more products...
+                    </AtelierText>
+                  </>
+                ) : (
+                  <AtelierText
+                    variant="caption"
+                    color={theme.colors.inkMuted}
+                  >
+                    {hasMore
+                      ? `Showing ${items.length} of ${total} items`
+                      : `All ${total || items.length} items shown`}
+                  </AtelierText>
+                )}
+              </View>
+            ) : null
           }
           ListEmptyComponent={
             !error ? (
@@ -667,6 +768,19 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: theme.spacing.sm,
     paddingBottom: theme.spacing.hero,
+  },
+  updatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+  },
+  listFooter: {
+    paddingVertical: theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
   },
   emptyListContent: {
     flexGrow: 1,

@@ -34,6 +34,7 @@ export const DrawerContent = ({ navigation }) => {
     });
   };
 
+  const isAdmin = user?.role === 'admin';
   const hasAvatar = isValidRemoteOrLocalUri(user?.photoURL);
 
   return (
@@ -117,41 +118,45 @@ export const DrawerContent = ({ navigation }) => {
           </AtelierText>
         </AtelierPressable>
 
-        <AtelierPressable
-          tone="surface"
-          style={styles.menuItem}
-          onPress={() => navigateTo('CartTab', 'CartScreen')}
-        >
-          <Ionicons
-            name="cart-outline"
-            size={20}
-            color={theme.colors.inkPrimary}
-          />
-          <AtelierText
-            variant="bodyMedium"
-            style={styles.menuLabel}
+        {!isAdmin && (
+          <AtelierPressable
+            tone="surface"
+            style={styles.menuItem}
+            onPress={() => navigateTo('CartTab', 'CartScreen')}
           >
-            Cart
-          </AtelierText>
-        </AtelierPressable>
+            <Ionicons
+              name="cart-outline"
+              size={20}
+              color={theme.colors.inkPrimary}
+            />
+            <AtelierText
+              variant="bodyMedium"
+              style={styles.menuLabel}
+            >
+              Cart
+            </AtelierText>
+          </AtelierPressable>
+        )}
 
-        <AtelierPressable
-          tone="surface"
-          style={styles.menuItem}
-          onPress={() => navigateTo('OrdersTab', 'OrdersList')}
-        >
-          <Ionicons
-            name="receipt-outline"
-            size={20}
-            color={theme.colors.inkPrimary}
-          />
-          <AtelierText
-            variant="bodyMedium"
-            style={styles.menuLabel}
+        {!isAdmin && (
+          <AtelierPressable
+            tone="surface"
+            style={styles.menuItem}
+            onPress={() => navigateTo('OrdersTab', 'OrdersList')}
           >
-            Orders
-          </AtelierText>
-        </AtelierPressable>
+            <Ionicons
+              name="receipt-outline"
+              size={20}
+              color={theme.colors.inkPrimary}
+            />
+            <AtelierText
+              variant="bodyMedium"
+              style={styles.menuLabel}
+            >
+              Orders
+            </AtelierText>
+          </AtelierPressable>
+        )}
 
         <AtelierPressable
           tone="surface"
@@ -171,7 +176,7 @@ export const DrawerContent = ({ navigation }) => {
           </AtelierText>
         </AtelierPressable>
 
-        {user?.role === 'admin' && (
+        {isAdmin && (
           <>
             <View style={styles.menuSectionHeader}>
               <AtelierText
@@ -185,7 +190,25 @@ export const DrawerContent = ({ navigation }) => {
             <AtelierPressable
               tone="surface"
               style={styles.menuItem}
-              onPress={() => navigateTo('AdminTab', 'AdminProducts')}
+              onPress={() => navigateTo('AdminTab', 'AdminDashboard')}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={20}
+                color={theme.colors.inkPrimary}
+              />
+              <AtelierText
+                variant="bodyMedium"
+                style={styles.menuLabel}
+              >
+                Admin Console
+              </AtelierText>
+            </AtelierPressable>
+
+            <AtelierPressable
+              tone="surface"
+              style={styles.menuItem}
+              onPress={() => navigateTo('AdminProductsTab', 'AdminProducts')}
             >
               <Ionicons
                 name="cube-outline"
@@ -221,7 +244,7 @@ export const DrawerContent = ({ navigation }) => {
             <AtelierPressable
               tone="surface"
               style={styles.menuItem}
-              onPress={() => navigateTo('AdminTab', 'AdminOrders')}
+              onPress={() => navigateTo('AdminOrdersTab', 'AdminOrders')}
             >
               <Ionicons
                 name="clipboard-outline"

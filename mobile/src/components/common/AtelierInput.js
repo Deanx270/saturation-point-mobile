@@ -16,6 +16,10 @@ export const AtelierInput = ({
   onBlur,
   placeholder,
   prefix,
+  rightIcon,
+  onRightIconPress,
+  rightIconAccessibilityLabel,
+  rightElement,
   secureTextEntry = false,
   keyboardType = 'default',
   autoCapitalize = 'none',
@@ -87,6 +91,8 @@ export const AtelierInput = ({
         {secureTextEntry && (
           <AtelierPressable
             tone="subtle"
+            borderlessRipple
+            rippleRadius={18}
             hitSlop={8}
             onPress={() => setShowPassword(!showPassword)}
             style={styles.eyeIcon}
@@ -99,6 +105,26 @@ export const AtelierInput = ({
             />
           </AtelierPressable>
         )}
+        {!secureTextEntry && rightElement ? (
+          <View style={styles.rightAccessory}>{rightElement}</View>
+        ) : null}
+        {!secureTextEntry && rightIcon && onRightIconPress ? (
+          <AtelierPressable
+            tone="subtle"
+            borderlessRipple
+            rippleRadius={18}
+            hitSlop={8}
+            onPress={onRightIconPress}
+            style={styles.eyeIcon}
+            accessibilityLabel={rightIconAccessibilityLabel || 'Action'}
+          >
+            <Ionicons
+              name={rightIcon}
+              size={20}
+              color={theme.colors.inkMuted}
+            />
+          </AtelierPressable>
+        ) : null}
       </View>
       {hasError && (
         <AtelierText
@@ -165,6 +191,13 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: theme.spacing.xs,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  rightAccessory: {
+    marginLeft: theme.spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   errorText: {
     marginTop: theme.spacing.xs,

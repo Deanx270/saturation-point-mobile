@@ -23,6 +23,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
   const { orderId } = route.params || {};
   const dispatch = useDispatch();
   const { selectedOrder, loading, error } = useSelector((state) => state.orders);
+  const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     if (orderId) {
@@ -216,6 +217,24 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
           subtle
           style={styles.addressCard}
         >
+          {user?.role === 'admin' && selectedOrder.user?.displayName ? (
+            <View style={styles.customerBlock}>
+              <AtelierText
+                variant="caption"
+                color={theme.colors.goldText}
+              >
+                CUSTOMER
+              </AtelierText>
+              <AtelierText
+                variant="bodyMedium"
+                color={theme.colors.inkPrimary}
+                style={styles.customerName}
+              >
+                {selectedOrder.user.displayName}
+                {selectedOrder.user.email ? ` (${selectedOrder.user.email})` : ''}
+              </AtelierText>
+            </View>
+          ) : null}
           <AtelierText
             variant="bodyMedium"
             style={styles.addressLine}
@@ -375,6 +394,16 @@ const styles = StyleSheet.create({
   },
   addressCard: {
     marginBottom: theme.spacing.xl,
+  },
+  customerBlock: {
+    marginBottom: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  customerName: {
+    marginTop: 2,
+    fontFamily: 'Montserrat_500Medium',
   },
   addressLine: {
     marginBottom: 2,

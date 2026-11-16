@@ -110,13 +110,36 @@ const getProducts = async (req, res) => {
       }
     }
 
-    let sortOption = { createdAt: -1 };
+    let sortOption = { createdAt: -1, _id: -1 };
     if (sort === 'price-low') {
-      sortOption = { price: 1 };
+      sortOption = { price: 1, _id: 1 };
     } else if (sort === 'price-high') {
-      sortOption = { price: -1 };
+      sortOption = { price: -1, _id: 1 };
     } else if (sort === 'rating') {
-      sortOption = { rating: -1 };
+      sortOption = { rating: -1, _id: 1 };
+    }
+
+    const hasPagination =
+      req.query.page !== undefined || req.query.limit !== undefined;
+
+    if (hasPagination) {
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 8));
+      const skip = (page - 1) * limit;
+
+      const [total, products] = await Promise.all([
+        Product.countDocuments(query),
+        Product.find(query).sort(sortOption).skip(skip).limit(limit),
+      ]);
+
+      return res.json({
+        products,
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        hasMore: skip + products.length < total,
+      });
     }
 
     const products = await Product.find(query).sort(sortOption);

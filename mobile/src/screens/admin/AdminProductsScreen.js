@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   FlatList,
@@ -6,6 +6,7 @@ import {
   Image,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,20 +22,51 @@ import AtelierHeader from '../../components/common/AtelierHeader';
 import { fetchProducts, deleteProduct } from '../../redux/productsSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
 
+const ADMIN_PAGE_LIMIT = 8;
+
 export const AdminProductsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { items, loading, error } = useSelector((state) => state.products);
+  const {
+    adminItems,
+    adminPage,
+    adminTotal,
+    adminHasMore,
+    adminLoading,
+    adminLoadingMore,
+    adminError,
+  } = useSelector((state) => state.products);
   const [refreshing, setRefreshing] = useState(false);
+  const canGoBack = navigation.canGoBack();
+
+  const loadPage = useCallback(
+    (targetPage = 1) => {
+      return dispatch(
+        fetchProducts({
+          target: 'admin',
+          page: targetPage,
+          limit: ADMIN_PAGE_LIMIT,
+        })
+      );
+    },
+    [dispatch]
+  );
 
   useEffect(() => {
-    dispatch(fetchProducts({}));
-  }, [dispatch]);
+    loadPage(1);
+  }, [loadPage]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await dispatch(fetchProducts({}));
+    await loadPage(1);
     setRefreshing(false);
   };
+
+  const handleLoadMore = useCallback(() => {
+    if (!adminHasMore || adminLoading || adminLoadingMore) {
+      return;
+    }
+    loadPage(adminPage + 1);
+  }, [adminHasMore, adminLoading, adminLoadingMore, loadPage, adminPage]);
 
   const handleDelete = (productId, name) => {
     Alert.alert(
@@ -56,7 +88,15 @@ export const AdminProductsScreen = ({ navigation }) => {
     const hasValidImage = isValidRemoteOrLocalUri(firstImage);
 
     return (
-      <AtelierCard style={styles.card}>
+      <AtelierCard
+        style={styles.card}
+        onPress={() =>
+          navigation.navigate('AdminProductForm', {
+            product: item,
+            isEditing: true,
+          })
+        }
+      >
         <View style={styles.cardRow}>
           {hasValidImage ? (
             <Image
@@ -77,6 +117,8 @@ export const AdminProductsScreen = ({ navigation }) => {
               <AtelierText
                 variant="caption"
                 color={theme.colors.goldText}
+                numberOfLines={1}
+                style={styles.brandText}
               >
                 {item.brand}
               </AtelierText>
@@ -158,7 +200,7 @@ export const AdminProductsScreen = ({ navigation }) => {
     <View style={styles.container}>
       <AtelierHeader
         title="Manage Products"
-        leftType="drawer"
+        leftType={canGoBack ? 'back' : 'drawer'}
         navigation={navigation}
         rightIcon="add-outline"
         rightIconColor={theme.colors.gold}
@@ -169,15 +211,15 @@ export const AdminProductsScreen = ({ navigation }) => {
         }
       />
 
-      {error ? (
+      {adminError ? (
         <AtelierErrorBanner
-          message={error}
-          onRetry={() => dispatch(fetchProducts({}))}
+          message={adminError}
+          onRetry={() => loadPage(1)}
           style={styles.errorBanner}
         />
       ) : null}
 
-      {loading && items.length === 0 ? (
+      {adminLoading && adminItems.length === 0 ? (
         <View style={styles.skeletonPadding}>
           {[1, 2, 3].map((n) => (
             <AtelierSkeleton
@@ -190,9 +232,11 @@ export const AdminProductsScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={items}
+          data={adminItems}
           keyExtractor={(item) => item._id}
           renderItem={renderProductItem}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -202,8 +246,37 @@ export const AdminProductsScreen = ({ navigation }) => {
               tintColor={theme.colors.gold}
             />
           }
+          ListFooterComponent={
+            adminItems.length > 0 ? (
+              <View style={styles.listFooter}>
+                {adminLoadingMore ? (
+                  <>
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.colors.gold}
+                    />
+                    <AtelierText
+                      variant="bodySmall"
+                      color={theme.colors.inkMuted}
+                    >
+                      Loading more products...
+                    </AtelierText>
+                  </>
+                ) : (
+                  <AtelierText
+                    variant="caption"
+                    color={theme.colors.inkMuted}
+                  >
+                    {adminHasMore
+                      ? `Showing ${adminItems.length} of ${adminTotal} products`
+                      : `All ${adminTotal || adminItems.length} products shown`}
+                  </AtelierText>
+                )}
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
-            !error ? (
+            !adminError ? (
               <AtelierEmptyState
                 iconName="cube-outline"
                 title="No Products Found"
@@ -243,6 +316,7 @@ const styles = StyleSheet.create({
   },
   cardRow: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   thumbnail: {
     width: 90,
@@ -263,6 +337,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  brandText: {
+    flexShrink: 1,
+  },
+  listFooter: {
+    paddingVertical: theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
   },
   name: {
     fontSize: 16,

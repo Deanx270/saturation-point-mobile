@@ -13,8 +13,16 @@ export const navigateFromNotification = (data) => {
   }
 
   if (data.screen === 'OrderDetails' && data.orderId) {
+    const rootState = navigationRef.getRootState();
+    const drawerRoute = rootState?.routes?.[0];
+    const tabRouteNames = drawerRoute?.state?.routeNames || [];
+    const targetTab =
+      tabRouteNames.includes('AdminOrdersTab') && !tabRouteNames.includes('OrdersTab')
+        ? 'AdminOrdersTab'
+        : 'OrdersTab';
+
     navigationRef.navigate('MainTabs', {
-      screen: 'OrdersTab',
+      screen: targetTab,
       params: {
         screen: 'OrderDetails',
         params: { orderId: data.orderId },

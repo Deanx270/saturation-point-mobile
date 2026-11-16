@@ -149,6 +149,10 @@ const ordersSlice = createSlice({
         if (index !== -1) {
           state.allOrders[index] = action.payload;
         }
+        const myIndex = state.myOrders.findIndex((o) => o._id === action.payload._id);
+        if (myIndex !== -1) {
+          state.myOrders[myIndex] = action.payload;
+        }
         if (state.selectedOrder?._id === action.payload._id) {
           state.selectedOrder = action.payload;
         }

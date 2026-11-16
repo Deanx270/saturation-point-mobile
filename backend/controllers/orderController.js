@@ -79,27 +79,90 @@ const getAllOrders = async (req, res) => {
   }
 };
 
+const ALLOWED_STATUS_TRANSITIONS = {
+  pending: ['processing', 'cancelled'],
+  processing: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: [],
+  cancelled: [],
+};
+
+const VALID_ORDER_STATUSES = Object.keys(ALLOWED_STATUS_TRANSITIONS);
+
 const updateOrderStatus = async (req, res) => {
   try {
-    const { status } = req.body;
-    const order = await Order.findById(req.params.id).populate('user');
+    const nextStatus = typeof req.body.status === 'string'
+      ? req.body.status.trim().toLowerCase()
+      : '';
+
+    if (!VALID_ORDER_STATUSES.includes(nextStatus)) {
+      return res.status(400).json({ message: 'Invalid order status value' });
+    }
+
+    const order = await Order.findById(req.params.id).populate(
+      'user',
+      'displayName email photoURL'
+    );
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    order.status = status;
-    if (status === 'delivered') {
+    const currentStatus = String(order.status || 'pending').toLowerCase();
+
+    if (currentStatus === nextStatus) {
+      return res.status(400).json({
+        message: `Order is already marked as ${currentStatus}.`,
+      });
+    }
+
+    if (currentStatus === 'delivered') {
+      return res.status(400).json({
+        message: 'Delivered orders are completed and can no longer be modified.',
+      });
+    }
+
+    if (currentStatus === 'cancelled') {
+      return res.status(400).json({
+        message: 'Cancelled orders are closed and cannot be changed.',
+      });
+    }
+
+    const allowedNext = ALLOWED_STATUS_TRANSITIONS[currentStatus] || [];
+    if (!allowedNext.includes(nextStatus)) {
+      if (nextStatus === 'cancelled' && currentStatus === 'shipped') {
+        return res.status(400).json({
+          message: 'Orders that have already shipped cannot be cancelled.',
+        });
+      }
+      return res.status(400).json({
+        message: `Cannot change status from ${currentStatus} to ${nextStatus}. Allowed next step: ${allowedNext.join(' or ')}.`,
+      });
+    }
+
+    if (nextStatus === 'cancelled') {
+      for (const item of order.orderItems || []) {
+        if (item.product && item.quantity > 0) {
+          await Product.findByIdAndUpdate(item.product, {
+            $inc: { stock: item.quantity },
+          });
+        }
+      }
+    }
+
+    order.status = nextStatus;
+    if (nextStatus === 'delivered') {
       order.deliveredAt = new Date();
     }
     await order.save();
 
-    const recipient = await User.findById(order.user._id);
+    const recipientId = order.user?._id || order.user;
+    const recipient = recipientId ? await User.findById(recipientId) : null;
     if (recipient && recipient.pushTokens && recipient.pushTokens.length > 0) {
       const messages = recipient.pushTokens.map((item) => ({
         to: item.token,
         title: 'Order Status Update',
-        body: `Your order #${order._id.toString().slice(-6)} is now ${status.toUpperCase()}.`,
+        body: `Your order #${order._id.toString().slice(-6)} is now ${nextStatus.toUpperCase()}.`,
         data: {
           screen: 'OrderDetails',
           orderId: order._id.toString(),

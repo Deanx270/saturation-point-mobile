@@ -1,13 +1,58 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../api/client';
 
+const normalizeProductsPayload = (data) => {
+  if (Array.isArray(data)) {
+    return {
+      products: data,
+      page: 1,
+      total: data.length,
+      hasMore: false,
+    };
+  }
+  const products = Array.isArray(data?.products) ? data.products : [];
+  return {
+    products,
+    page: Number(data?.page) || 1,
+    total: Number(data?.total) || products.length,
+    hasMore: Boolean(data?.hasMore),
+  };
+};
+
+const mergeProducts = (existing, incoming) => {
+  const seen = new Set(existing.map((item) => item._id));
+  const merged = [...existing];
+  for (const product of incoming) {
+    if (!seen.has(product._id)) {
+      seen.add(product._id);
+      merged.push(product);
+    }
+  }
+  return merged;
+};
+
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
-  async (filterParams = {}, { rejectWithValue }) => {
+  async (filterParams = {}, { rejectWithValue, signal }) => {
+    const { target = 'shop', ...queryParams } = filterParams;
     try {
-      const response = await apiClient.get('/products', { params: filterParams });
-      return response.data;
+      const response = await apiClient.get('/products', {
+        params: queryParams,
+        signal,
+      });
+      return {
+        ...normalizeProductsPayload(response.data),
+        requestedPage: Number(queryParams.page) || 1,
+        target,
+      };
     } catch (error) {
+      if (
+        signal?.aborted ||
+        error?.code === 'ERR_CANCELED' ||
+        error?.name === 'CanceledError'
+      ) {
+        return rejectWithValue({ canceled: true, target });
+      }
       return rejectWithValue(
         error.response?.data?.message ||
           'Unable to load products. Make sure the backend server is running and reachable.'
@@ -88,11 +133,24 @@ const productsSlice = createSlice({
   name: 'products',
   initialState: {
     items: [],
+    page: 1,
+    total: 0,
+    hasMore: false,
+    loading: false,
+    loadingMore: false,
+    error: null,
+    activeShopRequestId: null,
+    adminItems: [],
+    adminPage: 1,
+    adminTotal: 0,
+    adminHasMore: false,
+    adminLoading: false,
+    adminLoadingMore: false,
+    adminError: null,
+    activeAdminRequestId: null,
     categories: ['All', 'Fountain Pens', 'Inks', 'Paper'],
     brands: ['All'],
     selectedProduct: null,
-    loading: false,
-    error: null,
     searchKeyword: '',
     selectedCategory: 'All',
     selectedBrand: 'All',
@@ -131,18 +189,80 @@ const productsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchProducts.pending, (state) => {
-        state.loading = true;
+      .addCase(fetchProducts.pending, (state, action) => {
+        const arg = action.meta.arg || {};
+        const target = arg.target || 'shop';
+        const requestedPage = Number(arg.page) || 1;
+        if (target === 'admin') {
+          state.activeAdminRequestId = action.meta.requestId;
+          state.adminError = null;
+          if (requestedPage > 1) {
+            state.adminLoadingMore = true;
+          } else {
+            state.adminLoading = true;
+            state.adminLoadingMore = false;
+          }
+          return;
+        }
+        state.activeShopRequestId = action.meta.requestId;
         state.error = null;
+        if (requestedPage > 1) {
+          state.loadingMore = true;
+        } else {
+          state.loading = true;
+          state.loadingMore = false;
+        }
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
+        const { target, requestedPage, products, page, total, hasMore } = action.payload;
+        if (target === 'admin') {
+          if (state.activeAdminRequestId && state.activeAdminRequestId !== action.meta.requestId) {
+            return;
+          }
+          state.adminLoading = false;
+          state.adminLoadingMore = false;
+          state.adminError = null;
+          state.adminPage = page;
+          state.adminTotal = total;
+          state.adminHasMore = hasMore;
+          state.adminItems =
+            requestedPage > 1 ? mergeProducts(state.adminItems, products) : products;
+          return;
+        }
+        if (state.activeShopRequestId && state.activeShopRequestId !== action.meta.requestId) {
+          return;
+        }
         state.loading = false;
+        state.loadingMore = false;
         state.error = null;
-        state.items = action.payload;
+        state.page = page;
+        state.total = total;
+        state.hasMore = hasMore;
+        state.items =
+          requestedPage > 1 ? mergeProducts(state.items, products) : products;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
+        const arg = action.meta.arg || {};
+        const target = arg.target || 'shop';
+        if (target === 'admin') {
+          if (state.activeAdminRequestId && state.activeAdminRequestId !== action.meta.requestId) {
+            return;
+          }
+          state.adminLoading = false;
+          state.adminLoadingMore = false;
+          if (!action.meta.aborted && !action.payload?.canceled) {
+            state.adminError = action.payload;
+          }
+          return;
+        }
+        if (state.activeShopRequestId && state.activeShopRequestId !== action.meta.requestId) {
+          return;
+        }
         state.loading = false;
-        state.error = action.payload;
+        state.loadingMore = false;
+        if (!action.meta.aborted && !action.payload?.canceled) {
+          state.error = action.payload;
+        }
       })
       .addCase(fetchProductFilters.fulfilled, (state, action) => {
         if (action.payload?.categories?.length > 0) {
@@ -165,19 +285,43 @@ const productsSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(createProduct.fulfilled, (state, action) => {
-        state.items.unshift(action.payload);
+        const matchesCategory =
+          state.selectedCategory === 'All' ||
+          action.payload.category === state.selectedCategory;
+        const matchesBrand =
+          state.selectedBrand === 'All' ||
+          action.payload.brand === state.selectedBrand;
+        if (matchesCategory && matchesBrand && !state.searchKeyword) {
+          state.items.unshift(action.payload);
+          state.total += 1;
+        }
+        state.adminItems.unshift(action.payload);
+        state.adminTotal += 1;
       })
       .addCase(updateProduct.fulfilled, (state, action) => {
         const index = state.items.findIndex((item) => item._id === action.payload._id);
         if (index !== -1) {
           state.items[index] = action.payload;
         }
+        const adminIndex = state.adminItems.findIndex((item) => item._id === action.payload._id);
+        if (adminIndex !== -1) {
+          state.adminItems[adminIndex] = action.payload;
+        }
         if (state.selectedProduct?._id === action.payload._id) {
           state.selectedProduct = action.payload;
         }
       })
       .addCase(deleteProduct.fulfilled, (state, action) => {
+        const prevLen = state.items.length;
         state.items = state.items.filter((item) => item._id !== action.payload);
+        if (state.items.length < prevLen && state.total > 0) {
+          state.total -= 1;
+        }
+        const prevAdminLen = state.adminItems.length;
+        state.adminItems = state.adminItems.filter((item) => item._id !== action.payload);
+        if (state.adminItems.length < prevAdminLen && state.adminTotal > 0) {
+          state.adminTotal -= 1;
+        }
         if (state.selectedProduct?._id === action.payload) {
           state.selectedProduct = null;
         }

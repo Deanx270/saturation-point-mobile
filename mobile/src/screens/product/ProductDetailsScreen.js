@@ -61,6 +61,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     (state) => state.reviews
   );
   const { user } = useSelector((state) => state.auth);
+  const isAdmin = user?.role === 'admin';
   const cartItems = useSelector(selectCartItems);
 
   const [quantity, setQuantity] = useState(1);
@@ -77,7 +78,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     setEditingReview(null);
     setDeleteReviewTarget(null);
     dispatch(fetchProductDetails(productId));
-    if (user) {
+    if (user && user.role !== 'admin') {
       dispatch(checkEligibility(productId));
     }
   }, [dispatch, productId, user]);
@@ -432,48 +433,52 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
             {selectedProduct.description}
           </AtelierText>
 
-          <View style={styles.divider} />
+          {!isAdmin ? (
+            <>
+              <View style={styles.divider} />
 
-          <View style={styles.quantitySection}>
-            <View style={styles.quantityLabelCol}>
-              <AtelierText
-                variant="caption"
-                color={theme.colors.inkSecondary}
-              >
-                Quantity
-              </AtelierText>
-              {existingCartQty > 0 && (
-                <AtelierText
-                  variant="bodySmall"
-                  color={theme.colors.inkMuted}
-                >
-                  {existingCartQty} already in cart
-                </AtelierText>
-              )}
-              {stockWarning ? (
-                <AtelierText
-                  variant="bodySmall"
-                  color={theme.colors.error}
-                  style={styles.stockWarningText}
-                >
-                  {stockWarning}
-                </AtelierText>
-              ) : null}
-            </View>
-            <AtelierQuantityStepper
-              value={quantity}
-              min={1}
-              max={remainingStock}
-              disabled={selectedProduct.stock <= 0 || remainingStock <= 0}
-              onChange={handleQuantityChange}
-              onLimitReached={(maxAllowed) =>
-                setStockWarning(`Maximum available to add is ${maxAllowed}.`)
-              }
-              decrementLabel="Decrease quantity"
-              incrementLabel="Increase quantity"
-              inputLabel="Product quantity"
-            />
-          </View>
+              <View style={styles.quantitySection}>
+                <View style={styles.quantityLabelCol}>
+                  <AtelierText
+                    variant="caption"
+                    color={theme.colors.inkSecondary}
+                  >
+                    Quantity
+                  </AtelierText>
+                  {existingCartQty > 0 && (
+                    <AtelierText
+                      variant="bodySmall"
+                      color={theme.colors.inkMuted}
+                    >
+                      {existingCartQty} already in cart
+                    </AtelierText>
+                  )}
+                  {stockWarning ? (
+                    <AtelierText
+                      variant="bodySmall"
+                      color={theme.colors.error}
+                      style={styles.stockWarningText}
+                    >
+                      {stockWarning}
+                    </AtelierText>
+                  ) : null}
+                </View>
+                <AtelierQuantityStepper
+                  value={quantity}
+                  min={1}
+                  max={remainingStock}
+                  disabled={selectedProduct.stock <= 0 || remainingStock <= 0}
+                  onChange={handleQuantityChange}
+                  onLimitReached={(maxAllowed) =>
+                    setStockWarning(`Maximum available to add is ${maxAllowed}.`)
+                  }
+                  decrementLabel="Decrease quantity"
+                  incrementLabel="Increase quantity"
+                  inputLabel="Product quantity"
+                />
+              </View>
+            </>
+          ) : null}
 
           <View style={styles.divider} />
 
@@ -485,7 +490,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
               Reviews ({selectedProduct.reviews?.length || 0})
             </AtelierText>
 
-            {showReviewForm ? (
+            {!isAdmin && showReviewForm ? (
               <AtelierCard
                 subtle
                 style={styles.reviewFormCard}
@@ -572,7 +577,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                   )}
                 </Formik>
               </AtelierCard>
-            ) : !existingUserReview ? (
+            ) : !isAdmin && !existingUserReview ? (
               <AtelierCard
                 subtle
                 style={styles.ineligibleCard}
@@ -680,18 +685,32 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <AtelierButton
-          title={
-            selectedProduct.stock <= 0
-              ? 'Out of Stock'
-              : remainingStock <= 0
-                ? 'Max Stock in Cart'
-                : `Add to Cart — ${formatPrice(effectiveUnitPrice * quantity)}`
-          }
-          onPress={handleAddToCart}
-          disabled={selectedProduct.stock <= 0}
-          style={styles.addToCartButton}
-        />
+        {isAdmin ? (
+          <AtelierButton
+            title="Edit Product"
+            variant="primary"
+            onPress={() =>
+              navigation.navigate('AdminProductsTab', {
+                screen: 'AdminProductForm',
+                params: { product: selectedProduct, isEditing: true },
+              })
+            }
+            style={styles.addToCartButton}
+          />
+        ) : (
+          <AtelierButton
+            title={
+              selectedProduct.stock <= 0
+                ? 'Out of Stock'
+                : remainingStock <= 0
+                  ? 'Max Stock in Cart'
+                  : `Add to Cart — ${formatPrice(effectiveUnitPrice * quantity)}`
+            }
+            onPress={handleAddToCart}
+            disabled={selectedProduct.stock <= 0}
+            style={styles.addToCartButton}
+          />
+        )}
       </View>
 
       <AtelierBottomSheet

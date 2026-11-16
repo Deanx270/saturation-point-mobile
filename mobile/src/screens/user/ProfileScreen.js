@@ -304,15 +304,37 @@ export const ProfileScreen = ({ navigation }) => {
               variant="caption"
               color={theme.colors.inkMuted}
             >
+              USERNAME
+            </AtelierText>
+            <AtelierText
+              variant="bodyMedium"
+              color={theme.colors.inkPrimary}
+              style={styles.infoValueText}
+            >
+              {user.username ? `@${user.username}` : 'Not set'}
+            </AtelierText>
+          </View>
+
+          <View style={styles.infoDivider} />
+
+          <View style={styles.infoRow}>
+            <AtelierText
+              variant="caption"
+              color={theme.colors.inkMuted}
+            >
               ACCOUNT ROLE
             </AtelierText>
             <AtelierText
-              variant="title2"
+              variant="bodyMedium"
               color={theme.colors.inkPrimary}
+              style={styles.infoValueText}
             >
               {user.role === 'admin' ? 'Administrator' : 'Customer'}
             </AtelierText>
           </View>
+
+          <View style={styles.infoDivider} />
+
           <AtelierPressable
             tone="surface"
             hitSlop={6}
@@ -497,15 +519,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 4,
+    paddingVertical: theme.spacing.sm,
+  },
+  infoValueText: {
+    fontFamily: 'Montserrat_500Medium',
+  },
+  infoDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
   },
   infoActionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: theme.spacing.sm,
     borderRadius: theme.radii.xs,
     overflow: 'hidden',
   },

@@ -5,8 +5,10 @@ import {
   StyleSheet,
   RefreshControl,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierCard from '../../components/common/AtelierCard';
@@ -17,7 +19,11 @@ import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import { fetchMyOrders } from '../../redux/ordersSlice';
-import { formatPrice, formatDate } from '../../utils/formatters';
+import {
+  formatPrice,
+  formatDate,
+  isValidRemoteOrLocalUri,
+} from '../../utils/formatters';
 
 const STATUS_FILTERS = ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -51,6 +57,9 @@ export const OrdersListScreen = ({ navigation }) => {
   const renderOrderItem = ({ item }) => {
     const totalCount =
       item.orderItems?.reduce((sum, i) => sum + (i.quantity || 1), 0) || 0;
+    const firstItem = item.orderItems?.[0];
+    const extraProductsCount = Math.max(0, (item.orderItems?.length || 0) - 1);
+    const hasThumb = isValidRemoteOrLocalUri(firstItem?.image);
 
     return (
       <AtelierCard
@@ -77,6 +86,49 @@ export const OrdersListScreen = ({ navigation }) => {
             status={item.status}
           />
         </View>
+
+        {firstItem ? (
+          <View style={styles.previewRow}>
+            {hasThumb ? (
+              <Image
+                source={{ uri: firstItem.image }}
+                style={styles.previewThumb}
+              />
+            ) : (
+              <View style={[styles.previewThumb, styles.previewThumbPlaceholder]}>
+                <Ionicons
+                  name="cube-outline"
+                  size={18}
+                  color={theme.colors.inkMuted}
+                />
+              </View>
+            )}
+            <View style={styles.previewTextCol}>
+              <AtelierText
+                variant="bodyMedium"
+                color={theme.colors.inkPrimary}
+                numberOfLines={1}
+                style={styles.previewTitle}
+              >
+                {firstItem.name}
+              </AtelierText>
+              <AtelierText
+                variant="bodySmall"
+                color={theme.colors.inkMuted}
+                numberOfLines={1}
+              >
+                {extraProductsCount > 0
+                  ? `Qty: ${firstItem.quantity} • +${extraProductsCount} more ${extraProductsCount === 1 ? 'item' : 'items'}`
+                  : `Qty: ${firstItem.quantity} • ${formatPrice(firstItem.price)}`}
+              </AtelierText>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={theme.colors.inkMuted}
+            />
+          </View>
+        ) : null}
 
         <View style={styles.divider} />
 
@@ -307,6 +359,30 @@ const styles = StyleSheet.create({
   orderIdText: {
     marginTop: 2,
     fontSize: 16,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+    gap: theme.spacing.md,
+  },
+  previewThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radii.xs,
+    backgroundColor: theme.colors.surfaceSubtle,
+  },
+  previewThumbPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  previewTextCol: {
+    flex: 1,
+  },
+  previewTitle: {
+    fontFamily: 'Montserrat_500Medium',
   },
   divider: {
     height: 1,
