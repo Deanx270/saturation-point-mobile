@@ -42,7 +42,7 @@ export const AtelierPressable = ({
   hitSlop,
   ...props
 }) => {
-  const handlePress = async (event) => {
+  const handlePress = (event) => {
     if (stopPropagation) {
       event?.stopPropagation?.();
     }
@@ -51,11 +51,13 @@ export const AtelierPressable = ({
     }
     if (haptic === 'light') {
       try {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Promise.resolve(
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        ).catch(() => {});
       } catch (e) {}
     } else if (haptic === 'selection') {
       try {
-        await Haptics.selectionAsync();
+        Promise.resolve(Haptics.selectionAsync()).catch(() => {});
       } catch (e) {}
     }
     if (onPress) {

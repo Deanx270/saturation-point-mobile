@@ -346,11 +346,19 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
             </AtelierText>
             <AtelierBadge
               label={
-                selectedProduct.stock > 0
-                  ? `${selectedProduct.stock} in Stock`
-                  : 'Out of Stock'
+                selectedProduct.stock <= 0
+                  ? 'Out of Stock'
+                  : selectedProduct.stock <= 5
+                  ? `Only ${selectedProduct.stock} left`
+                  : `${selectedProduct.stock} in Stock`
               }
-              status={selectedProduct.stock > 0 ? 'success' : 'cancelled'}
+              status={
+                selectedProduct.stock <= 0
+                  ? 'cancelled'
+                  : selectedProduct.stock <= 5
+                  ? 'warning'
+                  : 'success'
+              }
             />
           </View>
 

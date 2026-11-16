@@ -20,6 +20,13 @@ export const AtelierBadge = ({ label, status = 'default', style }) => {
           text: theme.colors.error,
           border: theme.colors.errorBorder,
         };
+      case 'warning':
+      case 'lowstock':
+        return {
+          bg: '#FFFBEB',
+          text: '#B45309',
+          border: '#FCD34D',
+        };
       case 'processing':
       case 'gold':
         return {

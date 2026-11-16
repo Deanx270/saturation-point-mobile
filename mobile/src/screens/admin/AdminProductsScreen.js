@@ -141,8 +141,20 @@ export const AdminProductsScreen = ({ navigation }) => {
                 {item.brand}
               </AtelierText>
               <AtelierBadge
-                label={`${item.stock} IN STOCK`}
-                status={item.stock > 0 ? 'success' : 'cancelled'}
+                label={
+                  item.stock <= 0
+                    ? 'OUT OF STOCK'
+                    : item.stock <= 5
+                    ? `${item.stock} LOW STOCK`
+                    : `${item.stock} IN STOCK`
+                }
+                status={
+                  item.stock <= 0
+                    ? 'cancelled'
+                    : item.stock <= 5
+                    ? 'warning'
+                    : 'success'
+                }
               />
             </View>
 

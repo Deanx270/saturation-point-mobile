@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   BackHandler,
+  Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -107,8 +108,8 @@ const AtelierBottomSheetContent = ({
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const sheetHeightRef = useRef(360);
+  const translateY = useRef(new Animated.Value(320)).current;
+  const sheetHeightRef = useRef(320);
   const closingRef = useRef(false);
   const hasOpenedRef = useRef(false);
   const hasClosedRef = useRef(false);
@@ -124,20 +125,21 @@ const AtelierBottomSheetContent = ({
         return;
       }
       closingRef.current = true;
-      const targetOffset = Math.max(sheetHeightRef.current + 40, 320);
+      const targetOffset = Math.max(sheetHeightRef.current + 32, 280);
 
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: targetOffset,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start(({ finished }) => {
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 150,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(translateY, {
+        toValue: targetOffset,
+        duration: 160,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: false,
+      }).start(({ finished }) => {
         closingRef.current = false;
         hasOpenedRef.current = false;
         if (!finished && visibleRef.current) {
@@ -171,16 +173,34 @@ const AtelierBottomSheetContent = ({
   const dismissRef = useRef(handleDismiss);
   dismissRef.current = handleDismiss;
 
+  const snapSheetOpen = useCallback(() => {
+    Animated.timing(translateY, {
+      toValue: 0,
+      duration: 160,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+    Animated.timing(backdropOpacity, {
+      toValue: 1,
+      duration: 140,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [backdropOpacity, translateY]);
+
+  const snapSheetOpenRef = useRef(snapSheetOpen);
+  snapSheetOpenRef.current = snapSheetOpen;
+
   const dragResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        gestureState.dy > 4 &&
-        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        gestureState.dy > 10 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5,
       onMoveShouldSetPanResponderCapture: (_, gestureState) =>
-        gestureState.dy > 6 &&
-        Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2,
+        gestureState.dy > 14 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5,
       onPanResponderGrant: () => {
         translateY.stopAnimation();
         backdropOpacity.stopAnimation();
@@ -196,34 +216,10 @@ const AtelierBottomSheetContent = ({
           dismissRef.current();
           return;
         }
-        Animated.parallel([
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 22,
-            stiffness: 260,
-          }),
-          Animated.timing(backdropOpacity, {
-            toValue: 1,
-            duration: 140,
-            useNativeDriver: true,
-          }),
-        ]).start();
+        snapSheetOpenRef.current();
       },
       onPanResponderTerminate: () => {
-        Animated.parallel([
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 22,
-            stiffness: 260,
-          }),
-          Animated.timing(backdropOpacity, {
-            toValue: 1,
-            duration: 140,
-            useNativeDriver: true,
-          }),
-        ]).start();
+        snapSheetOpenRef.current();
       },
     })
   ).current;
@@ -237,28 +233,25 @@ const AtelierBottomSheetContent = ({
       backdropOpacity.stopAnimation();
       translateY.stopAnimation();
       backdropOpacity.setValue(0);
-      translateY.setValue(SCREEN_HEIGHT);
+      const startOffset = Math.min(Math.max(sheetHeightRef.current, 240), SCREEN_HEIGHT * 0.75);
+      translateY.setValue(startOffset);
       const frameId = requestAnimationFrame(() => {
         if (!visibleRef.current || hasOpenedRef.current) {
           return;
         }
         hasOpenedRef.current = true;
-        const startOffset = Math.max(sheetHeightRef.current + 40, 320);
-        translateY.setValue(startOffset);
-
-        Animated.parallel([
-          Animated.timing(backdropOpacity, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 24,
-            stiffness: 260,
-          }),
-        ]).start();
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start();
       });
       return () => cancelAnimationFrame(frameId);
     }
@@ -281,7 +274,6 @@ const AtelierBottomSheetContent = ({
     handleDismiss();
   };
 
-  const sheetPanProps = children ? {} : dragResponder.panHandlers;
   const bottomPadding = Math.max(insets.bottom + theme.spacing.lg, theme.spacing.hero);
 
   return (
@@ -307,7 +299,6 @@ const AtelierBottomSheetContent = ({
       >
         <Animated.View
           collapsable={false}
-          {...sheetPanProps}
           onLayout={(event) => {
             sheetHeightRef.current = event.nativeEvent.layout.height;
           }}
