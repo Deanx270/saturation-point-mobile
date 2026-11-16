@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Formik } from 'formik';
@@ -15,6 +16,7 @@ import AtelierButton from '../../components/common/AtelierButton';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBrandMark from '../../components/common/AtelierBrandMark';
 import AtelierPressable from '../../components/common/AtelierPressable';
+import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { register } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
@@ -34,8 +36,10 @@ const RegisterSchema = Yup.object().shape({
 export const RegisterScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.auth);
+  const [submitError, setSubmitError] = useState('');
 
   const handleRegisterSubmit = async (values, formikHelpers) => {
+    setSubmitError('');
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
       register({
@@ -53,7 +57,11 @@ export const RegisterScreen = ({ navigation }) => {
         navigation.navigate('Profile');
       }
     } else {
-      Alert.alert('Registration Failed', result.payload || 'Unable to create account.');
+      const errorMsg = result.payload || 'Unable to create account.';
+      setSubmitError(errorMsg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Registration Failed', errorMsg);
+      }
     }
   };
 
@@ -134,6 +142,11 @@ export const RegisterScreen = ({ navigation }) => {
                 touched={touched.confirmPassword}
               />
 
+              <AtelierErrorBanner
+                message={submitError}
+                style={styles.errorBanner}
+              />
+
               <AtelierButton
                 title={loading ? 'Creating Account...' : 'Create Account'}
                 onPress={handleSubmit}
@@ -193,6 +206,10 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
+  },
+  errorBanner: {
+    marginHorizontal: 0,
     marginBottom: theme.spacing.md,
   },
   switchRow: {

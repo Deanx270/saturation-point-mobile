@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Formik } from 'formik';
@@ -15,6 +16,7 @@ import AtelierButton from '../../components/common/AtelierButton';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBrandMark from '../../components/common/AtelierBrandMark';
 import AtelierPressable from '../../components/common/AtelierPressable';
+import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import { login } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
@@ -31,8 +33,10 @@ const LoginSchema = Yup.object().shape({
 export const LoginScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.auth);
+  const [submitError, setSubmitError] = useState('');
 
   const handleLoginSubmit = async (values, formikHelpers) => {
+    setSubmitError('');
     const cleanIdentifier = values.identifier.trim();
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
@@ -52,7 +56,11 @@ export const LoginScreen = ({ navigation }) => {
         navigation.navigate('Profile');
       }
     } else {
-      Alert.alert('Sign In Failed', result.payload || 'Invalid email or password.');
+      const errorMsg = result.payload || 'Invalid email or password.';
+      setSubmitError(errorMsg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Sign In Failed', errorMsg);
+      }
     }
   };
 
@@ -120,6 +128,11 @@ export const LoginScreen = ({ navigation }) => {
                 style={styles.compactInput}
               />
 
+              <AtelierErrorBanner
+                message={submitError}
+                style={styles.errorBanner}
+              />
+
               <AtelierButton
                 title={loading ? 'Signing In...' : 'Sign In'}
                 onPress={handleSubmit}
@@ -183,6 +196,10 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: 0,
     marginBottom: theme.spacing.lg,
+  },
+  errorBanner: {
+    marginHorizontal: 0,
+    marginBottom: theme.spacing.md,
   },
   switchRow: {
     flexDirection: 'row',

@@ -77,6 +77,7 @@ const linking = {
             screens: {
               Profile: 'profile',
               Login: 'login',
+              Register: 'register',
             },
           },
         },

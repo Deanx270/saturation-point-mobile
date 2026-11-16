@@ -7,6 +7,7 @@ import * as Facebook from 'expo-auth-session/providers/facebook';
 import { theme } from '../../theme';
 import AtelierText from '../common/AtelierText';
 import AtelierButton from '../common/AtelierButton';
+import AtelierErrorBanner from '../common/AtelierErrorBanner';
 import { socialLogin } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
 import {
@@ -149,6 +150,8 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.auth);
   const [socialBusy, setSocialBusy] = useState(false);
+  const [activeProvider, setActiveProvider] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const authConfig = getSocialAuthConfig();
   const nativeGoogleReady =
@@ -161,8 +164,16 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
     Boolean(authConfig.facebookAppId);
   const webReady = Platform.OS === 'web' && isFirebaseConfigured();
 
+  const reportError = (title, message) => {
+    setErrorMessage(message);
+    if (Platform.OS !== 'web') {
+      Alert.alert(title, message);
+    }
+  };
+
   const submitFirebaseIdToken = async (idToken) => {
     setSocialBusy(true);
+    setErrorMessage('');
     try {
       const pushToken = await registerForPushNotificationsAsync();
       const result = await dispatch(
@@ -177,15 +188,16 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
           onAuthenticated();
         }
       } else {
-        Alert.alert('Sign In Failed', result.payload || 'Social login failed.');
+        reportError('Sign In Failed', result.payload || 'Social login failed.');
       }
     } finally {
       setSocialBusy(false);
+      setActiveProvider(null);
     }
   };
 
   const handleUnconfiguredPress = (providerName, requiredVar) => {
-    Alert.alert(
+    reportError(
       `${providerName} Sign-In Not Configured`,
       `Set EXPO_PUBLIC_FIREBASE_* and ${requiredVar} in mobile/.env to enable ${providerName} sign-in.`
     );
@@ -193,6 +205,8 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
 
   const handleWebPopup = async (provider) => {
     setSocialBusy(true);
+    setActiveProvider(provider);
+    setErrorMessage('');
     try {
       const idToken =
         provider === 'google'
@@ -201,7 +215,8 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
       await submitFirebaseIdToken(idToken);
     } catch (err) {
       setSocialBusy(false);
-      Alert.alert('Sign In Failed', err.message || 'Unable to sign in.');
+      setActiveProvider(null);
+      reportError('Sign In Failed', err.message || 'Unable to sign in.');
     }
   };
 
@@ -221,28 +236,33 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
         <View style={styles.dividerLine} />
       </View>
 
+      <AtelierErrorBanner
+        message={errorMessage}
+        style={styles.errorBanner}
+      />
+
       <View style={styles.socialButtonsStack}>
         {nativeGoogleReady ? (
           <GoogleNativeAuthButton
             clientIds={authConfig.googleClientIds}
             busy={busy}
             onToken={submitFirebaseIdToken}
-            onError={(msg) => Alert.alert('Google Sign-In Failed', msg)}
+            onError={(msg) => reportError('Google Sign-In Failed', msg)}
           />
         ) : (
           <AtelierButton
             title="Continue with Google"
             variant="outline"
             iconAlign="left"
-            loading={socialBusy && Platform.OS === 'web'}
+            loading={socialBusy && activeProvider === 'google'}
             disabled={busy}
             onPress={() =>
               webReady
                 ? handleWebPopup('google')
                 : handleUnconfiguredPress(
-                    'Google',
-                    getMissingGoogleEnvKey()
-                  )
+                  'Google',
+                  getMissingGoogleEnvKey()
+                )
             }
             style={styles.socialButton}
             icon={<GoogleMark />}
@@ -254,22 +274,22 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
             appId={authConfig.facebookAppId}
             busy={busy}
             onToken={submitFirebaseIdToken}
-            onError={(msg) => Alert.alert('Facebook Sign-In Failed', msg)}
+            onError={(msg) => reportError('Facebook Sign-In Failed', msg)}
           />
         ) : (
           <AtelierButton
             title="Continue with Facebook"
             variant="outline"
             iconAlign="left"
-            loading={socialBusy && Platform.OS === 'web'}
+            loading={socialBusy && activeProvider === 'facebook'}
             disabled={busy}
             onPress={() =>
               webReady
                 ? handleWebPopup('facebook')
                 : handleUnconfiguredPress(
-                    'Facebook',
-                    'EXPO_PUBLIC_FACEBOOK_APP_ID'
-                  )
+                  'Facebook',
+                  'EXPO_PUBLIC_FACEBOOK_APP_ID'
+                )
             }
             style={styles.socialButton}
             icon={<FacebookMark />}
@@ -309,6 +329,10 @@ const styles = StyleSheet.create({
   socialBrandIcon: {
     width: 20,
     height: 20,
+  },
+  errorBanner: {
+    marginHorizontal: 0,
+    marginBottom: theme.spacing.md,
   },
 });
 
