@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "com.saturationpoint.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FAF9F6",
         "foregroundImage": "./assets/android-icon-foreground.png",
