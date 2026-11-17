@@ -25,6 +25,7 @@ export const navigateFromNotification = (data) => {
       screen: targetTab,
       params: {
         screen: 'OrderDetails',
+        initial: false,
         params: { orderId: data.orderId },
       },
     });
@@ -36,6 +37,7 @@ export const navigateFromNotification = (data) => {
       screen: 'HomeTab',
       params: {
         screen: 'ProductDetails',
+        initial: false,
         params: {
           productId: data.productId,
           discountPercent: Number(data.discountPercent) || 0,

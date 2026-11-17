@@ -47,6 +47,26 @@ const buildUserPayload = (user, token) => {
   return payload;
 };
 
+const attachDevicePushToken = async (user, pushToken, device) => {
+  const cleanToken = typeof pushToken === 'string' ? pushToken.trim() : '';
+  if (!cleanToken) {
+    return false;
+  }
+
+  await User.updateMany(
+    { _id: { $ne: user._id }, 'pushTokens.token': cleanToken },
+    { $pull: { pushTokens: { token: cleanToken } } }
+  );
+
+  user.pushTokens = (user.pushTokens || []).filter((item) => item.token !== cleanToken);
+  user.pushTokens.push({
+    token: cleanToken,
+    device: device || 'mobile',
+    updatedAt: new Date(),
+  });
+  return true;
+};
+
 const registerUser = async (req, res) => {
   try {
     const { email, password, displayName, username, photoURL, pushToken, device } = req.body;
@@ -85,11 +105,6 @@ const registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const initialPushTokens = [];
-    if (pushToken) {
-      initialPushTokens.push({ token: pushToken, device: device || 'mobile', updatedAt: new Date() });
-    }
-
     const userData = {
       email: cleanEmail,
       password: hashedPassword,
@@ -98,13 +113,16 @@ const registerUser = async (req, res) => {
       role: 'user',
       status: 'active',
       profileCompleted: Boolean(cleanUsername),
-      pushTokens: initialPushTokens,
+      pushTokens: [],
     };
     if (cleanUsername) {
       userData.username = cleanUsername;
     }
 
     const user = await User.create(userData);
+    if (await attachDevicePushToken(user, pushToken, device)) {
+      await user.save();
+    }
     const token = generateToken(user._id);
 
     res.status(201).json(buildUserPayload(user, token));
@@ -148,9 +166,7 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email, username, or password' });
     }
 
-    if (pushToken) {
-      user.pushTokens = user.pushTokens.filter((item) => item.token !== pushToken);
-      user.pushTokens.push({ token: pushToken, device: device || 'mobile', updatedAt: new Date() });
+    if (await attachDevicePushToken(user, pushToken, device)) {
       await user.save();
     }
 
@@ -224,10 +240,7 @@ const socialLogin = async (req, res) => {
       }
     }
 
-    if (pushToken) {
-      user.pushTokens = user.pushTokens.filter((item) => item.token !== pushToken);
-      user.pushTokens.push({ token: pushToken, device: device || 'mobile', updatedAt: new Date() });
-    }
+    await attachDevicePushToken(user, pushToken, device);
 
     await user.save();
     const token = generateToken(user._id);
@@ -330,8 +343,7 @@ const registerPushToken = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.pushTokens = user.pushTokens.filter((item) => item.token !== pushToken);
-    user.pushTokens.push({ token: pushToken, device: device || 'mobile', updatedAt: new Date() });
+    await attachDevicePushToken(user, pushToken, device);
     await user.save();
 
     res.json({ message: 'Push token registered successfully', tokensCount: user.pushTokens.length });

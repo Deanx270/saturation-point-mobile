@@ -32,7 +32,15 @@
       "expo-sqlite",
       "expo-secure-store",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#CA8A04",
+          "defaultChannel": "default"
+        }
+      ]
     ]
   }
 }

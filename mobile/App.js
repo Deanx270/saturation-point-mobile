@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -83,9 +83,39 @@ const GlobalAuthFeedback = () => {
 
 const AppContent = () => {
   const dispatch = useDispatch();
-  const { user, token } = useSelector((state) => state.auth);
+  const { user, token, initialLoading } = useSelector((state) => state.auth);
   const notificationListener = useRef();
   const responseListener = useRef();
+  const pendingNotificationRef = useRef(null);
+  const hydrationReadyRef = useRef(false);
+
+  const needsProfileSetup = Boolean(
+    user && !user.username && !user.profileCompleted
+  );
+
+  hydrationReadyRef.current = !initialLoading && !needsProfileSetup;
+
+  const flushPendingNotification = useCallback(() => {
+    const data = pendingNotificationRef.current;
+    if (!data || !hydrationReadyRef.current) {
+      return;
+    }
+
+    let attempts = 0;
+    const tryNavigate = () => {
+      if (!hydrationReadyRef.current) {
+        return;
+      }
+      if (navigationRef.isReady()) {
+        pendingNotificationRef.current = null;
+        navigateFromNotification(data);
+      } else if (attempts < 15) {
+        attempts += 1;
+        setTimeout(tryNavigate, 200);
+      }
+    };
+    tryNavigate();
+  }, []);
 
   useEffect(() => {
     initDatabase();
@@ -103,16 +133,8 @@ const AppContent = () => {
         if (!data) {
           return;
         }
-        let attempts = 0;
-        const tryNavigate = () => {
-          if (navigationRef.isReady()) {
-            navigateFromNotification(data);
-          } else if (attempts < 10) {
-            attempts += 1;
-            setTimeout(tryNavigate, 200);
-          }
-        };
-        tryNavigate();
+        pendingNotificationRef.current = data;
+        flushPendingNotification();
       } catch (e) {}
     };
 
@@ -126,7 +148,8 @@ const AppContent = () => {
       (response) => {
         const data = response.notification.request.content.data;
         if (data) {
-          navigateFromNotification(data);
+          pendingNotificationRef.current = data;
+          flushPendingNotification();
         }
       }
     );
@@ -139,17 +162,19 @@ const AppContent = () => {
         responseListener.current.remove();
       }
     };
-  }, [dispatch]);
+  }, [dispatch, flushPendingNotification]);
+
+  useEffect(() => {
+    if (!initialLoading && !needsProfileSetup && pendingNotificationRef.current) {
+      flushPendingNotification();
+    }
+  }, [initialLoading, needsProfileSetup, flushPendingNotification]);
 
   useEffect(() => {
     if (user?._id && token && Platform.OS !== 'web') {
       dispatch(syncPushToken({ requestPermission: false }));
     }
   }, [dispatch, user?._id, token]);
-
-  const needsProfileSetup = Boolean(
-    user && !user.username && !user.profileCompleted
-  );
 
   return (
     <SafeAreaProvider>
