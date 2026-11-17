@@ -42,6 +42,12 @@
           "defaultChannel": "default"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c35bffda-f887-46ad-ad38-4e746ba9a935"
+      }
+    },
+    "owner": "dean1414"
   }
 }
