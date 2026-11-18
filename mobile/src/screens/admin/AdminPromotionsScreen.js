@@ -51,12 +51,6 @@ export const AdminPromotionsScreen = ({ navigation }) => {
     }
   }, [dispatch, productOptions.length]);
 
-  useEffect(() => {
-    if (selectedProductIds.length === 0 && productOptions.length > 0) {
-      setSelectedProductIds([productOptions[0]._id]);
-    }
-  }, [productOptions, selectedProductIds.length]);
-
   const selectedProducts = useMemo(() => {
     const map = new Map(productOptions.map((item) => [item._id, item]));
     return selectedProductIds.map((id) => map.get(id)).filter(Boolean);
@@ -127,6 +121,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
         response.data?.message || 'Promotional notification sent to registered users.'
       );
       resetForm();
+      setSelectedProductIds([]);
     } catch (error) {
       Alert.alert(
         'Send Failed',
