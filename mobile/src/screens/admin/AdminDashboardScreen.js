@@ -91,7 +91,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
     {
       key: 'products',
       title: 'Manage Products',
-      subtitle: 'Add, edit, or restock catalog items',
+      subtitle: 'Edit and restock catalog',
       icon: 'cube-outline',
       badge: `${productCount}`,
       badgeStatus: 'default',
@@ -100,7 +100,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
     {
       key: 'orders',
       title: 'Manage Orders',
-      subtitle: 'Advance order status and inspect shipments',
+      subtitle: 'Update and track orders',
       icon: 'clipboard-outline',
       badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Pending` : `${allOrders.length}`,
       badgeStatus: pendingOrdersCount > 0 ? 'gold' : 'default',
@@ -109,7 +109,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
     {
       key: 'categories',
       title: 'Manage Categories',
-      subtitle: 'Create and organize store collections',
+      subtitle: 'Organize store collections',
       icon: 'pricetags-outline',
       badge: `${categories.length}`,
       badgeStatus: 'default',
@@ -118,7 +118,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
     {
       key: 'brands',
       title: 'Manage Brands',
-      subtitle: 'Curate makers and keep brand filters clean',
+      subtitle: 'Curate catalog makers',
       icon: 'bookmark-outline',
       badge: `${brands.length}`,
       badgeStatus: 'default',
@@ -127,7 +127,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
     {
       key: 'promotions',
       title: 'Send Promotions',
-      subtitle: 'Broadcast push alerts for featured discounts',
+      subtitle: 'Broadcast discount alerts',
       icon: 'megaphone-outline',
       badge: 'Push',
       badgeStatus: 'gold',
@@ -280,7 +280,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
               <View style={styles.toolIconSlot}>
                 <Ionicons
                   name={tool.icon}
-                  size={22}
+                  size={24}
                   color={theme.colors.inkPrimary}
                 />
               </View>
@@ -294,7 +294,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
                 <AtelierText
                   variant="bodySmall"
                   color={theme.colors.inkMuted}
-                  numberOfLines={2}
+                  numberOfLines={1}
                 >
                   {tool.subtitle}
                 </AtelierText>
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   toolRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
   },
 });
 

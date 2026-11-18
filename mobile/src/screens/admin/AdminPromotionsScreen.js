@@ -149,10 +149,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <AtelierCard
-          subtle
-          style={styles.infoCard}
-        >
+        <AtelierCard style={styles.infoCard}>
           <AtelierText
             variant="caption"
             color={theme.colors.goldText}
@@ -161,11 +158,11 @@ export const AdminPromotionsScreen = ({ navigation }) => {
             Promotional Notifications
           </AtelierText>
           <AtelierText
-            variant="bodyMedium"
+            variant="bodySmall"
             color={theme.colors.inkSecondary}
             style={styles.infoText}
           >
-            Send targeted campaign alerts to signed-in customers with a single featured product or curated multi-item sale.
+            Send push alerts for a featured product or curated sale.
           </AtelierText>
         </AtelierCard>
 
@@ -260,6 +257,39 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                   />
                 </AtelierPressable>
 
+                {selectedProducts.length > 0 ? (
+                  <View style={styles.selectedChipsWrap}>
+                    {selectedProducts.map((prod) => (
+                      <View
+                        key={prod._id}
+                        style={styles.selectedChip}
+                      >
+                        <AtelierText
+                          variant="bodySmall"
+                          color={theme.colors.inkPrimary}
+                          numberOfLines={1}
+                          style={styles.selectedChipText}
+                        >
+                          {prod.name}
+                        </AtelierText>
+                        <AtelierPressable
+                          tone="none"
+                          hitSlop={6}
+                          onPress={() => removeSelectedProduct(prod._id)}
+                          accessibilityLabel={`Remove ${prod.name}`}
+                          style={styles.selectedChipRemove}
+                        >
+                          <Ionicons
+                            name="close"
+                            size={15}
+                            color={theme.colors.inkMuted}
+                          />
+                        </AtelierPressable>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
                 {productError ? (
                   <AtelierText
                     variant="bodySmall"
@@ -277,46 +307,12 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                     {getCampaignHint()}
                   </AtelierText>
                 )}
-
-                {selectedProducts.length > 0 ? (
-                  <View style={styles.selectedChipsWrap}>
-                    {selectedProducts.map((prod) => (
-                      <View
-                        key={prod._id}
-                        style={styles.selectedChip}
-                      >
-                        <AtelierText
-                          variant="caption"
-                          color={theme.colors.inkPrimary}
-                          numberOfLines={1}
-                          style={styles.selectedChipText}
-                        >
-                          {prod.name}
-                        </AtelierText>
-                        <AtelierPressable
-                          tone="none"
-                          hitSlop={6}
-                          onPress={() => removeSelectedProduct(prod._id)}
-                          accessibilityLabel={`Remove ${prod.name}`}
-                          style={styles.selectedChipRemove}
-                        >
-                          <Ionicons
-                            name="close"
-                            size={14}
-                            color={theme.colors.inkMuted}
-                          />
-                        </AtelierPressable>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
               </View>
 
               <AtelierButton
                 title={broadcasting ? 'Sending...' : 'Send Notification'}
                 onPress={handleSubmit}
                 loading={broadcasting}
-                variant="gold"
                 style={styles.submitButton}
               />
             </View>
@@ -457,23 +453,23 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.hero,
   },
   infoCard: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   infoLabel: {
     marginBottom: theme.spacing.xs,
   },
   infoText: {
+    fontSize: 13.5,
     lineHeight: 20,
   },
   formContainer: {
-    marginTop: theme.spacing.xs,
+    marginTop: 0,
   },
   selectorWrapper: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   pickerLabel: {
     marginBottom: theme.spacing.xs,
-    marginTop: theme.spacing.xs,
   },
   selectorBox: {
     minHeight: theme.touchTarget.minHeight,
@@ -496,15 +492,16 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.sm,
   },
   fieldErrorText: {
-    marginTop: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
   },
   helperText: {
-    marginTop: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+    lineHeight: 19,
   },
   selectedChipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.xs,
+    gap: theme.spacing.sm,
     marginTop: theme.spacing.sm,
   },
   selectedChip: {
@@ -512,23 +509,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.xs,
     maxWidth: '100%',
-    paddingVertical: 5,
-    paddingLeft: 10,
-    paddingRight: 6,
+    minHeight: 34,
+    paddingVertical: 6,
+    paddingLeft: theme.spacing.md,
+    paddingRight: theme.spacing.sm,
     borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.surfaceSubtle,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   selectedChipText: {
     flexShrink: 1,
-    fontSize: 11,
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    lineHeight: 18,
   },
   selectedChipRemove: {
-    padding: 2,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButton: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.xs,
     marginBottom: theme.spacing.hero,
   },
   sheetSearchInput: {

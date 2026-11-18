@@ -443,7 +443,7 @@ export const ProductListScreen = ({ route, navigation }) => {
                             backgroundColor:
                               inCartQty > 0
                                 ? '#FEFDF7'
-                                : theme.colors.surfaceSubtle,
+                                : theme.colors.surface,
                           },
                         ]}
                       >
@@ -1058,7 +1058,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.surfaceSubtle,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.borderMedium,
     alignItems: 'center',
