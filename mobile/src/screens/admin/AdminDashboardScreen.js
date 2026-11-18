@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   RefreshControl,
-  InteractionManager,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,18 +13,23 @@ import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierBadge from '../../components/common/AtelierBadge';
+import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import { fetchProducts } from '../../redux/productsSlice';
 import { fetchAllOrders } from '../../redux/ordersSlice';
 import { fetchCategories } from '../../redux/categoriesSlice';
 import { fetchBrands } from '../../redux/brandsSlice';
+import { runAfterFrame } from '../../utils/afterFrame';
 
 export const AdminDashboardScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { adminTotal, adminItems } = useSelector((state) => state.products);
-  const { allOrders } = useSelector((state) => state.orders);
+  const { adminTotal, adminItems, adminLoading } = useSelector((state) => state.products);
+  const { allOrders, allOrdersLoading } = useSelector((state) => state.orders);
   const { items: categories } = useSelector((state) => state.categories);
   const { items: brands } = useSelector((state) => state.brands);
+  const hasCachedSummary =
+    adminItems.length > 0 || allOrders.length > 0 || categories.length > 0;
   const [refreshing, setRefreshing] = useState(false);
+  const [initialSummarySettled, setInitialSummarySettled] = useState(hasCachedSummary);
   const lastLoadedAtRef = useRef(0);
 
   const loadSummary = useCallback(async () => {
@@ -36,18 +40,18 @@ export const AdminDashboardScreen = ({ navigation }) => {
       dispatch(fetchCategories()),
       dispatch(fetchBrands()),
     ]);
+    setInitialSummarySettled(true);
   }, [dispatch]);
 
   useFocusEffect(
     useCallback(() => {
-      if (Date.now() - lastLoadedAtRef.current < 5000) {
+      if (hasCachedSummary && Date.now() - lastLoadedAtRef.current < 30000) {
         return undefined;
       }
-      const task = InteractionManager.runAfterInteractions(() => {
+      return runAfterFrame(() => {
         loadSummary();
       });
-      return () => task.cancel();
-    }, [loadSummary])
+    }, [loadSummary, hasCachedSummary])
   );
 
   const onRefresh = async () => {
@@ -98,7 +102,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
       title: 'Manage Orders',
       subtitle: 'Advance order status and inspect shipments',
       icon: 'clipboard-outline',
-      badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} PENDING` : `${allOrders.length}`,
+      badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Pending` : `${allOrders.length}`,
       badgeStatus: pendingOrdersCount > 0 ? 'gold' : 'default',
       onPress: openOrders,
     },
@@ -125,7 +129,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
       title: 'Send Promotions',
       subtitle: 'Broadcast push alerts for featured discounts',
       icon: 'megaphone-outline',
-      badge: 'PUSH',
+      badge: 'Push',
       badgeStatus: 'gold',
       onPress: () => navigation.navigate('AdminPromotions'),
     },
@@ -159,81 +163,103 @@ export const AdminDashboardScreen = ({ navigation }) => {
         </AtelierText>
 
         <View style={styles.statsGrid}>
-          <AtelierCard
-            style={styles.statCard}
-            onPress={openProducts}
-          >
-            <AtelierText
-              variant="caption"
-              color={theme.colors.inkMuted}
-            >
-              Products
-            </AtelierText>
-            <AtelierText
-              variant="title1"
-              color={theme.colors.inkPrimary}
-              style={styles.statValue}
-            >
-              {productCount}
-            </AtelierText>
-          </AtelierCard>
+          {(!initialSummarySettled && !hasCachedSummary) ||
+          ((adminLoading || allOrdersLoading) && !hasCachedSummary) ? (
+            [1, 2, 3, 4].map((slot) => (
+              <View
+                key={slot}
+                style={[styles.statCard, styles.statSkeletonCard]}
+              >
+                <AtelierSkeleton
+                  height={12}
+                  width="55%"
+                  style={{ marginBottom: 10 }}
+                />
+                <AtelierSkeleton
+                  height={26}
+                  width="35%"
+                />
+              </View>
+            ))
+          ) : (
+            <>
+              <AtelierCard
+                style={styles.statCard}
+                onPress={openProducts}
+              >
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.inkMuted}
+                >
+                  Products
+                </AtelierText>
+                <AtelierText
+                  variant="title1"
+                  color={theme.colors.inkPrimary}
+                  style={styles.statValue}
+                >
+                  {productCount}
+                </AtelierText>
+              </AtelierCard>
 
-          <AtelierCard
-            style={styles.statCard}
-            onPress={openOrders}
-          >
-            <AtelierText
-              variant="caption"
-              color={theme.colors.goldText}
-            >
-              Pending Orders
-            </AtelierText>
-            <AtelierText
-              variant="title1"
-              color={theme.colors.inkPrimary}
-              style={styles.statValue}
-            >
-              {pendingOrdersCount}
-            </AtelierText>
-          </AtelierCard>
+              <AtelierCard
+                style={styles.statCard}
+                onPress={openOrders}
+              >
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.goldText}
+                >
+                  Pending Orders
+                </AtelierText>
+                <AtelierText
+                  variant="title1"
+                  color={theme.colors.inkPrimary}
+                  style={styles.statValue}
+                >
+                  {pendingOrdersCount}
+                </AtelierText>
+              </AtelierCard>
 
-          <AtelierCard
-            style={styles.statCard}
-            onPress={openOrders}
-          >
-            <AtelierText
-              variant="caption"
-              color={theme.colors.inkMuted}
-            >
-              In Fulfillment
-            </AtelierText>
-            <AtelierText
-              variant="title1"
-              color={theme.colors.inkPrimary}
-              style={styles.statValue}
-            >
-              {activeOrdersCount}
-            </AtelierText>
-          </AtelierCard>
+              <AtelierCard
+                style={styles.statCard}
+                onPress={openOrders}
+              >
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.inkMuted}
+                >
+                  In Fulfillment
+                </AtelierText>
+                <AtelierText
+                  variant="title1"
+                  color={theme.colors.inkPrimary}
+                  style={styles.statValue}
+                >
+                  {activeOrdersCount}
+                </AtelierText>
+              </AtelierCard>
 
-          <AtelierCard
-            style={styles.statCard}
-            onPress={() => navigation.navigate('AdminCategories')}
-          >
-            <AtelierText
-              variant="caption"
-              color={theme.colors.inkMuted}
-            >
-              Categories
-            </AtelierText>
-            <AtelierText
-              variant="title1"
-              color={theme.colors.inkPrimary}
-              style={styles.statValue}
-            >
-              {categories.length}
-            </AtelierText>
-          </AtelierCard>
+              <AtelierCard
+                style={styles.statCard}
+                onPress={() => navigation.navigate('AdminCategories')}
+              >
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.inkMuted}
+                >
+                  Categories
+                </AtelierText>
+                <AtelierText
+                  variant="title1"
+                  color={theme.colors.inkPrimary}
+                  style={styles.statValue}
+                >
+                  {categories.length}
+                </AtelierText>
+              </AtelierCard>
+            </>
+          )}
         </View>
 
         <AtelierText
@@ -251,10 +277,10 @@ export const AdminDashboardScreen = ({ navigation }) => {
             onPress={tool.onPress}
           >
             <View style={styles.toolRow}>
-              <View style={styles.toolIconBox}>
+              <View style={styles.toolIconSlot}>
                 <Ionicons
                   name={tool.icon}
-                  size={20}
+                  size={22}
                   color={theme.colors.inkPrimary}
                 />
               </View>
@@ -268,7 +294,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
                 <AtelierText
                   variant="bodySmall"
                   color={theme.colors.inkMuted}
-                  numberOfLines={1}
+                  numberOfLines={2}
                 >
                   {tool.subtitle}
                 </AtelierText>
@@ -316,6 +342,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     paddingVertical: theme.spacing.md,
   },
+  statSkeletonCard: {
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
   statValue: {
     marginTop: theme.spacing.xs,
   },
@@ -328,13 +360,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.md,
   },
-  toolIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  toolIconSlot: {
+    width: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },

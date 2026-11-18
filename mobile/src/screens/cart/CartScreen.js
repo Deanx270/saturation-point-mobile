@@ -195,8 +195,9 @@ export const CartScreen = ({ navigation }) => {
 
             <View style={styles.priceStepperRow}>
               <AtelierText
-                variant="title2"
+                variant="bodyLarge"
                 color={theme.colors.inkPrimary}
+                style={styles.itemPrice}
               >
                 {formatPrice(item.price * item.quantity)}
               </AtelierText>
@@ -233,7 +234,7 @@ export const CartScreen = ({ navigation }) => {
         navigation={navigation}
         rightIcon={items.length > 0 ? 'trash-bin-outline' : undefined}
         rightIconColor={theme.colors.error}
-        rightIconSize={22}
+        rightIconSize={24}
         rightAccessibilityLabel="Clear shopping cart"
         onRightPress={() =>
           Alert.alert(
@@ -309,8 +310,9 @@ export const CartScreen = ({ navigation }) => {
           <View style={styles.totalRow}>
             <AtelierText variant="title1">Total</AtelierText>
             <AtelierText
-              variant="title1"
+              variant="bodyLarge"
               color={theme.colors.inkPrimary}
+              style={styles.totalValue}
             >
               {formatPrice(total)}
             </AtelierText>
@@ -391,6 +393,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: theme.spacing.sm,
   },
+  itemPrice: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 16,
+    lineHeight: 22,
+  },
   summaryContainer: {
     position: 'absolute',
     bottom: 0,
@@ -409,7 +416,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   summaryValue: {
-    fontWeight: '500',
+    fontFamily: 'Montserrat_600SemiBold',
   },
   divider: {
     height: 1,
@@ -421,6 +428,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
+  },
+  totalValue: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 20,
+    lineHeight: 26,
   },
   checkoutButton: {
     width: '100%',

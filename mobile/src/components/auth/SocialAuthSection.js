@@ -107,7 +107,27 @@ const GoogleNativeAuthButton = ({ clientIds, busy, onToken, onError }) => {
 const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
   const [request, response, promptAsync] = Facebook.useAuthRequest({
     clientId: appId,
+    extraParams: {
+      display: 'touch',
+    },
   });
+
+  const handleFacebookPress = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const browsers = await WebBrowser.getCustomTabsSupportingBrowsersAsync();
+        const preferred =
+          browsers?.preferredBrowserPackage ||
+          browsers?.defaultBrowserPackage ||
+          browsers?.browserPackages?.[0];
+        if (preferred) {
+          await promptAsync({ browserPackage: preferred });
+          return;
+        }
+      } catch (e) {}
+    }
+    await promptAsync();
+  };
 
   useEffect(() => {
     const completeFacebook = async () => {
@@ -139,7 +159,7 @@ const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
       variant="outline"
       iconAlign="left"
       disabled={!request || busy}
-      onPress={() => promptAsync()}
+      onPress={handleFacebookPress}
       style={styles.socialButton}
       icon={<FacebookMark />}
     />

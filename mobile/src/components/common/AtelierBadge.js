@@ -41,6 +41,11 @@ export const AtelierBadge = ({ label, status = 'default', style }) => {
           border: '#BDD5EB',
         };
       case 'pending':
+        return {
+          bg: '#FEF7E6',
+          text: '#92400E',
+          border: '#F3D393',
+        };
       case 'default':
       default:
         return {

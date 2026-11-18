@@ -55,7 +55,7 @@ export const AtelierHeader = ({
       >
         <Ionicons
           name={isDrawer ? 'menu-outline' : 'arrow-back'}
-          size={isDrawer ? 26 : 24}
+          size={24}
           color={theme.colors.inkPrimary}
         />
       </AtelierPressable>

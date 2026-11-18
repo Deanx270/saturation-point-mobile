@@ -14,13 +14,11 @@ export const AtelierBrandMark = ({
   if (variant === 'drawer') {
     return (
       <View style={[styles.drawerContainer, style]}>
-        <View style={styles.drawerMarkFrame}>
-          <Image
-            source={LOGO_MARK}
-            style={styles.drawerMark}
-            resizeMode="contain"
-          />
-        </View>
+        <Image
+          source={LOGO_MARK}
+          style={styles.drawerMark}
+          resizeMode="contain"
+        />
         <View style={styles.drawerTextGroup}>
           <AtelierText
             variant="title2"
@@ -30,11 +28,11 @@ export const AtelierBrandMark = ({
             The Saturation Point
           </AtelierText>
           <AtelierText
-            variant="overline"
+            variant="caption"
             color={theme.colors.goldText}
             style={styles.drawerTagline}
           >
-            FINE WRITING ATELIER
+            Fine Writing Atelier
           </AtelierText>
         </View>
       </View>
@@ -51,11 +49,11 @@ export const AtelierBrandMark = ({
             resizeMode="contain"
           />
           <AtelierText
-            variant="overline"
+            variant="caption"
             color={theme.colors.goldText}
             style={styles.authBrandLabel}
           >
-            THE SATURATION POINT
+            The Saturation Point
           </AtelierText>
         </View>
         {title ? (
@@ -121,19 +119,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.md,
   },
-  drawerMarkFrame: {
-    width: 40,
-    height: 40,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   drawerMark: {
-    width: 26,
-    height: 26,
+    width: 30,
+    height: 30,
   },
   drawerTextGroup: {
     flex: 1,
@@ -144,8 +132,9 @@ const styles = StyleSheet.create({
     color: theme.colors.inkPrimary,
   },
   drawerTagline: {
-    letterSpacing: 1.2,
-    fontSize: 10,
+    letterSpacing: 0.4,
+    fontSize: 11.5,
+    lineHeight: 15,
     marginTop: 2,
   },
   authContainer: {
@@ -163,7 +152,8 @@ const styles = StyleSheet.create({
     height: 28,
   },
   authBrandLabel: {
-    letterSpacing: 1.6,
+    letterSpacing: 0.5,
+    fontSize: 12,
   },
   authHeading: {
     marginBottom: theme.spacing.xs,

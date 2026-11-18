@@ -199,6 +199,10 @@ const productsSlice = createSlice({
     categories: ['All', 'Fountain Pens', 'Inks', 'Paper'],
     brands: ['All'],
     selectedProduct: null,
+    detailLoading: false,
+    detailError: null,
+    detailErrorTargetId: null,
+    activeDetailRequestId: null,
     searchKeyword: '',
     selectedCategory: 'All',
     selectedBrand: 'All',
@@ -233,6 +237,10 @@ const productsSlice = createSlice({
     },
     clearSelectedProduct: (state) => {
       state.selectedProduct = null;
+      state.detailLoading = false;
+      state.detailError = null;
+      state.detailErrorTargetId = null;
+      state.activeDetailRequestId = null;
     },
     syncProductSnapshot: (state, action) => {
       syncProductAcrossLists(state, action.payload);
@@ -323,18 +331,35 @@ const productsSlice = createSlice({
           state.brands = ['All', ...action.payload.brands];
         }
       })
-      .addCase(fetchProductDetails.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+      .addCase(fetchProductDetails.pending, (state, action) => {
+        state.detailLoading = true;
+        state.detailError = null;
+        state.detailErrorTargetId = null;
+        state.activeDetailRequestId = action.meta.requestId;
       })
       .addCase(fetchProductDetails.fulfilled, (state, action) => {
-        state.loading = false;
+        if (
+          state.activeDetailRequestId &&
+          state.activeDetailRequestId !== action.meta.requestId
+        ) {
+          return;
+        }
+        state.detailLoading = false;
+        state.detailError = null;
+        state.detailErrorTargetId = null;
         state.selectedProduct = action.payload;
         syncProductAcrossLists(state, action.payload);
       })
       .addCase(fetchProductDetails.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        if (
+          state.activeDetailRequestId &&
+          state.activeDetailRequestId !== action.meta.requestId
+        ) {
+          return;
+        }
+        state.detailLoading = false;
+        state.detailError = action.payload;
+        state.detailErrorTargetId = action.meta.arg || null;
       })
       .addCase(createProduct.fulfilled, (state, action) => {
         const matchesCategory =

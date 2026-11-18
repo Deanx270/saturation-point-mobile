@@ -67,7 +67,12 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   const contentOffsetY = useRef(0);
   const reviewsOffsetY = useRef(null);
   const didAutoScrollRef = useRef(false);
-  const { selectedProduct, loading, error } = useSelector((state) => state.products);
+  const {
+    selectedProduct,
+    detailLoading,
+    detailError,
+    detailErrorTargetId,
+  } = useSelector((state) => state.products);
   const { isEligible, submitting, submitSuccess, error: reviewError } = useSelector(
     (state) => state.reviews
   );
@@ -307,7 +312,22 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     });
   }, [selectedProduct?.reviews, user?._id]);
 
-  if (error && isStaleProduct) {
+  if (!productId) {
+    return (
+      <View style={styles.loadingContainer}>
+        <AtelierHeader
+          title="Product Details"
+          leftType="back"
+          navigation={navigation}
+        />
+        <AtelierErrorBanner message="Unable to load this product." />
+      </View>
+    );
+  }
+
+  const hasCurrentDetailError = Boolean(detailError && detailErrorTargetId === productId);
+
+  if (hasCurrentDetailError && isStaleProduct) {
     return (
       <View style={styles.loadingContainer}>
         <AtelierHeader
@@ -316,52 +336,86 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
           navigation={navigation}
         />
         <AtelierErrorBanner
-          message={error}
+          message={detailError}
           onRetry={() => dispatch(fetchProductDetails(productId))}
         />
       </View>
     );
   }
 
-  if (loading && isStaleProduct) {
+  if (detailLoading || isStaleProduct) {
     return (
       <View style={styles.loadingContainer}>
-        <AtelierSkeleton
-          height={320}
-          borderRadius={0}
-        />
-        <View style={styles.skeletonPadding}>
+        <View style={styles.imageGallery}>
           <AtelierSkeleton
-            height={28}
-            width="70%"
-            style={{ marginBottom: 12 }}
-          />
-          <AtelierSkeleton
-            height={20}
-            width="40%"
-            style={{ marginBottom: 20 }}
-          />
-          <AtelierSkeleton
-            height={80}
             width="100%"
+            height="100%"
+            borderRadius={0}
           />
         </View>
-      </View>
-    );
-  }
-
-  if (isStaleProduct) {
-    return (
-      <View style={styles.loadingContainer}>
-        <AtelierHeader
-          title="Product Details"
-          leftType="back"
-          navigation={navigation}
-        />
-        <AtelierErrorBanner
-          message="Unable to load this product."
-          onRetry={() => dispatch(fetchProductDetails(productId))}
-        />
+        <View style={styles.skeletonThumbnailRow}>
+          {[1, 2, 3].map((n) => (
+            <AtelierSkeleton
+              key={n}
+              width={60}
+              height={60}
+              borderRadius={theme.radii.xs}
+            />
+          ))}
+        </View>
+        <View style={styles.contentContainer}>
+          <View style={styles.brandCategoryRow}>
+            <AtelierSkeleton
+              height={13}
+              width={86}
+            />
+            <AtelierSkeleton
+              height={20}
+              width={76}
+              borderRadius={theme.radii.badge}
+            />
+          </View>
+          <AtelierSkeleton
+            height={26}
+            width="84%"
+            style={{ marginTop: 6, marginBottom: 8 }}
+          />
+          <AtelierSkeleton
+            height={26}
+            width="54%"
+            style={{ marginBottom: 16 }}
+          />
+          <View style={styles.ratingPriceRow}>
+            <AtelierSkeleton
+              height={22}
+              width={96}
+            />
+            <AtelierSkeleton
+              height={18}
+              width={110}
+            />
+          </View>
+          <AtelierSkeleton
+            height={15}
+            width="100%"
+            style={{ marginBottom: 8 }}
+          />
+          <AtelierSkeleton
+            height={15}
+            width="90%"
+            style={{ marginBottom: 8 }}
+          />
+          <AtelierSkeleton
+            height={15}
+            width="62%"
+            style={{ marginBottom: 24 }}
+          />
+          <AtelierSkeleton
+            height={48}
+            width="100%"
+            borderRadius={theme.radii.sm}
+          />
+        </View>
       </View>
     );
   }
@@ -498,8 +552,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
           <View style={styles.ratingPriceRow}>
             <View style={styles.priceGroup}>
               <AtelierText
-                variant="title1"
+                variant="bodyLarge"
                 color={theme.colors.inkPrimary}
+                style={styles.heroPrice}
               >
                 {formatPrice(effectiveUnitPrice)}
               </AtelierText>
@@ -924,8 +979,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.canvas,
   },
-  skeletonPadding: {
-    padding: theme.spacing.xl,
+  skeletonThumbnailRow: {
+    flexDirection: 'row',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   imageGallery: {
     height: 340,
@@ -976,7 +1034,7 @@ const styles = StyleSheet.create({
   },
   activeThumbnail: {
     borderColor: theme.colors.gold,
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   thumbnailImage: {
     width: '100%',
@@ -993,6 +1051,11 @@ const styles = StyleSheet.create({
   },
   productName: {
     marginBottom: theme.spacing.sm,
+  },
+  heroPrice: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 21,
+    lineHeight: 28,
   },
   promoBanner: {
     flexDirection: 'row',

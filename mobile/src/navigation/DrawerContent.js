@@ -9,7 +9,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import AtelierText from '../components/common/AtelierText';
-import AtelierBadge from '../components/common/AtelierBadge';
 import AtelierBrandMark from '../components/common/AtelierBrandMark';
 import AtelierPressable from '../components/common/AtelierPressable';
 import AtelierAvatar from '../components/common/AtelierAvatar';
@@ -60,6 +59,7 @@ export const DrawerContent = ({ navigation }) => {
           <AtelierText
             variant="title2"
             numberOfLines={1}
+            ellipsizeMode="tail"
             style={styles.userName}
           >
             {user ? user.displayName : 'Guest'}
@@ -67,18 +67,21 @@ export const DrawerContent = ({ navigation }) => {
           <AtelierText
             variant="bodySmall"
             color={theme.colors.inkMuted}
-            numberOfLines={2}
+            numberOfLines={1}
+            ellipsizeMode="tail"
             style={styles.userEmail}
           >
-            {user ? user.email : 'Sign in to manage orders and profile'}
+            {user ? user.email : 'Sign in to manage orders'}
           </AtelierText>
           {user && (
-            <View style={styles.badgeRow}>
-              <AtelierBadge
-                label={user.role === 'admin' ? 'Admin' : 'Member'}
-                status={user.role === 'admin' ? 'gold' : 'default'}
-              />
-            </View>
+            <AtelierText
+              variant="caption"
+              color={user.role === 'admin' ? theme.colors.goldText : theme.colors.inkMuted}
+              numberOfLines={1}
+              style={styles.userRole}
+            >
+              {user.role === 'admin' ? 'Administrator' : 'Customer'}
+            </AtelierText>
           )}
         </View>
       </View>
@@ -96,7 +99,7 @@ export const DrawerContent = ({ navigation }) => {
         >
           <Ionicons
             name="home-outline"
-            size={20}
+            size={22}
             color={theme.colors.inkPrimary}
           />
           <AtelierText
@@ -115,7 +118,7 @@ export const DrawerContent = ({ navigation }) => {
           >
             <Ionicons
               name="cart-outline"
-              size={20}
+              size={22}
               color={theme.colors.inkPrimary}
             />
             <AtelierText
@@ -135,7 +138,7 @@ export const DrawerContent = ({ navigation }) => {
           >
             <Ionicons
               name="receipt-outline"
-              size={20}
+              size={22}
               color={theme.colors.inkPrimary}
             />
             <AtelierText
@@ -154,7 +157,7 @@ export const DrawerContent = ({ navigation }) => {
         >
           <Ionicons
             name="person-outline"
-            size={20}
+            size={22}
             color={theme.colors.inkPrimary}
           />
           <AtelierText
@@ -183,7 +186,7 @@ export const DrawerContent = ({ navigation }) => {
             >
               <Ionicons
                 name="grid-outline"
-                size={20}
+                size={22}
                 color={theme.colors.inkPrimary}
               />
               <AtelierText
@@ -201,7 +204,7 @@ export const DrawerContent = ({ navigation }) => {
             >
               <Ionicons
                 name="cube-outline"
-                size={20}
+                size={22}
                 color={theme.colors.inkPrimary}
               />
               <AtelierText
@@ -219,7 +222,7 @@ export const DrawerContent = ({ navigation }) => {
             >
               <Ionicons
                 name="pricetags-outline"
-                size={20}
+                size={22}
                 color={theme.colors.inkPrimary}
               />
               <AtelierText
@@ -237,7 +240,7 @@ export const DrawerContent = ({ navigation }) => {
             >
               <Ionicons
                 name="bookmark-outline"
-                size={20}
+                size={22}
                 color={theme.colors.inkPrimary}
               />
               <AtelierText
@@ -255,7 +258,7 @@ export const DrawerContent = ({ navigation }) => {
             >
               <Ionicons
                 name="clipboard-outline"
-                size={20}
+                size={22}
                 color={theme.colors.inkPrimary}
               />
               <AtelierText
@@ -273,7 +276,7 @@ export const DrawerContent = ({ navigation }) => {
             >
               <Ionicons
                 name="megaphone-outline"
-                size={20}
+                size={22}
                 color={theme.colors.inkPrimary}
               />
               <AtelierText
@@ -287,7 +290,12 @@ export const DrawerContent = ({ navigation }) => {
         )}
       </ScrollView>
 
-      <View style={styles.footerContainer}>
+      <View
+        style={[
+          styles.footerContainer,
+          { paddingBottom: Math.max(insets.bottom, theme.spacing.xl) },
+        ]}
+      >
         <View style={styles.divider} />
         {user ? (
           <AtelierPressable
@@ -297,7 +305,7 @@ export const DrawerContent = ({ navigation }) => {
           >
             <Ionicons
               name="log-out-outline"
-              size={20}
+              size={22}
               color={theme.colors.error}
             />
             <AtelierText
@@ -316,7 +324,7 @@ export const DrawerContent = ({ navigation }) => {
           >
             <Ionicons
               name="log-in-outline"
-              size={20}
+              size={22}
               color={theme.colors.goldText}
             />
             <AtelierText
@@ -363,15 +371,22 @@ const styles = StyleSheet.create({
   profileDetails: {
     marginLeft: theme.spacing.md,
     flex: 1,
+    minWidth: 0,
   },
   userName: {
+    fontSize: 16,
+    lineHeight: 20,
     color: theme.colors.inkPrimary,
   },
   userEmail: {
-    marginTop: 2,
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginTop: 1,
   },
-  badgeRow: {
-    marginTop: theme.spacing.xs,
+  userRole: {
+    fontSize: 11.5,
+    lineHeight: 15,
+    marginTop: 2,
   },
   divider: {
     height: 1,
@@ -393,7 +408,7 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     marginLeft: theme.spacing.md,
-    fontWeight: '500',
+    fontFamily: 'Montserrat_500Medium',
   },
   menuSectionHeader: {
     paddingHorizontal: theme.spacing.md,

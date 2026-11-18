@@ -166,7 +166,7 @@ const AdminCategoriesScreen = ({ navigation }) => {
         navigation={navigation}
         rightIcon="add-outline"
         rightIconColor={theme.colors.gold}
-        rightIconSize={28}
+        rightIconSize={24}
         rightAccessibilityLabel="Add Category"
         onRightPress={openCreateSheet}
       />
@@ -181,13 +181,37 @@ const AdminCategoriesScreen = ({ navigation }) => {
 
       {loading && items.length === 0 ? (
         <View style={styles.skeletonPadding}>
-          {[1, 2, 3].map((n) => (
-            <AtelierSkeleton
+          {[1, 2, 3, 4].map((n) => (
+            <AtelierCard
               key={n}
-              height={84}
-              borderRadius={theme.radii.md}
-              style={{ marginBottom: 12 }}
-            />
+              style={styles.card}
+            >
+              <View style={styles.cardContent}>
+                <View style={styles.cardInfo}>
+                  <AtelierSkeleton
+                    height={17}
+                    width="48%"
+                    style={{ marginBottom: 8 }}
+                  />
+                  <AtelierSkeleton
+                    height={13}
+                    width="80%"
+                  />
+                </View>
+                <View style={styles.actionsRow}>
+                  <AtelierSkeleton
+                    width={theme.touchTarget.minWidth}
+                    height={theme.touchTarget.minHeight}
+                    borderRadius={theme.radii.sm}
+                  />
+                  <AtelierSkeleton
+                    width={theme.touchTarget.minWidth}
+                    height={theme.touchTarget.minHeight}
+                    borderRadius={theme.radii.sm}
+                  />
+                </View>
+              </View>
+            </AtelierCard>
           ))}
         </View>
       ) : (
@@ -349,9 +373,9 @@ const styles = StyleSheet.create({
   editButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
-    borderRadius: theme.radii.xs,
+    borderRadius: theme.radii.sm,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.borderMedium,
     backgroundColor: theme.colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
@@ -360,9 +384,9 @@ const styles = StyleSheet.create({
   deleteButton: {
     width: theme.touchTarget.minWidth,
     height: theme.touchTarget.minHeight,
-    borderRadius: theme.radii.xs,
+    borderRadius: theme.radii.sm,
     borderWidth: 1,
-    borderColor: theme.colors.errorBg,
+    borderColor: theme.colors.errorBorder,
     backgroundColor: theme.colors.errorBg,
     alignItems: 'center',
     justifyContent: 'center',

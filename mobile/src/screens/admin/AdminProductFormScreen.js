@@ -82,14 +82,21 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
   }, [storeBrands, product?.brand]);
 
   const handlePickFromGallery = async () => {
-    const selected = await pickImagesFromGallery({ allowsMultipleSelection: true });
+    const selected = await pickImagesFromGallery({
+      allowsMultipleSelection: false,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
     if (selected.length > 0) {
-      setImages((prev) => [...prev, ...selected].slice(0, 5));
+      setImages((prev) => [...prev, selected[0]].slice(0, 5));
     }
   };
 
   const handleCaptureCamera = async () => {
-    const captured = await captureImageWithCamera();
+    const captured = await captureImageWithCamera({
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
     if (captured) {
       setImages((prev) => [...prev, captured].slice(0, 5));
     }
@@ -200,7 +207,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
           color={theme.colors.inkMuted}
           style={styles.imageHelperText}
         >
-          First photo is the cover. Tap any photo to set it as cover or reorder.
+          First photo is the cover. Photos crop cleanly to 1:1 square; tap any photo to reorder.
         </AtelierText>
 
         <ScrollView
@@ -664,7 +671,7 @@ const styles = StyleSheet.create({
   },
   primaryImageBorder: {
     borderColor: theme.colors.gold,
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   coverBadge: {
     position: 'absolute',
@@ -688,7 +695,7 @@ const styles = StyleSheet.create({
     right: 4,
     width: 22,
     height: 22,
-    borderRadius: 4,
+    borderRadius: theme.radii.xs,
     backgroundColor: theme.colors.error,
     alignItems: 'center',
     justifyContent: 'center',
@@ -776,7 +783,7 @@ const styles = StyleSheet.create({
   categoryChip: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: theme.radii.xs,
+    borderRadius: theme.radii.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceSubtle,

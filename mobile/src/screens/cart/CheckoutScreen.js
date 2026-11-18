@@ -198,8 +198,9 @@ export const CheckoutScreen = ({ navigation }) => {
               Total
             </AtelierText>
             <AtelierText
-              variant="title2"
+              variant="bodyLarge"
               color={theme.colors.inkPrimary}
+              style={styles.summaryTotal}
             >
               {formatPrice(total)}
             </AtelierText>
@@ -366,7 +367,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   summaryBold: {
-    fontWeight: '600',
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  summaryTotal: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 17,
+    lineHeight: 22,
   },
   sectionHeader: {
     marginBottom: theme.spacing.md,

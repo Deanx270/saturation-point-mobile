@@ -6,6 +6,7 @@ import {
   RefreshControl,
   ScrollView,
   Image,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import {
   formatOrderStatus,
   isValidRemoteOrLocalUri,
 } from '../../utils/formatters';
+import { runAfterFrame } from '../../utils/afterFrame';
 
 const STATUS_FILTERS = ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -35,11 +37,17 @@ export const OrdersListScreen = ({ navigation }) => {
 
   const [activeStatus, setActiveStatus] = useState('All');
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchStarted, setFetchStarted] = useState(myOrders.length > 0 || !user);
 
   useEffect(() => {
-    if (user) {
-      dispatch(fetchMyOrders());
+    if (!user) {
+      setFetchStarted(true);
+      return undefined;
     }
+    return runAfterFrame(() => {
+      setFetchStarted(true);
+      dispatch(fetchMyOrders());
+    });
   }, [dispatch, user]);
 
   const onRefresh = async () => {
@@ -76,7 +84,7 @@ export const OrdersListScreen = ({ navigation }) => {
               Order ID
             </AtelierText>
             <AtelierText
-              variant="title2"
+              variant="bodyLarge"
               style={styles.orderIdText}
             >
               #{item._id.slice(-8).toUpperCase()}
@@ -138,12 +146,14 @@ export const OrdersListScreen = ({ navigation }) => {
             <AtelierText
               variant="caption"
               color={theme.colors.inkMuted}
+              style={styles.footerLabel}
             >
               Date
             </AtelierText>
             <AtelierText
-              variant="bodyMedium"
+              variant="bodySmall"
               color={theme.colors.inkSecondary}
+              style={styles.footerValueText}
             >
               {formatDate(item.createdAt)}
             </AtelierText>
@@ -152,26 +162,30 @@ export const OrdersListScreen = ({ navigation }) => {
             <AtelierText
               variant="caption"
               color={theme.colors.inkMuted}
+              style={styles.footerLabel}
             >
               Items
             </AtelierText>
             <AtelierText
-              variant="bodyMedium"
+              variant="bodySmall"
               color={theme.colors.inkSecondary}
+              style={styles.footerValueText}
             >
               {totalCount} {totalCount === 1 ? 'item' : 'items'}
             </AtelierText>
           </View>
-          <View>
+          <View style={styles.totalAlignCol}>
             <AtelierText
               variant="caption"
               color={theme.colors.inkMuted}
+              style={styles.footerLabel}
             >
               Total
             </AtelierText>
             <AtelierText
-              variant="title2"
+              variant="bodySmall"
               color={theme.colors.inkPrimary}
+              style={styles.totalValue}
             >
               {formatPrice(item.totalAmount)}
             </AtelierText>
@@ -255,15 +269,89 @@ export const OrdersListScreen = ({ navigation }) => {
         />
       ) : null}
 
-      {loading && myOrders.length === 0 ? (
+      {(loading || !fetchStarted) && myOrders.length === 0 && !error ? (
         <View style={styles.skeletonPadding}>
           {[1, 2, 3].map((n) => (
-            <AtelierSkeleton
+            <AtelierCard
               key={n}
-              height={120}
-              borderRadius={theme.radii.md}
-              style={{ marginBottom: 16 }}
-            />
+              style={styles.orderCard}
+            >
+              <View style={styles.cardHeader}>
+                <View>
+                  <AtelierSkeleton
+                    height={12}
+                    width={54}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={15}
+                    width={92}
+                  />
+                </View>
+                <AtelierSkeleton
+                  height={22}
+                  width={74}
+                  borderRadius={theme.radii.badge}
+                />
+              </View>
+
+              <View style={styles.previewRow}>
+                <AtelierSkeleton
+                  width={44}
+                  height={44}
+                  borderRadius={theme.radii.xs}
+                />
+                <View style={styles.previewTextCol}>
+                  <AtelierSkeleton
+                    height={15}
+                    width="74%"
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={13}
+                    width="48%"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detailsRow}>
+                <View>
+                  <AtelierSkeleton
+                    height={12}
+                    width={36}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={14}
+                    width={76}
+                  />
+                </View>
+                <View>
+                  <AtelierSkeleton
+                    height={12}
+                    width={40}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={14}
+                    width={48}
+                  />
+                </View>
+                <View style={styles.totalAlignCol}>
+                  <AtelierSkeleton
+                    height={12}
+                    width={36}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={14}
+                    width={68}
+                  />
+                </View>
+              </View>
+            </AtelierCard>
           ))}
         </View>
       ) : (
@@ -271,6 +359,10 @@ export const OrdersListScreen = ({ navigation }) => {
           data={filteredOrders}
           keyExtractor={(item) => item._id}
           renderItem={renderOrderItem}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={[
             styles.listContent,
             filteredOrders.length === 0 && styles.emptyListContent,
@@ -314,20 +406,23 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.canvas,
   },
   filterWrapper: {
-    paddingVertical: theme.spacing.md,
+    marginHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xs,
+    overflow: 'hidden',
   },
   filterScroll: {
-    paddingHorizontal: theme.spacing.lg,
+    paddingHorizontal: 0,
     gap: theme.spacing.sm,
   },
   filterChip: {
     paddingVertical: 6,
     paddingHorizontal: 14,
-    borderRadius: theme.radii.xs,
+    borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    minHeight: 32,
+    minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -341,7 +436,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   listContent: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.hero,
   },
   emptyListContent: {
@@ -359,7 +455,9 @@ const styles = StyleSheet.create({
   },
   orderIdText: {
     marginTop: 2,
-    fontSize: 16,
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 15,
+    lineHeight: 20,
   },
   previewRow: {
     flexDirection: 'row',
@@ -393,10 +491,28 @@ const styles = StyleSheet.create({
   detailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: theme.spacing.md,
+  },
+  footerLabel: {
+    marginBottom: 2,
+  },
+  footerValueText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  totalAlignCol: {
+    alignItems: 'flex-end',
+  },
+  totalValue: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
   },
   skeletonPadding: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
   },
 });
 

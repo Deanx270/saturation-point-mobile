@@ -32,6 +32,30 @@ export const navigateFromNotification = (data) => {
     return true;
   }
 
+  if (data.screen === 'ProductList' && data.productIds) {
+    const promoProductIds = Array.isArray(data.productIds)
+      ? data.productIds.map((id) => String(id).trim()).filter(Boolean)
+      : String(data.productIds)
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean);
+
+    if (promoProductIds.length > 0) {
+      navigationRef.navigate('MainTabs', {
+        screen: 'HomeTab',
+        params: {
+          screen: 'ProductList',
+          params: {
+            promoProductIds,
+            discountPercent: Number(data.discountPercent) || 0,
+            promoTitle: data.promoTitle || '',
+          },
+        },
+      });
+      return true;
+    }
+  }
+
   if (data.screen === 'ProductDetails' && data.productId) {
     navigationRef.navigate('MainTabs', {
       screen: 'HomeTab',

@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ScrollView,
   Image,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,15 +29,20 @@ import {
   isValidRemoteOrLocalUri,
 } from '../../utils/formatters';
 import { ORDER_STATUS_TRANSITIONS } from '../../utils/orderStatus';
+import { runAfterFrame } from '../../utils/afterFrame';
 
 const STATUS_FILTERS = ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
 export const AdminOrdersScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { allOrders, loading, updatingOrderId, error } = useSelector(
-    (state) => state.orders
-  );
+  const {
+    allOrders,
+    allOrdersLoading: loading,
+    updatingOrderId,
+    allOrdersError: error,
+  } = useSelector((state) => state.orders);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchStarted, setFetchStarted] = useState(allOrders.length > 0);
   const [activeStatus, setActiveStatus] = useState('All');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [cancelConfirmOrder, setCancelConfirmOrder] = useState(null);
@@ -48,7 +54,10 @@ export const AdminOrdersScreen = ({ navigation }) => {
   const canGoBack = navigation.canGoBack();
 
   useEffect(() => {
-    dispatch(fetchAllOrders());
+    return runAfterFrame(() => {
+      setFetchStarted(true);
+      dispatch(fetchAllOrders());
+    });
   }, [dispatch]);
 
   const onRefresh = async () => {
@@ -136,30 +145,10 @@ export const AdminOrdersScreen = ({ navigation }) => {
               {item.user?.displayName || 'Customer'}
             </AtelierText>
           </View>
-          {isFinalized ? (
-            <AtelierBadge
-              label={formatOrderStatus(item.status)}
-              status={item.status}
-            />
-          ) : (
-            <AtelierPressable
-              tone="subtle"
-              stopPropagation
-              disabled={isUpdating}
-              hitSlop={8}
-              onPress={() => handleStatusChangePrompt(item)}
-              accessibilityLabel={`Change status for order ${item._id.slice(-8).toUpperCase()}`}
-            >
-              <AtelierBadge
-                label={
-                  isUpdating
-                    ? 'Updating...'
-                    : `${formatOrderStatus(item.status)} ▾`
-                }
-                status={item.status}
-              />
-            </AtelierPressable>
-          )}
+          <AtelierBadge
+            label={formatOrderStatus(item.status)}
+            status={item.status}
+          />
         </View>
 
         {firstItem ? (
@@ -208,67 +197,89 @@ export const AdminOrdersScreen = ({ navigation }) => {
         <View style={styles.divider} />
 
         <View style={styles.detailsRow}>
-          <View>
+          <View style={styles.footerColLeft}>
             <AtelierText
               variant="caption"
               color={theme.colors.inkMuted}
+              style={styles.footerLabel}
             >
               Items
             </AtelierText>
             <AtelierText
-              variant="bodyMedium"
+              variant="bodySmall"
               color={theme.colors.inkSecondary}
+              style={styles.footerValueText}
             >
               {totalCount} {totalCount === 1 ? 'item' : 'items'}
             </AtelierText>
           </View>
 
-          <View>
+          <View style={styles.footerColMid}>
             <AtelierText
               variant="caption"
               color={theme.colors.inkMuted}
+              style={styles.footerLabel}
             >
               Total
             </AtelierText>
             <AtelierText
-              variant="title2"
+              variant="bodySmall"
               color={theme.colors.inkPrimary}
+              style={styles.footerTotalText}
             >
               {formatPrice(item.totalAmount)}
             </AtelierText>
           </View>
 
-          {isFinalized ? (
-            <View style={styles.lockedStatusPill}>
-              <Ionicons
-                name={normalizedStatus === 'delivered' ? 'checkmark-done-outline' : 'lock-closed-outline'}
-                size={14}
-                color={theme.colors.inkMuted}
-              />
-              <AtelierText
-                variant="caption"
-                color={theme.colors.inkMuted}
-              >
-                {normalizedStatus === 'delivered' ? 'Completed' : 'Closed'}
-              </AtelierText>
-            </View>
-          ) : (
-            <AtelierPressable
-              tone="surface"
-              stopPropagation
-              disabled={isUpdating}
-              hitSlop={6}
-              style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
-              onPress={() => handleStatusChangePrompt(item)}
+          <View style={styles.footerColRight}>
+            <AtelierText
+              variant="caption"
+              color={theme.colors.inkMuted}
+              style={styles.footerLabel}
             >
-              <AtelierText
-                variant="caption"
-                color={isUpdating ? theme.colors.inkMuted : theme.colors.inkPrimary}
+              Status
+            </AtelierText>
+            {isFinalized ? (
+              <View style={styles.footerStatusRow}>
+                <Ionicons
+                  name={normalizedStatus === 'delivered' ? 'checkmark-done-outline' : 'lock-closed-outline'}
+                  size={14}
+                  color={theme.colors.inkMuted}
+                />
+                <AtelierText
+                  variant="bodySmall"
+                  color={theme.colors.inkMuted}
+                  style={styles.footerValueText}
+                >
+                  {normalizedStatus === 'delivered' ? 'Completed' : 'Closed'}
+                </AtelierText>
+              </View>
+            ) : (
+              <AtelierPressable
+                tone="subtle"
+                stopPropagation
+                disabled={isUpdating}
+                hitSlop={{ top: 16, bottom: 12, left: 12, right: 8 }}
+                style={[styles.updateActionLink, isUpdating && styles.updateActionDisabled]}
+                onPress={() => handleStatusChangePrompt(item)}
               >
-                {isUpdating ? 'Updating...' : 'Update Status'}
-              </AtelierText>
-            </AtelierPressable>
-          )}
+                <AtelierText
+                  variant="bodySmall"
+                  color={isUpdating ? theme.colors.inkMuted : theme.colors.goldText}
+                  style={styles.footerActionText}
+                >
+                  {isUpdating ? 'Updating...' : 'Update'}
+                </AtelierText>
+                {!isUpdating ? (
+                  <Ionicons
+                    name="chevron-forward"
+                    size={13}
+                    color={theme.colors.goldText}
+                  />
+                ) : null}
+              </AtelierPressable>
+            )}
+          </View>
         </View>
       </AtelierCard>
     );
@@ -325,15 +336,89 @@ export const AdminOrdersScreen = ({ navigation }) => {
         />
       ) : null}
 
-      {loading && allOrders.length === 0 ? (
+      {(loading || !fetchStarted) && allOrders.length === 0 && !error ? (
         <View style={styles.skeletonPadding}>
           {[1, 2, 3].map((n) => (
-            <AtelierSkeleton
+            <AtelierCard
               key={n}
-              height={120}
-              borderRadius={theme.radii.md}
-              style={{ marginBottom: 12 }}
-            />
+              style={styles.card}
+            >
+              <View style={styles.cardHeader}>
+                <View>
+                  <AtelierSkeleton
+                    height={12}
+                    width={96}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={16}
+                    width={140}
+                  />
+                </View>
+                <AtelierSkeleton
+                  height={22}
+                  width={72}
+                  borderRadius={theme.radii.badge}
+                />
+              </View>
+
+              <View style={styles.previewRow}>
+                <AtelierSkeleton
+                  width={44}
+                  height={44}
+                  borderRadius={theme.radii.xs}
+                />
+                <View style={styles.previewTextCol}>
+                  <AtelierSkeleton
+                    height={15}
+                    width="74%"
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={13}
+                    width="48%"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detailsRow}>
+                <View style={styles.footerColLeft}>
+                  <AtelierSkeleton
+                    height={12}
+                    width={40}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={14}
+                    width={48}
+                  />
+                </View>
+                <View style={styles.footerColMid}>
+                  <AtelierSkeleton
+                    height={12}
+                    width={36}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={14}
+                    width={72}
+                  />
+                </View>
+                <View style={styles.footerColRight}>
+                  <AtelierSkeleton
+                    height={12}
+                    width={42}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    height={14}
+                    width={64}
+                  />
+                </View>
+              </View>
+            </AtelierCard>
           ))}
         </View>
       ) : (
@@ -341,6 +426,10 @@ export const AdminOrdersScreen = ({ navigation }) => {
           data={filteredOrders}
           keyExtractor={(item) => item._id}
           renderItem={renderOrderItem}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -429,20 +518,23 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.canvas,
   },
   filterWrapper: {
-    paddingVertical: theme.spacing.md,
+    marginHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xs,
+    overflow: 'hidden',
   },
   filterScroll: {
-    paddingHorizontal: theme.spacing.lg,
+    paddingHorizontal: 0,
     gap: theme.spacing.sm,
   },
   filterChip: {
     paddingVertical: 6,
     paddingHorizontal: 14,
-    borderRadius: theme.radii.xs,
+    borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    minHeight: 32,
+    minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -456,10 +548,12 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
   },
   skeletonPadding: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
   },
   listContent: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.hero,
   },
   card: {
@@ -506,29 +600,52 @@ const styles = StyleSheet.create({
   },
   detailsRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: theme.spacing.md,
   },
-  updateButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: theme.radii.xs,
-    borderWidth: 1,
-    borderColor: theme.colors.borderMedium,
-    backgroundColor: theme.colors.surfaceSubtle,
-    overflow: 'hidden',
+  footerColLeft: {
+    flex: 0.85,
   },
-  updateButtonDisabled: {
-    opacity: 0.6,
+  footerColMid: {
+    flex: 1.05,
   },
-  lockedStatusPill: {
+  footerColRight: {
+    flex: 1.1,
+    alignItems: 'flex-end',
+  },
+  footerLabel: {
+    marginBottom: 2,
+  },
+  footerValueText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  footerTotalText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  footerStatusRow: {
+    minHeight: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: theme.radii.xs,
-    backgroundColor: theme.colors.surfaceSubtle,
+  },
+  updateActionLink: {
+    minHeight: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  updateActionDisabled: {
+    opacity: 0.6,
+  },
+  footerActionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Montserrat_600SemiBold',
   },
 });
 

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Brand = require('../models/Brand');
@@ -146,9 +147,17 @@ const extractImageUrls = (req, fallbackImages = null) => {
 
 const getProducts = async (req, res) => {
   try {
-    const { keyword, category, brand, minPrice, maxPrice, minRating, sort } = req.query;
+    const { ids, keyword, category, brand, minPrice, maxPrice, minRating, sort } = req.query;
 
     const query = {};
+
+    if (ids !== undefined) {
+      const validIds = String(ids)
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id));
+      query._id = { $in: validIds };
+    }
 
     if (keyword) {
       const safeKeyword = escapeRegex(keyword.trim());

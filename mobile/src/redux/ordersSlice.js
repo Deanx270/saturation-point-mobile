@@ -108,8 +108,14 @@ const ordersSlice = createSlice({
     allOrders: [],
     selectedOrder: null,
     loading: false,
-    updatingOrderId: null,
     error: null,
+    allOrdersLoading: false,
+    allOrdersError: null,
+    detailLoading: false,
+    detailError: null,
+    detailErrorTargetId: null,
+    activeDetailRequestId: null,
+    updatingOrderId: null,
     checkoutSuccess: false,
   },
   reducers: {
@@ -119,6 +125,10 @@ const ordersSlice = createSlice({
     },
     clearSelectedOrder: (state) => {
       state.selectedOrder = null;
+      state.detailLoading = false;
+      state.detailError = null;
+      state.detailErrorTargetId = null;
+      state.activeDetailRequestId = null;
     },
   },
   extraReducers: (builder) => {
@@ -151,28 +161,45 @@ const ordersSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(fetchAllOrders.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+        state.allOrdersLoading = true;
+        state.allOrdersError = null;
       })
       .addCase(fetchAllOrders.fulfilled, (state, action) => {
-        state.loading = false;
+        state.allOrdersLoading = false;
         state.allOrders = action.payload;
       })
       .addCase(fetchAllOrders.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.allOrdersLoading = false;
+        state.allOrdersError = action.payload;
       })
-      .addCase(fetchOrderById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+      .addCase(fetchOrderById.pending, (state, action) => {
+        state.detailLoading = true;
+        state.detailError = null;
+        state.detailErrorTargetId = null;
+        state.activeDetailRequestId = action.meta.requestId;
       })
       .addCase(fetchOrderById.fulfilled, (state, action) => {
-        state.loading = false;
+        if (
+          state.activeDetailRequestId &&
+          state.activeDetailRequestId !== action.meta.requestId
+        ) {
+          return;
+        }
+        state.detailLoading = false;
+        state.detailError = null;
+        state.detailErrorTargetId = null;
         state.selectedOrder = action.payload;
       })
       .addCase(fetchOrderById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        if (
+          state.activeDetailRequestId &&
+          state.activeDetailRequestId !== action.meta.requestId
+        ) {
+          return;
+        }
+        state.detailLoading = false;
+        state.detailError = action.payload;
+        state.detailErrorTargetId = action.meta.arg || null;
       })
       .addCase(updateOrderStatus.pending, (state, action) => {
         state.updatingOrderId = action.meta.arg?.orderId || null;
@@ -198,9 +225,16 @@ const ordersSlice = createSlice({
         state.myOrders = [];
         state.allOrders = [];
         state.selectedOrder = null;
+        state.loading = false;
+        state.error = null;
+        state.allOrdersLoading = false;
+        state.allOrdersError = null;
+        state.detailLoading = false;
+        state.detailError = null;
+        state.detailErrorTargetId = null;
+        state.activeDetailRequestId = null;
         state.updatingOrderId = null;
         state.checkoutSuccess = false;
-        state.error = null;
       });
   },
 });

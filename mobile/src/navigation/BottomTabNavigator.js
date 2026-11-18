@@ -5,6 +5,7 @@ import { PlatformPressable } from '@react-navigation/elements';
 import { StackActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import HomeNavigator from './HomeNavigator';
 import CartNavigator from './CartNavigator';
@@ -29,8 +30,12 @@ const AtelierTabBarButton = (props) => (
 );
 
 export const BottomTabNavigator = () => {
+  const insets = useSafeAreaInsets();
   const { user } = useSelector((state) => state.auth);
   const isAdmin = user?.role === 'admin';
+  const bottomInset =
+    Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : insets.bottom;
+  const tabBarBottomPadding = Math.max(bottomInset, 10);
 
   return (
     <Tab.Navigator
@@ -38,10 +43,18 @@ export const BottomTabNavigator = () => {
       screenOptions={{
         headerShown: false,
         animation: 'none',
+        freezeOnBlur: false,
+        detachInactiveScreens: false,
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: theme.colors.goldText,
         tabBarInactiveTintColor: theme.colors.inkMuted,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: 58 + tabBarBottomPadding,
+            paddingBottom: tabBarBottomPadding,
+          },
+        ],
         tabBarItemStyle: styles.tabBarItem,
         tabBarLabelStyle: styles.tabBarLabel,
         tabBarButton: (props) => <AtelierTabBarButton {...props} />,
@@ -213,9 +226,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-    height: Platform.OS === 'ios' ? 88 : 68,
     paddingTop: 6,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
     ...theme.shadows.subtle,
   },
   tabBarItem: {

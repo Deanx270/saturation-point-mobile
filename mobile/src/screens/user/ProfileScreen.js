@@ -16,7 +16,6 @@ import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
-import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
@@ -27,6 +26,7 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierAvatar from '../../components/common/AtelierAvatar';
 import { updateProfile, requestSignOut, syncPushToken } from '../../redux/authSlice';
 import { getNotificationPermissionGranted } from '../../services/pushNotificationService';
+import { runAfterFrame } from '../../utils/afterFrame';
 import { appendImageToFormData } from '../../utils/formDataHelper';
 import {
   pickImagesFromGallery,
@@ -53,11 +53,13 @@ const SetUsernameSchema = Yup.object().shape({
 
 export const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { user, loading } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
   const [avatarUri, setAvatarUri] = useState(user?.photoURL || null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [syncingPush, setSyncingPush] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [usernameSheetVisible, setUsernameSheetVisible] = useState(false);
   const [profileError, setProfileError] = useState('');
@@ -85,7 +87,9 @@ export const ProfileScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      refreshPushPermission();
+      return runAfterFrame(() => {
+        refreshPushPermission();
+      });
     }, [refreshPushPermission, user])
   );
 
@@ -167,24 +171,32 @@ export const ProfileScreen = ({ navigation }) => {
   };
 
   const handleProfileSubmit = async (values) => {
+    if (savingProfile) {
+      return;
+    }
     setProfileError('');
-    const result = await dispatch(
-      updateProfile({
-        displayName: values.displayName.trim(),
-      })
-    );
-    if (updateProfile.fulfilled.match(result)) {
-      setToastState((prev) => ({
-        visible: true,
-        message: 'Profile details updated',
-        key: prev.key + 1,
-      }));
-    } else {
-      const errorMsg = result.payload || 'Unable to update profile.';
-      setProfileError(errorMsg);
-      if (Platform.OS !== 'web') {
-        Alert.alert('Update Failed', errorMsg);
+    setSavingProfile(true);
+    try {
+      const result = await dispatch(
+        updateProfile({
+          displayName: values.displayName.trim(),
+        })
+      );
+      if (updateProfile.fulfilled.match(result)) {
+        setToastState((prev) => ({
+          visible: true,
+          message: 'Profile details updated',
+          key: prev.key + 1,
+        }));
+      } else {
+        const errorMsg = result.payload || 'Unable to update profile.';
+        setProfileError(errorMsg);
+        if (Platform.OS !== 'web') {
+          Alert.alert('Update Failed', errorMsg);
+        }
       }
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -194,7 +206,7 @@ export const ProfileScreen = ({ navigation }) => {
   };
 
   const handleCloseUsernameSheet = () => {
-    if (loading) {
+    if (savingUsername) {
       return;
     }
     setUsernameSheetVisible(false);
@@ -203,31 +215,39 @@ export const ProfileScreen = ({ navigation }) => {
   };
 
   const handleSetUsernameSubmit = async (values) => {
+    if (savingUsername) {
+      return;
+    }
     setUsernameErrorMsg('');
     if (availabilityState.status === 'taken') {
       setUsernameErrorMsg('That username is already taken.');
       return;
     }
-    const cleanUsername = values.username.trim().replace(/^@/, '').toLowerCase();
-    const result = await dispatch(
-      updateProfile({
-        username: cleanUsername,
-      })
-    );
-    if (updateProfile.fulfilled.match(result)) {
-      setUsernameSheetVisible(false);
-      resetAvailability();
-      setToastState((prev) => ({
-        visible: true,
-        message: 'Username saved',
-        key: prev.key + 1,
-      }));
-    } else {
-      const errorMsg = result.payload || 'Unable to save username.';
-      setUsernameErrorMsg(errorMsg);
-      if (Platform.OS !== 'web') {
-        Alert.alert('Unable to Save', errorMsg);
+    setSavingUsername(true);
+    try {
+      const cleanUsername = values.username.trim().replace(/^@/, '').toLowerCase();
+      const result = await dispatch(
+        updateProfile({
+          username: cleanUsername,
+        })
+      );
+      if (updateProfile.fulfilled.match(result)) {
+        setUsernameSheetVisible(false);
+        resetAvailability();
+        setToastState((prev) => ({
+          visible: true,
+          message: 'Username saved',
+          key: prev.key + 1,
+        }));
+      } else {
+        const errorMsg = result.payload || 'Unable to save username.';
+        setUsernameErrorMsg(errorMsg);
+        if (Platform.OS !== 'web') {
+          Alert.alert('Unable to Save', errorMsg);
+        }
       }
+    } finally {
+      setSavingUsername(false);
     }
   };
 
@@ -325,33 +345,26 @@ export const ProfileScreen = ({ navigation }) => {
             {user.displayName}
           </AtelierText>
           <AtelierText
-            variant="bodyMedium"
+            variant="bodySmall"
             color={theme.colors.inkMuted}
+            style={styles.profileEmail}
           >
             {user.email}
           </AtelierText>
-          <View style={styles.badgeRow}>
-            <AtelierBadge
-              label={user.role === 'admin' ? 'Admin' : 'Member'}
-              status={user.role === 'admin' ? 'gold' : 'default'}
-            />
-          </View>
         </View>
 
-        <AtelierCard
-          subtle
-          style={styles.infoCard}
-        >
+        <AtelierCard style={styles.infoCard}>
           {user.username ? (
             <View style={styles.infoRow}>
               <AtelierText
-                variant="caption"
+                variant="bodySmall"
                 color={theme.colors.inkMuted}
+                style={styles.infoLabelText}
               >
                 Username
               </AtelierText>
               <AtelierText
-                variant="bodyMedium"
+                variant="bodySmall"
                 color={theme.colors.inkPrimary}
                 style={styles.infoValueText}
               >
@@ -367,22 +380,23 @@ export const ProfileScreen = ({ navigation }) => {
               accessibilityLabel="Set username"
             >
               <AtelierText
-                variant="caption"
+                variant="bodySmall"
                 color={theme.colors.inkMuted}
+                style={styles.infoLabelText}
               >
                 Username
               </AtelierText>
-              <View style={styles.inlineActionChip}>
+              <View style={styles.inlineActionLink}>
                 <AtelierText
-                  variant="caption"
+                  variant="bodySmall"
                   color={theme.colors.goldText}
                   style={styles.inlineActionText}
                 >
-                  Set Username
+                  Set username
                 </AtelierText>
                 <Ionicons
                   name="chevron-forward"
-                  size={13}
+                  size={15}
                   color={theme.colors.goldText}
                 />
               </View>
@@ -393,13 +407,14 @@ export const ProfileScreen = ({ navigation }) => {
 
           <View style={styles.infoRow}>
             <AtelierText
-              variant="caption"
+              variant="bodySmall"
               color={theme.colors.inkMuted}
+              style={styles.infoLabelText}
             >
               Account Role
             </AtelierText>
             <AtelierText
-              variant="bodyMedium"
+              variant="bodySmall"
               color={theme.colors.inkPrimary}
               style={styles.infoValueText}
             >
@@ -417,20 +432,31 @@ export const ProfileScreen = ({ navigation }) => {
             accessibilityLabel="Sync push notifications"
           >
             <AtelierText
-              variant="caption"
+              variant="bodySmall"
               color={theme.colors.inkMuted}
+              style={styles.infoLabelText}
             >
               Push Notifications
             </AtelierText>
             {pushEnabled && !syncingPush ? (
-              <AtelierBadge
-                label="Enabled"
-                status="success"
-              />
-            ) : (
-              <View style={styles.inlineActionChip}>
+              <View style={styles.inlineStatusRow}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={15}
+                  color={theme.colors.success}
+                />
                 <AtelierText
-                  variant="caption"
+                  variant="bodySmall"
+                  color={theme.colors.success}
+                  style={styles.inlineStatusText}
+                >
+                  Enabled
+                </AtelierText>
+              </View>
+            ) : (
+              <View style={styles.inlineActionLink}>
+                <AtelierText
+                  variant="bodySmall"
                   color={theme.colors.goldText}
                   style={styles.inlineActionText}
                 >
@@ -439,7 +465,7 @@ export const ProfileScreen = ({ navigation }) => {
                 {!syncingPush ? (
                   <Ionicons
                     name="chevron-forward"
-                    size={13}
+                    size={15}
                     color={theme.colors.goldText}
                   />
                 ) : null}
@@ -480,6 +506,7 @@ export const ProfileScreen = ({ navigation }) => {
                 onBlur={handleBlur('displayName')}
                 error={errors.displayName}
                 touched={touched.displayName}
+                style={profileError ? styles.inputWithBanner : styles.compactInput}
               />
 
               <AtelierErrorBanner
@@ -488,9 +515,10 @@ export const ProfileScreen = ({ navigation }) => {
               />
 
               <AtelierButton
-                title={loading ? 'Saving...' : 'Save Changes'}
+                title={savingProfile ? 'Saving...' : 'Save Changes'}
                 onPress={handleSubmit}
-                loading={loading}
+                loading={savingProfile}
+                disabled={uploadingPhoto || savingProfile}
                 style={styles.saveButton}
               />
 
@@ -498,6 +526,7 @@ export const ProfileScreen = ({ navigation }) => {
                 title="Sign Out"
                 onPress={handleLogout}
                 variant="outline"
+                disabled={savingProfile}
                 style={styles.logoutButton}
               />
             </View>
@@ -588,10 +617,11 @@ export const ProfileScreen = ({ navigation }) => {
                 />
 
                 <AtelierButton
-                  title={loading ? 'Saving...' : 'Save Username'}
+                  title={savingUsername ? 'Saving...' : 'Save Username'}
                   onPress={handleSubmit}
-                  loading={loading}
+                  loading={savingUsername}
                   disabled={
+                    savingUsername ||
                     availabilityState.status === 'checking' ||
                     availabilityState.status === 'taken'
                   }
@@ -619,7 +649,7 @@ const styles = StyleSheet.create({
   avatarSection: {
     alignItems: 'center',
     marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
   },
   avatarOuter: {
     width: 84,
@@ -667,22 +697,30 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.surface,
   },
   profileDisplayName: {
-    marginTop: theme.spacing.sm,
+    marginTop: theme.spacing.md,
   },
-  badgeRow: {
-    marginTop: theme.spacing.xs,
+  profileEmail: {
+    marginTop: 2,
   },
   infoCard: {
     marginTop: 0,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xl,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    minHeight: 44,
+    paddingVertical: 10,
+  },
+  infoLabelText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: 'Montserrat_500Medium',
   },
   infoValueText: {
+    fontSize: 14,
+    lineHeight: 20,
     fontFamily: 'Montserrat_500Medium',
   },
   infoDivider: {
@@ -693,30 +731,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    minHeight: 44,
+    paddingVertical: 10,
     borderRadius: theme.radii.xs,
     overflow: 'hidden',
   },
-  inlineActionChip: {
+  inlineActionLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(161, 98, 7, 0.4)',
-    borderRadius: theme.radii.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    gap: 2,
+  },
+  inlineStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  inlineStatusText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Montserrat_500Medium',
   },
   inlineActionText: {
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Montserrat_600SemiBold',
   },
   sectionHeader: {
+    marginBottom: theme.spacing.md,
+  },
+  compactInput: {
+    marginBottom: theme.spacing.md,
+  },
+  inputWithBanner: {
     marginBottom: theme.spacing.sm,
   },
   saveButton: {
     marginTop: 0,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   errorBanner: {
     marginHorizontal: 0,

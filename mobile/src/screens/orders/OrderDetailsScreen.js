@@ -38,9 +38,13 @@ const ORDER_STEPS = ['pending', 'processing', 'shipped', 'delivered'];
 export const OrderDetailsScreen = ({ route, navigation }) => {
   const { orderId } = route.params || {};
   const dispatch = useDispatch();
-  const { selectedOrder, loading, updatingOrderId, error } = useSelector(
-    (state) => state.orders
-  );
+  const {
+    selectedOrder,
+    detailLoading,
+    detailError,
+    detailErrorTargetId,
+    updatingOrderId,
+  } = useSelector((state) => state.orders);
   const { user } = useSelector((state) => state.auth);
   const [statusSheetVisible, setStatusSheetVisible] = useState(false);
   const [cancelSheetMode, setCancelSheetMode] = useState(null);
@@ -98,8 +102,9 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
   }
 
   const isStaleOrder = !selectedOrder || (orderId && selectedOrder._id !== orderId);
+  const hasCurrentDetailError = Boolean(detailError && detailErrorTargetId === orderId);
 
-  if (loading && isStaleOrder) {
+  if (!orderId) {
     return (
       <View style={styles.container}>
         <AtelierHeader
@@ -108,21 +113,13 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
           navigation={navigation}
         />
         <View style={styles.skeletonPadding}>
-          <AtelierSkeleton
-            height={100}
-            style={{ marginBottom: 20 }}
-          />
-          <AtelierSkeleton
-            height={160}
-            style={{ marginBottom: 20 }}
-          />
-          <AtelierSkeleton height={80} />
+          <AtelierErrorBanner message="Unable to load order details." />
         </View>
       </View>
     );
   }
 
-  if (isStaleOrder || error) {
+  if (hasCurrentDetailError && isStaleOrder) {
     return (
       <View style={styles.container}>
         <AtelierHeader
@@ -132,9 +129,102 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
         />
         <View style={styles.skeletonPadding}>
           <AtelierErrorBanner
-            message={error || 'Unable to load order details.'}
-            onRetry={() => orderId && dispatch(fetchOrderById(orderId))}
+            message={detailError}
+            onRetry={() => dispatch(fetchOrderById(orderId))}
           />
+        </View>
+      </View>
+    );
+  }
+
+  if (detailLoading || isStaleOrder) {
+    return (
+      <View style={styles.container}>
+        <AtelierHeader
+          title="Order Details"
+          leftType="back"
+          navigation={navigation}
+        />
+        <View style={styles.scrollContent}>
+          <AtelierCard style={styles.statusCard}>
+            <View style={styles.statusHeaderRow}>
+              <AtelierSkeleton
+                height={13}
+                width={84}
+              />
+              <AtelierSkeleton
+                height={22}
+                width={74}
+                borderRadius={theme.radii.badge}
+              />
+            </View>
+            <View style={styles.timelineRow}>
+              {[1, 2, 3, 4].map((step) => (
+                <View
+                  key={step}
+                  style={styles.timelineStep}
+                >
+                  <AtelierSkeleton
+                    width={22}
+                    height={22}
+                    borderRadius={11}
+                    style={{ marginBottom: 6 }}
+                  />
+                  <AtelierSkeleton
+                    width={46}
+                    height={10}
+                  />
+                </View>
+              ))}
+            </View>
+          </AtelierCard>
+
+          <AtelierSkeleton
+            height={18}
+            width={64}
+            style={{ marginBottom: 12 }}
+          />
+
+          {[1, 2].map((n) => (
+            <AtelierCard
+              key={n}
+              style={styles.itemCard}
+            >
+              <View style={styles.itemRow}>
+                <AtelierSkeleton
+                  width={70}
+                  height={70}
+                  borderRadius={theme.radii.xs}
+                />
+                <View style={styles.itemDetails}>
+                  <AtelierSkeleton
+                    height={16}
+                    width="78%"
+                  />
+                  <AtelierSkeleton
+                    height={14}
+                    width="34%"
+                  />
+                  <AtelierSkeleton
+                    height={15}
+                    width="44%"
+                  />
+                </View>
+              </View>
+            </AtelierCard>
+          ))}
+
+          <AtelierCard style={styles.accountingCard}>
+            <AtelierSkeleton
+              height={15}
+              width="62%"
+              style={{ marginBottom: 10 }}
+            />
+            <AtelierSkeleton
+              height={22}
+              width="48%"
+            />
+          </AtelierCard>
         </View>
       </View>
     );
@@ -361,7 +451,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
                     Qty: {item.quantity}
                   </AtelierText>
                   <AtelierText
-                    variant="title2"
+                    variant="bodyLarge"
                     color={theme.colors.inkPrimary}
                     style={styles.itemPrice}
                   >
@@ -496,8 +586,9 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
           <View style={styles.accountingRow}>
             <AtelierText variant="title1">Total</AtelierText>
             <AtelierText
-              variant="title1"
+              variant="bodyLarge"
               color={theme.colors.inkPrimary}
+              style={styles.totalValue}
             >
               {formatPrice(selectedOrder.totalAmount)}
             </AtelierText>
@@ -604,7 +695,7 @@ const styles = StyleSheet.create({
   },
   stepDotCurrent: {
     borderColor: theme.colors.inkPrimary,
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   stepLabel: {
     fontSize: 10,
@@ -673,6 +764,9 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     marginTop: 2,
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 15,
+    lineHeight: 21,
   },
   addressCard: {
     marginBottom: theme.spacing.xl,
@@ -701,7 +795,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   accountingValue: {
-    fontWeight: '500',
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  totalValue: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 20,
+    lineHeight: 26,
   },
   divider: {
     height: 1,

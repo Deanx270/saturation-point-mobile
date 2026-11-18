@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,7 +50,7 @@ const RATING_OPTIONS = [
   { label: '4.5★ & up', value: '4.5' },
 ];
 
-export const ProductListScreen = ({ navigation }) => {
+export const ProductListScreen = ({ route, navigation }) => {
   const dispatch = useDispatch();
   const cartItems = useSelector(selectCartItems);
   const { user } = useSelector((state) => state.auth);
@@ -73,6 +74,7 @@ export const ProductListScreen = ({ navigation }) => {
   } = useSelector((state) => state.products);
 
   const [searchInput, setSearchInput] = useState(searchKeyword);
+  const [promoFilter, setPromoFilter] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [addingProductId, setAddingProductId] = useState(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -87,9 +89,42 @@ export const ProductListScreen = ({ navigation }) => {
   });
   const activeRequestRef = useRef(null);
 
+  const incomingPromoIds = Array.isArray(route?.params?.promoProductIds)
+    ? route.params.promoProductIds.filter(Boolean)
+    : [];
+  const incomingPromoKey = incomingPromoIds.join(',');
+
+  useEffect(() => {
+    if (!incomingPromoKey) {
+      return;
+    }
+    dispatch(resetFilters());
+    setSearchInput('');
+    setPromoFilter({
+      productIds: incomingPromoIds,
+      discountPercent: Number(route?.params?.discountPercent) || 0,
+      promoTitle: route?.params?.promoTitle || '',
+    });
+  }, [
+    incomingPromoKey,
+    route?.params?.discountPercent,
+    route?.params?.promoTitle,
+    dispatch,
+  ]);
+
   useEffect(() => {
     dispatch(fetchProductFilters());
   }, [dispatch]);
+
+  const promoIdsParam = promoFilter?.productIds?.length
+    ? promoFilter.productIds.join(',')
+    : undefined;
+  const activePromoDiscount =
+    promoFilter &&
+    promoFilter.discountPercent > 0 &&
+    promoFilter.discountPercent < 100
+      ? promoFilter.discountPercent
+      : 0;
 
   const loadPage = useCallback(
     (targetPage = 1) => {
@@ -101,6 +136,7 @@ export const ProductListScreen = ({ navigation }) => {
           target: 'shop',
           page: targetPage,
           limit: SHOP_PAGE_LIMIT,
+          ids: promoIdsParam,
           keyword: searchKeyword || undefined,
           category: selectedCategory === 'All' ? undefined : selectedCategory,
           brand: selectedBrand === 'All' ? undefined : selectedBrand,
@@ -114,6 +150,7 @@ export const ProductListScreen = ({ navigation }) => {
     },
     [
       dispatch,
+      promoIdsParam,
       searchKeyword,
       selectedCategory,
       selectedBrand,
@@ -183,12 +220,24 @@ export const ProductListScreen = ({ navigation }) => {
     setFilterModalVisible(false);
   };
 
+  const handleClearPromoFilter = () => {
+    setPromoFilter(null);
+    if (navigation.setParams) {
+      navigation.setParams({
+        promoProductIds: undefined,
+        discountPercent: undefined,
+        promoTitle: undefined,
+      });
+    }
+  };
+
   const handleClearAllFilters = () => {
     setSearchInput('');
     setMinPriceDraft('');
     setMaxPriceDraft('');
     setBrandDraft('All');
     setRatingDraft('');
+    handleClearPromoFilter();
     dispatch(resetFilters());
     setFilterModalVisible(false);
   };
@@ -229,11 +278,16 @@ export const ProductListScreen = ({ navigation }) => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch (e) {}
 
+      const effectiveUnitPrice =
+        activePromoDiscount > 0
+          ? Math.round(latestProduct.price * (1 - activePromoDiscount / 100))
+          : latestProduct.price;
+
       dispatch(
         addToCart({
           product: latestProduct._id,
           name: latestProduct.name,
-          price: latestProduct.price,
+          price: effectiveUnitPrice,
           image: latestProduct.images?.[0] || '',
           brand: latestProduct.brand,
           stock: liveStock,
@@ -261,12 +315,27 @@ export const ProductListScreen = ({ navigation }) => {
     const hasImage = isValidRemoteOrLocalUri(firstImage);
     const existingCartItem = cartItems.find((entry) => entry.product === item._id);
     const inCartQty = existingCartItem ? existingCartItem.quantity : 0;
+    const hasCardPromo = activePromoDiscount > 0;
+    const displayPrice = hasCardPromo
+      ? Math.round(item.price * (1 - activePromoDiscount / 100))
+      : item.price;
 
     return (
       <View style={styles.gridItemContainer}>
         <AtelierCard
           style={styles.productCard}
-          onPress={() => navigation.navigate('ProductDetails', { productId: item._id })}
+          onPress={() =>
+            navigation.navigate(
+              'ProductDetails',
+              hasCardPromo
+                ? {
+                    productId: item._id,
+                    discountPercent: activePromoDiscount,
+                    promoTitle: promoFilter?.promoTitle || '',
+                  }
+                : { productId: item._id }
+            )
+          }
         >
           <View style={styles.imageWrapper}>
             {hasImage ? (
@@ -317,20 +386,33 @@ export const ProductListScreen = ({ navigation }) => {
               </AtelierText>
             </View>
             <View style={styles.footerRow}>
-              <AtelierText
-                variant="bodyLarge"
-                color={theme.colors.inkPrimary}
-                numberOfLines={1}
-                style={styles.priceText}
-              >
-                {formatPrice(item.price)}
-              </AtelierText>
+              <View style={styles.priceColumn}>
+                <AtelierText
+                  variant="bodyLarge"
+                  color={theme.colors.inkPrimary}
+                  numberOfLines={1}
+                  style={styles.priceText}
+                >
+                  {formatPrice(displayPrice)}
+                </AtelierText>
+                {hasCardPromo ? (
+                  <AtelierText
+                    variant="caption"
+                    color={theme.colors.inkMuted}
+                    numberOfLines={1}
+                    style={styles.originalPriceText}
+                  >
+                    {formatPrice(item.price)}
+                  </AtelierText>
+                ) : null}
+              </View>
               {!isAdmin ? (
                 <View style={styles.quickAddWrapper}>
                   <AtelierPressable
                     tone="none"
                     stopPropagation
                     haptic="none"
+                    hitSlop={8}
                     disabled={item.stock <= 0 || addingProductId === item._id}
                     pressedStyle={styles.quickAddPressed}
                     style={[
@@ -341,17 +423,43 @@ export const ProductListScreen = ({ navigation }) => {
                     onPress={() => handleAddToCart(item)}
                     accessibilityLabel={`Add ${item.name} to cart`}
                   >
-                    <Ionicons
-                      name="add"
-                      size={20}
-                      color={
-                        item.stock <= 0
-                          ? theme.colors.inkMuted
-                          : inCartQty > 0
-                          ? theme.colors.goldText
-                          : theme.colors.inkPrimary
-                      }
-                    />
+                    <View style={styles.cartAddIcon}>
+                      <Ionicons
+                        name="cart-outline"
+                        size={17}
+                        color={
+                          item.stock <= 0
+                            ? theme.colors.inkMuted
+                            : inCartQty > 0
+                            ? theme.colors.goldText
+                            : theme.colors.inkPrimary
+                        }
+                        style={styles.cartIconGlyph}
+                      />
+                      <View
+                        style={[
+                          styles.cartPlusDot,
+                          {
+                            backgroundColor:
+                              inCartQty > 0
+                                ? '#FEFDF7'
+                                : theme.colors.surfaceSubtle,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="add"
+                          size={9}
+                          color={
+                            item.stock <= 0
+                              ? theme.colors.inkMuted
+                              : inCartQty > 0
+                              ? theme.colors.goldText
+                              : theme.colors.inkPrimary
+                          }
+                        />
+                      </View>
+                    </View>
                   </AtelierPressable>
                   {inCartQty > 0 ? (
                     <View
@@ -451,6 +559,41 @@ export const ProductListScreen = ({ navigation }) => {
         </ScrollView>
       </View>
 
+      {promoFilter ? (
+        <View style={styles.promoFilterBanner}>
+          <View style={styles.promoFilterInfo}>
+            <Ionicons
+              name="pricetag-outline"
+              size={16}
+              color={theme.colors.goldText}
+            />
+            <AtelierText
+              variant="caption"
+              color={theme.colors.goldText}
+              numberOfLines={1}
+              style={styles.promoFilterLabel}
+            >
+              {`${promoFilter.promoTitle || 'Featured Promotion'}${
+                activePromoDiscount > 0 ? ` — ${activePromoDiscount}% Off` : ''
+              }`}
+            </AtelierText>
+          </View>
+          <AtelierPressable
+            tone="surface"
+            hitSlop={6}
+            onPress={handleClearPromoFilter}
+            style={styles.promoClearChip}
+          >
+            <AtelierText
+              variant="caption"
+              color={theme.colors.inkPrimary}
+            >
+              Show All
+            </AtelierText>
+          </AtelierPressable>
+        </View>
+      ) : null}
+
       {error && (
         <AtelierErrorBanner
           message={error}
@@ -480,26 +623,51 @@ export const ProductListScreen = ({ navigation }) => {
               key={n}
               style={styles.skeletonCard}
             >
-              <AtelierSkeleton
-                height={160}
-                borderRadius={theme.radii.sm}
-              />
-              <View style={styles.skeletonTextWrapper}>
-                <AtelierSkeleton
-                  height={14}
-                  width="40%"
-                  style={{ marginBottom: 6 }}
-                />
-                <AtelierSkeleton
-                  height={18}
-                  width="85%"
-                  style={{ marginBottom: 8 }}
-                />
-                <AtelierSkeleton
-                  height={16}
-                  width="30%"
-                />
-              </View>
+              <AtelierCard style={styles.productCard}>
+                <View style={styles.imageWrapper}>
+                  <AtelierSkeleton
+                    width="100%"
+                    height="100%"
+                    borderRadius={0}
+                  />
+                </View>
+                <View style={styles.cardDetails}>
+                  <AtelierSkeleton
+                    height={13}
+                    width="38%"
+                    style={styles.skeletonBrand}
+                  />
+                  <View style={styles.skeletonTitleBox}>
+                    <AtelierSkeleton
+                      height={15}
+                      width="92%"
+                      style={styles.skeletonTitleLine}
+                    />
+                    <AtelierSkeleton
+                      height={15}
+                      width="64%"
+                    />
+                  </View>
+                  <AtelierSkeleton
+                    height={14}
+                    width="48%"
+                    style={styles.skeletonRating}
+                  />
+                  <View style={styles.footerRow}>
+                    <AtelierSkeleton
+                      height={17}
+                      width="46%"
+                    />
+                    {!isAdmin ? (
+                      <AtelierSkeleton
+                        height={34}
+                        width={34}
+                        borderRadius={theme.radii.sm}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              </AtelierCard>
             </View>
           ))}
         </View>
@@ -511,6 +679,10 @@ export const ProductListScreen = ({ navigation }) => {
           numColumns={2}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.4}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={[
             styles.listContent,
             items.length === 0 && styles.emptyListContent,
@@ -727,7 +899,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.borderMedium,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -737,16 +909,20 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.inkPrimary,
   },
   categoryScrollWrapper: {
-    paddingBottom: theme.spacing.md,
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: 6,
+    overflow: 'hidden',
   },
   categoryScroll: {
-    paddingHorizontal: theme.spacing.lg,
+    flexGrow: 1,
+    paddingHorizontal: 0,
     gap: theme.spacing.sm,
   },
   categoryChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: theme.radii.xs,
+    flexGrow: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -760,10 +936,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.inkPrimary,
   },
   chipText: {
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   listContent: {
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 10,
     paddingBottom: theme.spacing.hero,
   },
   updatingRow: {
@@ -785,16 +961,49 @@ const styles = StyleSheet.create({
   },
   gridItemContainer: {
     flex: 0.5,
-    padding: theme.spacing.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
   },
   productCard: {
     padding: 0,
     backgroundColor: theme.colors.surface,
   },
   imageWrapper: {
-    height: 160,
     width: '100%',
+    aspectRatio: 1,
     backgroundColor: theme.colors.surfaceSubtle,
+  },
+  promoFilterBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.goldLight,
+    borderWidth: 1,
+    borderColor: 'rgba(161, 98, 7, 0.28)',
+    gap: theme.spacing.sm,
+  },
+  promoFilterInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  promoFilterLabel: {
+    flex: 1,
+  },
+  promoClearChip: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: theme.radii.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.borderMedium,
+    backgroundColor: theme.colors.surface,
+    overflow: 'hidden',
   },
   productImage: {
     width: '100%',
@@ -829,17 +1038,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: theme.spacing.sm,
   },
-  priceText: {
-    fontWeight: '700',
+  priceColumn: {
     flexShrink: 1,
     marginRight: 6,
+  },
+  priceText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  originalPriceText: {
+    textDecorationLine: 'line-through',
+    fontSize: 11,
   },
   quickAddWrapper: {
     position: 'relative',
   },
   quickAddButton: {
-    width: theme.touchTarget.minWidth,
-    height: theme.touchTarget.minHeight,
+    width: 34,
+    height: 34,
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
@@ -852,12 +1069,33 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.gold,
     backgroundColor: '#FEFDF7',
   },
+  cartAddIcon: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  cartIconGlyph: {
+    marginTop: 2,
+    marginRight: 2,
+  },
+  cartPlusDot: {
+    position: 'absolute',
+    top: 0,
+    right: -1,
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   quickAddBadge: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    minWidth: 18,
-    height: 18,
+    top: -5,
+    right: -5,
+    minWidth: 17,
+    height: 17,
     paddingHorizontal: 4,
     borderRadius: theme.radii.xs,
     backgroundColor: theme.colors.inkPrimary,
@@ -883,14 +1121,26 @@ const styles = StyleSheet.create({
   skeletonContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 10,
   },
   skeletonCard: {
     width: '50%',
-    padding: theme.spacing.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
   },
-  skeletonTextWrapper: {
-    padding: theme.spacing.sm,
+  skeletonBrand: {
+    marginBottom: 4,
+  },
+  skeletonTitleBox: {
+    minHeight: 40,
+    marginTop: 2,
+    justifyContent: 'flex-start',
+  },
+  skeletonTitleLine: {
+    marginBottom: 6,
+  },
+  skeletonRating: {
+    marginTop: theme.spacing.xs,
   },
   modalScroll: {
     maxHeight: 360,

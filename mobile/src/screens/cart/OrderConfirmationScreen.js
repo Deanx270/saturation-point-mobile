@@ -131,8 +131,9 @@ export const OrderConfirmationScreen = ({ route, navigation }) => {
               Order ID
             </AtelierText>
             <AtelierText
-              variant="title2"
+              variant="bodyLarge"
               color={theme.colors.inkPrimary}
+              style={styles.refValue}
             >
               #{orderId ? orderId.slice(-8).toUpperCase() : 'ORD-0001'}
             </AtelierText>
@@ -145,8 +146,9 @@ export const OrderConfirmationScreen = ({ route, navigation }) => {
               Order Total (COD)
             </AtelierText>
             <AtelierText
-              variant="title2"
+              variant="bodyLarge"
               color={theme.colors.goldText}
+              style={styles.refValue}
             >
               {formatPrice(totalAmount || 0)}
             </AtelierText>
@@ -220,6 +222,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginVertical: 4,
+  },
+  refValue: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 16,
+    lineHeight: 22,
   },
   viewOrderButton: {
     width: '100%',

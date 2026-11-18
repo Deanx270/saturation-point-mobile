@@ -7,6 +7,7 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierToast from '../../components/common/AtelierToast';
 import { fetchProducts, deleteProduct } from '../../redux/productsSlice';
 import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+import { runAfterFrame } from '../../utils/afterFrame';
 
 const ADMIN_PAGE_LIMIT = 8;
 
@@ -39,6 +41,7 @@ export const AdminProductsScreen = ({ navigation }) => {
     adminError,
   } = useSelector((state) => state.products);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchStarted, setFetchStarted] = useState(adminItems.length > 0);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [toastState, setToastState] = useState({
     visible: false,
@@ -61,7 +64,10 @@ export const AdminProductsScreen = ({ navigation }) => {
   );
 
   useEffect(() => {
-    loadPage(1);
+    return runAfterFrame(() => {
+      setFetchStarted(true);
+      loadPage(1);
+    });
   }, [loadPage]);
 
   const onRefresh = async () => {
@@ -167,7 +173,7 @@ export const AdminProductsScreen = ({ navigation }) => {
             </AtelierText>
 
             <AtelierText
-              variant="title2"
+              variant="bodyLarge"
               color={theme.colors.inkPrimary}
               style={styles.price}
             >
@@ -236,7 +242,7 @@ export const AdminProductsScreen = ({ navigation }) => {
         navigation={navigation}
         rightIcon="add-outline"
         rightIconColor={theme.colors.gold}
-        rightIconSize={28}
+        rightIconSize={24}
         rightAccessibilityLabel="Add Product"
         onRightPress={() =>
           navigation.navigate('AdminProductForm', { isEditing: false })
@@ -251,15 +257,52 @@ export const AdminProductsScreen = ({ navigation }) => {
         />
       ) : null}
 
-      {adminLoading && adminItems.length === 0 ? (
+      {(adminLoading || !fetchStarted) && adminItems.length === 0 && !adminError ? (
         <View style={styles.skeletonPadding}>
-          {[1, 2, 3].map((n) => (
-            <AtelierSkeleton
+          {[1, 2, 3, 4].map((n) => (
+            <AtelierCard
               key={n}
-              height={110}
-              borderRadius={theme.radii.md}
-              style={{ marginBottom: 12 }}
-            />
+              style={styles.card}
+            >
+              <View style={styles.cardRow}>
+                <AtelierSkeleton
+                  width={96}
+                  height={96}
+                  borderRadius={theme.radii.xs}
+                />
+                <View style={styles.info}>
+                  <View style={styles.headerRow}>
+                    <AtelierSkeleton
+                      height={12}
+                      width="34%"
+                    />
+                    <AtelierSkeleton
+                      height={20}
+                      width={74}
+                      borderRadius={theme.radii.badge}
+                    />
+                  </View>
+                  <AtelierSkeleton
+                    height={16}
+                    width="80%"
+                  />
+                  <AtelierSkeleton
+                    height={16}
+                    width="36%"
+                  />
+                  <View style={styles.actionsRow}>
+                    <AtelierSkeleton
+                      height={16}
+                      width={46}
+                    />
+                    <AtelierSkeleton
+                      height={16}
+                      width={56}
+                    />
+                  </View>
+                </View>
+              </View>
+            </AtelierCard>
           ))}
         </View>
       ) : (
@@ -269,6 +312,10 @@ export const AdminProductsScreen = ({ navigation }) => {
           renderItem={renderProductItem}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.4}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -421,7 +468,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   price: {
-    lineHeight: 22,
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 15,
+    lineHeight: 21,
     marginTop: 1,
   },
   actionsRow: {

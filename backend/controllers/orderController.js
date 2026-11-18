@@ -223,10 +223,12 @@ const updateOrderStatus = async (req, res) => {
     const recipientId = order.user?._id || order.user;
     const recipient = recipientId ? await User.findById(recipientId) : null;
     if (recipient && recipient.pushTokens && recipient.pushTokens.length > 0) {
+      const formattedNextStatus =
+        `${nextStatus.charAt(0).toUpperCase()}${nextStatus.slice(1).toLowerCase()}`;
       const messages = recipient.pushTokens.map((item) => ({
         to: item.token,
         title: 'Order Status Update',
-        body: `Your order #${order._id.toString().slice(-6)} is now ${nextStatus.toUpperCase()}.`,
+        body: `Your order #${order._id.toString().slice(-6)} is now ${formattedNextStatus}.`,
         data: {
           screen: 'OrderDetails',
           orderId: order._id.toString(),

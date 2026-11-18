@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: theme.spacing.xs,
-    borderRadius: 16,
+    borderRadius: theme.radii.xs,
     overflow: 'hidden',
   },
   rightAccessory: {
