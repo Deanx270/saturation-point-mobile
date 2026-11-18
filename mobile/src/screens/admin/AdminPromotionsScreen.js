@@ -258,33 +258,33 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                 </AtelierPressable>
 
                 {selectedProducts.length > 0 ? (
-                  <View style={styles.selectedChipsWrap}>
-                    {selectedProducts.map((prod) => (
-                      <View
-                        key={prod._id}
-                        style={styles.selectedChip}
-                      >
-                        <AtelierText
-                          variant="bodySmall"
-                          color={theme.colors.inkPrimary}
-                          numberOfLines={1}
-                          style={styles.selectedChipText}
-                        >
-                          {prod.name}
-                        </AtelierText>
-                        <AtelierPressable
-                          tone="none"
-                          hitSlop={6}
-                          onPress={() => removeSelectedProduct(prod._id)}
-                          accessibilityLabel={`Remove ${prod.name}`}
-                          style={styles.selectedChipRemove}
-                        >
-                          <Ionicons
-                            name="close"
-                            size={15}
-                            color={theme.colors.inkMuted}
-                          />
-                        </AtelierPressable>
+                  <View style={styles.selectedListCard}>
+                    {selectedProducts.map((prod, idx) => (
+                      <View key={prod._id}>
+                        {idx > 0 ? <View style={styles.selectedItemDivider} /> : null}
+                        <View style={styles.selectedItemRow}>
+                          <AtelierText
+                            variant="bodyMedium"
+                            color={theme.colors.inkPrimary}
+                            numberOfLines={1}
+                            style={styles.selectedItemText}
+                          >
+                            {prod.name}
+                          </AtelierText>
+                          <AtelierPressable
+                            tone="subtle"
+                            hitSlop={6}
+                            onPress={() => removeSelectedProduct(prod._id)}
+                            accessibilityLabel={`Remove ${prod.name}`}
+                            style={styles.selectedItemRemove}
+                          >
+                            <Ionicons
+                              name="close"
+                              size={16}
+                              color={theme.colors.inkMuted}
+                            />
+                          </AtelierPressable>
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -498,35 +498,38 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
     lineHeight: 19,
   },
-  selectedChipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+  selectedListCard: {
+    width: '100%',
     marginTop: theme.spacing.sm,
-  },
-  selectedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    maxWidth: '100%',
-    minHeight: 34,
-    paddingVertical: 6,
-    paddingLeft: theme.spacing.md,
-    paddingRight: theme.spacing.sm,
-    borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    borderRadius: theme.radii.sm,
+    overflow: 'hidden',
   },
-  selectedChipText: {
-    flexShrink: 1,
-    fontFamily: 'Montserrat_500Medium',
-    fontSize: 13,
-    lineHeight: 18,
+  selectedItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingLeft: theme.spacing.lg,
+    paddingRight: theme.spacing.sm,
   },
-  selectedChipRemove: {
-    width: 24,
-    height: 24,
+  selectedItemDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+  },
+  selectedItemText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  selectedItemRemove: {
+    width: 32,
+    height: 32,
+    borderRadius: theme.radii.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
