@@ -111,6 +111,8 @@ export const AtelierQuantityStepper = ({
 
   const isDecrementDisabled =
     disabled || (!allowDecrementBelowMin && value <= min);
+  const showsTrashDecrement =
+    allowDecrementBelowMin && !disabled && value <= min;
   const isIncrementDisabled = disabled || (hasMax && value >= max);
 
   const buttonStyle = compact ? styles.compactButton : styles.regularButton;
@@ -125,15 +127,21 @@ export const AtelierQuantityStepper = ({
         haptic={haptic}
         hitSlop={hitSlop}
         disabled={isDecrementDisabled}
-        style={buttonStyle}
+        style={[buttonStyle, showsTrashDecrement && styles.trashButton]}
         onPress={() => handleStep(-1)}
-        accessibilityLabel={decrementLabel}
+        accessibilityLabel={
+          showsTrashDecrement ? `Remove item (${inputLabel})` : decrementLabel
+        }
       >
         <Ionicons
-          name="remove"
-          size={iconSize}
+          name={showsTrashDecrement ? 'trash-outline' : 'remove'}
+          size={showsTrashDecrement ? iconSize - 1 : iconSize}
           color={
-            isDecrementDisabled ? theme.colors.inkMuted : theme.colors.inkPrimary
+            isDecrementDisabled
+              ? theme.colors.inkMuted
+              : showsTrashDecrement
+              ? theme.colors.error
+              : theme.colors.inkPrimary
           }
           style={isDecrementDisabled && styles.disabledIcon}
         />
@@ -205,6 +213,9 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  trashButton: {
+    backgroundColor: theme.colors.errorBg,
   },
   disabledIcon: {
     opacity: 0.38,

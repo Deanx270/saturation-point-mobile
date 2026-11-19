@@ -9,6 +9,8 @@ export const AtelierToast = ({
   visible,
   toastKey,
   message,
+  iconName = 'checkmark-circle',
+  iconColor = theme.colors.gold,
   actionLabel,
   onActionPress,
   onDismiss,
@@ -81,9 +83,9 @@ export const AtelierToast = ({
     >
       <View style={styles.container}>
         <Ionicons
-          name="checkmark-circle"
+          name={iconName}
           size={18}
-          color={theme.colors.gold}
+          color={iconColor}
           style={styles.icon}
         />
         <AtelierText

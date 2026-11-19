@@ -116,6 +116,29 @@ const cartSlice = createSlice({
       state.items = [];
       clearCartDatabase();
     },
+    restoreCartItems: (state, action) => {
+      const list = Array.isArray(action.payload)
+        ? action.payload
+        : action.payload
+        ? [action.payload]
+        : [];
+      for (const entry of list) {
+        if (!entry?.product) {
+          continue;
+        }
+        const alreadyExists = state.items.some(
+          (item) => item.product === entry.product
+        );
+        if (!alreadyExists) {
+          const normalized = {
+            ...entry,
+            quantity: Math.max(1, Number(entry.quantity) || 1),
+          };
+          state.items.push(normalized);
+          saveCartItemToDatabase(normalized);
+        }
+      }
+    },
   },
 });
 
@@ -126,6 +149,7 @@ export const {
   updateQuantity,
   removeFromCart,
   clearCart,
+  restoreCartItems,
 } = cartSlice.actions;
 
 export const selectCartItems = (state) => state.cart.items;

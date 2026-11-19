@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  LayoutAnimation,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -18,6 +19,8 @@ import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierQuantityStepper from '../../components/common/AtelierQuantityStepper';
+import AtelierToast from '../../components/common/AtelierToast';
+import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import {
   selectCartItems,
   selectCartTotal,
@@ -26,6 +29,7 @@ import {
   updateQuantity,
   removeFromCart,
   clearCart,
+  restoreCartItems,
 } from '../../redux/cartSlice';
 import { syncProductSnapshot } from '../../redux/productsSlice';
 import {
@@ -41,6 +45,20 @@ export const CartScreen = ({ navigation }) => {
   const savings = useSelector(selectCartSavings);
   const { user } = useSelector((state) => state.auth);
   const [checkingStock, setCheckingStock] = useState(false);
+  const [summaryHeight, setSummaryHeight] = useState(0);
+  const [clearSheetVisible, setClearSheetVisible] = useState(false);
+  const [undoState, setUndoState] = useState(null);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    key: 0,
+  });
+
+  const triggerEaseLayout = () => {
+    try {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    } catch (e) {}
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -65,7 +83,26 @@ export const CartScreen = ({ navigation }) => {
     }, [dispatch, items.length])
   );
 
+  const performRemoveItem = (targetItem) => {
+    if (!targetItem?.product) {
+      return;
+    }
+    const snapshot = { ...targetItem };
+    triggerEaseLayout();
+    dispatch(removeFromCart(targetItem.product));
+    setUndoState({ items: [snapshot] });
+    setToastState({
+      visible: true,
+      message: `Removed "${targetItem.name}"`,
+      key: Date.now(),
+    });
+  };
+
   const handleSetQuantity = (item, nextQty) => {
+    if (nextQty <= 0) {
+      performRemoveItem(item);
+      return;
+    }
     if (
       typeof item.stock === 'number' &&
       item.stock > 0 &&
@@ -81,19 +118,34 @@ export const CartScreen = ({ navigation }) => {
     dispatch(updateQuantity({ product: item.product, quantity: nextQty }));
   };
 
-  const handleRemove = (productId, name) => {
-    Alert.alert(
-      'Remove Item',
-      `Remove "${name}" from your cart?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => dispatch(removeFromCart(productId)),
-        },
-      ]
-    );
+  const handleRemove = (item) => {
+    performRemoveItem(item);
+  };
+
+  const handleConfirmClearCart = () => {
+    setClearSheetVisible(false);
+    if (items.length === 0) {
+      return;
+    }
+    const snapshotList = items.map((item) => ({ ...item }));
+    triggerEaseLayout();
+    dispatch(clearCart());
+    setUndoState({ items: snapshotList });
+    setToastState({
+      visible: true,
+      message: 'Cart cleared',
+      key: Date.now(),
+    });
+  };
+
+  const handleUndoRemoval = () => {
+    if (!undoState?.items?.length) {
+      return;
+    }
+    const itemsToRestore = undoState.items;
+    setUndoState(null);
+    triggerEaseLayout();
+    dispatch(restoreCartItems(itemsToRestore));
   };
 
   const handleProceedToCheckout = async () => {
@@ -223,7 +275,7 @@ export const CartScreen = ({ navigation }) => {
               <AtelierPressable
                 tone="subtle"
                 hitSlop={8}
-                onPress={() => handleRemove(item.product, item.name)}
+                onPress={() => handleRemove(item)}
                 style={styles.deleteButton}
                 accessibilityLabel={`Remove ${item.name}`}
               >
@@ -290,20 +342,7 @@ export const CartScreen = ({ navigation }) => {
         rightIconColor={theme.colors.error}
         rightIconSize={24}
         rightAccessibilityLabel="Clear shopping cart"
-        onRightPress={() =>
-          Alert.alert(
-            'Clear Cart',
-            'Remove all items from your cart?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Clear',
-                style: 'destructive',
-                onPress: () => dispatch(clearCart()),
-              },
-            ]
-          )
-        }
+        onRightPress={() => setClearSheetVisible(true)}
       />
 
       <FlatList
@@ -328,7 +367,15 @@ export const CartScreen = ({ navigation }) => {
       />
 
       {items.length > 0 && (
-        <View style={styles.summaryContainer}>
+        <View
+          style={styles.summaryContainer}
+          onLayout={(event) => {
+            const h = event.nativeEvent.layout.height;
+            if (h > 0 && h !== summaryHeight) {
+              setSummaryHeight(h);
+            }
+          }}
+        >
           <View style={styles.summaryRow}>
             <AtelierText
               variant="bodyMedium"
@@ -398,6 +445,39 @@ export const CartScreen = ({ navigation }) => {
           />
         </View>
       )}
+
+      <AtelierBottomSheet
+        visible={clearSheetVisible}
+        onClose={() => setClearSheetVisible(false)}
+        title="Clear Cart"
+        showCloseButton={false}
+        subtitle={`Remove all ${items.length} ${items.length === 1 ? 'item' : 'items'} from your cart?`}
+        options={[
+          {
+            key: 'clear-all',
+            label: 'Clear All Items',
+            icon: 'trash-outline',
+            destructive: true,
+            onPress: handleConfirmClearCart,
+          },
+        ]}
+      />
+
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        iconName="trash-outline"
+        duration={4500}
+        actionLabel={undoState?.items?.length ? 'Undo' : undefined}
+        onActionPress={undoState?.items?.length ? handleUndoRemoval : undefined}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
+        style={
+          items.length > 0 && summaryHeight > 0
+            ? { bottom: summaryHeight + theme.spacing.md }
+            : undefined
+        }
+      />
     </View>
   );
 };
