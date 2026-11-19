@@ -228,7 +228,7 @@ export const CartScreen = ({ navigation }) => {
   const renderCartItem = ({ item }) => {
     const hasValidImage = isValidRemoteOrLocalUri(item.image);
     const thumbnailUri = hasValidImage
-      ? optimizeImageUrl(item.image, { width: 88, height: 88, crop: 'fill' })
+      ? optimizeImageUrl(item.image, { width: 96, height: 96, crop: 'fill' })
       : '';
 
     return (
@@ -542,14 +542,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   thumbPressable: {
-    width: 88,
-    height: 88,
+    width: 96,
+    height: 96,
     borderRadius: theme.radii.sm,
     overflow: 'hidden',
   },
   itemThumbnail: {
-    width: 88,
-    height: 88,
+    width: 96,
+    height: 96,
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surfaceSubtle,
   },
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     flex: 1,
-    minHeight: 88,
+    minHeight: 96,
     marginLeft: theme.spacing.md,
     justifyContent: 'space-between',
   },

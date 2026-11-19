@@ -117,8 +117,8 @@ export const AtelierQuantityStepper = ({
 
   const buttonStyle = compact ? styles.compactButton : styles.regularButton;
   const inputStyle = compact ? styles.compactInput : styles.regularInput;
-  const iconSize = compact ? 16 : 18;
-  const hitSlop = compact ? 6 : undefined;
+  const iconSize = compact ? 15 : 18;
+  const hitSlop = compact ? 8 : undefined;
 
   return (
     <View style={[styles.container, compact && styles.compactContainer, style]}>
@@ -209,8 +209,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   compactButton: {
-    width: 34,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -239,9 +239,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   compactInput: {
-    width: 36,
-    minWidth: 36,
-    height: 36,
+    width: 34,
+    minWidth: 34,
+    height: 32,
     fontFamily: theme.typography.bodyMedium.fontFamily,
     fontSize: theme.typography.bodyMedium.fontSize,
     fontWeight: '600',
