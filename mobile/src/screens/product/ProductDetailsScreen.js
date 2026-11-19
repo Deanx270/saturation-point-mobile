@@ -30,6 +30,7 @@ import AtelierSkeleton from '../../components/common/AtelierSkeleton';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierAvatar from '../../components/common/AtelierAvatar';
+import AtelierToast from '../../components/common/AtelierToast';
 import {
   fetchProductDetails,
   syncProductSnapshot,
@@ -97,6 +98,12 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   const [editingReview, setEditingReview] = useState(null);
   const [deleteReviewTarget, setDeleteReviewTarget] = useState(null);
   const [addedToCartSheetVisible, setAddedToCartSheetVisible] = useState(false);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    iconName: 'checkmark-circle',
+    key: 0,
+  });
 
   useEffect(() => {
     didAutoScrollRef.current = false;
@@ -129,7 +136,12 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     if (submitSuccess) {
       setEditingReview(null);
       dispatch(resetReviewStatus());
-      Alert.alert('Review Saved', 'Your review has been saved.');
+      setToastState({
+        visible: true,
+        message: 'Review saved',
+        iconName: 'checkmark-circle',
+        key: Date.now(),
+      });
     }
   }, [submitSuccess, dispatch]);
 
@@ -308,7 +320,15 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     }
     const targetId = deleteReviewTarget;
     setDeleteReviewTarget(null);
-    await dispatch(removeReview({ productId, reviewId: targetId }));
+    const res = await dispatch(removeReview({ productId, reviewId: targetId }));
+    if (removeReview.fulfilled.match(res)) {
+      setToastState({
+        visible: true,
+        message: 'Review deleted',
+        iconName: 'trash-outline',
+        key: Date.now(),
+      });
+    }
   };
 
   const sortedReviews = useMemo(() => {
@@ -1084,6 +1104,15 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
           },
         ]}
       />
+
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        iconName={toastState.iconName}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
+        style={styles.toastAboveBar}
+      />
     </View>
   );
 };
@@ -1373,6 +1402,9 @@ const styles = StyleSheet.create({
   },
   addToCartButton: {
     width: '100%',
+  },
+  toastAboveBar: {
+    bottom: 92,
   },
 });
 

@@ -29,6 +29,7 @@ import AtelierEmptyState from '../../components/common/AtelierEmptyState';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
+import AtelierToast from '../../components/common/AtelierToast';
 
 const CategorySchema = Yup.object().shape({
   name: Yup.string()
@@ -45,6 +46,11 @@ const AdminCategoriesScreen = ({ navigation }) => {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    key: 0,
+  });
 
   useEffect(() => {
     dispatch(fetchCategories());
@@ -85,6 +91,11 @@ const AdminCategoriesScreen = ({ navigation }) => {
       resetForm();
       setSheetVisible(false);
       setEditingCategory(null);
+      setToastState({
+        visible: true,
+        message: editingCategory ? 'Category updated' : 'Category created',
+        key: Date.now(),
+      });
     } else {
       Alert.alert('Save Failed', result.payload || 'Unable to save category.');
     }
@@ -94,12 +105,18 @@ const AdminCategoriesScreen = ({ navigation }) => {
     if (!deleteTarget) {
       return;
     }
+    const deletedName = deleteTarget.name;
     const result = await dispatch(deleteCategory(deleteTarget._id));
     setDeleteTarget(null);
     if (!result.error) {
       try {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (e) {}
+      setToastState({
+        visible: true,
+        message: `Removed "${deletedName}"`,
+        key: Date.now(),
+      });
     } else {
       Alert.alert('Delete Failed', result.payload || 'Unable to delete category.');
     }
@@ -327,6 +344,13 @@ const AdminCategoriesScreen = ({ navigation }) => {
             onPress: () => setDeleteTarget(null),
           },
         ]}
+      />
+
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
       />
     </View>
   );

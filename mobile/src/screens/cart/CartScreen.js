@@ -261,6 +261,7 @@ export const CartScreen = ({ navigation }) => {
                   variant="caption"
                   color={theme.colors.goldText}
                   numberOfLines={1}
+                  style={styles.brandText}
                 >
                   {item.brand || 'The Saturation Point'}
                 </AtelierText>
@@ -274,7 +275,7 @@ export const CartScreen = ({ navigation }) => {
               </AtelierPressable>
               <AtelierPressable
                 tone="subtle"
-                hitSlop={8}
+                hitSlop={10}
                 onPress={() => handleRemove(item)}
                 style={styles.deleteButton}
                 accessibilityLabel={`Remove ${item.name}`}
@@ -310,7 +311,6 @@ export const CartScreen = ({ navigation }) => {
 
               <AtelierQuantityStepper
                 compact
-                allowDecrementBelowMin
                 haptic="light"
                 value={item.quantity}
                 max={typeof item.stock === 'number' && item.stock > 0 ? item.stock : undefined}
@@ -338,11 +338,27 @@ export const CartScreen = ({ navigation }) => {
         title="Cart"
         leftType="drawer"
         navigation={navigation}
-        rightIcon={items.length > 0 ? 'trash-bin-outline' : undefined}
-        rightIconColor={theme.colors.error}
-        rightIconSize={24}
-        rightAccessibilityLabel="Clear shopping cart"
-        onRightPress={() => setClearSheetVisible(true)}
+        rightComponent={
+          items.length > 0 ? (
+            <AtelierPressable
+              tone="subtle"
+              hitSlop={8}
+              onPress={() => setClearSheetVisible(true)}
+              style={styles.clearHeaderButton}
+              accessibilityLabel="Clear shopping cart"
+            >
+              <AtelierText
+                variant="button"
+                color={theme.colors.error}
+                style={styles.clearHeaderText}
+              >
+                Clear
+              </AtelierText>
+            </AtelierPressable>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )
+        }
       />
 
       <FlatList
@@ -487,6 +503,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.canvas,
   },
+  clearHeaderButton: {
+    minWidth: theme.touchTarget.minWidth,
+    height: theme.touchTarget.minHeight,
+    paddingHorizontal: theme.spacing.xs,
+    borderRadius: theme.radii.sm,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  clearHeaderText: {
+    fontSize: 14,
+  },
+  headerSpacer: {
+    width: theme.touchTarget.minWidth,
+    height: theme.touchTarget.minHeight,
+  },
   listContent: {
     padding: theme.spacing.lg,
     paddingBottom: 220,
@@ -502,15 +533,18 @@ const styles = StyleSheet.create({
   },
   cardRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   thumbPressable: {
-    borderRadius: theme.radii.xs,
+    width: 88,
+    height: 88,
+    borderRadius: theme.radii.sm,
     overflow: 'hidden',
   },
   itemThumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: theme.radii.xs,
+    width: 88,
+    height: 88,
+    borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surfaceSubtle,
   },
   placeholderThumb: {
@@ -519,6 +553,7 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     flex: 1,
+    minHeight: 88,
     marginLeft: theme.spacing.md,
     justifyContent: 'space-between',
   },
@@ -529,32 +564,46 @@ const styles = StyleSheet.create({
   },
   titleWrapper: {
     flex: 1,
+    paddingRight: theme.spacing.xs,
+  },
+  brandText: {
+    lineHeight: 14,
+    includeFontPadding: false,
+    marginTop: -1,
   },
   itemName: {
-    fontSize: 16,
+    fontSize: 15.5,
     lineHeight: 20,
     marginTop: 2,
+    includeFontPadding: false,
   },
   deleteButton: {
-    padding: theme.spacing.xs,
+    padding: 4,
+    marginTop: -4,
+    marginRight: -4,
+    borderRadius: theme.radii.xs,
   },
   priceStepperRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
     marginTop: theme.spacing.sm,
   },
   priceColumn: {
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 1,
   },
   itemPrice: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 20,
+    includeFontPadding: false,
   },
   originalLinePrice: {
     textDecorationLine: 'line-through',
     fontSize: 11,
+    lineHeight: 14,
+    includeFontPadding: false,
   },
   summaryContainer: {
     position: 'absolute',
