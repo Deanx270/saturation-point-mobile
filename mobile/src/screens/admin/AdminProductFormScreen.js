@@ -28,6 +28,7 @@ import {
   captureImageWithCamera,
 } from '../../utils/imagePickerHelper';
 import { submitFormWithScroll } from '../../utils/formScroll';
+import { optimizeImageUrl } from '../../utils/formatters';
 
 const DEFAULT_CATEGORIES = ['Fountain Pens', 'Inks', 'Paper'];
 
@@ -258,7 +259,12 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
               }
             >
               <Image
-                source={{ uri }}
+                source={{
+                  uri: optimizeImageUrl(uri, {
+                    width: 96,
+                    crop: 'limit',
+                  }),
+                }}
                 style={styles.previewImage}
               />
               {idx === 0 && (

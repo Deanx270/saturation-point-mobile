@@ -25,6 +25,7 @@ import {
   formatDate,
   formatOrderStatus,
   isValidRemoteOrLocalUri,
+  optimizeImageUrl,
 } from '../../utils/formatters';
 import { runAfterFrame } from '../../utils/afterFrame';
 
@@ -100,7 +101,13 @@ export const OrdersListScreen = ({ navigation }) => {
           <View style={styles.previewRow}>
             {hasThumb ? (
               <Image
-                source={{ uri: firstItem.image }}
+                source={{
+                  uri: optimizeImageUrl(firstItem.image, {
+                    width: 44,
+                    height: 44,
+                    crop: 'fill',
+                  }),
+                }}
                 style={styles.previewThumb}
               />
             ) : (

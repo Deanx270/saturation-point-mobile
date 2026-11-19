@@ -48,6 +48,7 @@ import {
   formatDate,
   isValidRemoteOrLocalUri,
   resolveProductPricing,
+  optimizeImageUrl,
 } from '../../utils/formatters';
 import { submitFormWithScroll } from '../../utils/formScroll';
 
@@ -503,7 +504,12 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
               renderItem={({ item: uri }) => (
                 <View style={[styles.gallerySlide, { width: windowWidth }]}>
                   <Image
-                    source={{ uri }}
+                    source={{
+                      uri: optimizeImageUrl(uri, {
+                        width: 420,
+                        crop: 'limit',
+                      }),
+                    }}
                     style={styles.mainImage}
                     resizeMode="contain"
                   />
@@ -539,7 +545,13 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
               styles.backButton,
               { top: Math.max(insets.top, theme.spacing.lg) + theme.spacing.xs },
             ]}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('ProductList');
+              }
+            }}
             accessibilityLabel="Go back"
           >
             <Ionicons
@@ -574,7 +586,12 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                 ]}
               >
                 <Image
-                  source={{ uri: img }}
+                  source={{
+                    uri: optimizeImageUrl(img, {
+                      width: 60,
+                      crop: 'limit',
+                    }),
+                  }}
                   style={styles.thumbnailImage}
                   resizeMode="contain"
                 />
@@ -1094,7 +1111,10 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
             label: 'View Cart',
             icon: 'bag-outline',
             selected: true,
-            onPress: () => navigation.navigate('CartTab'),
+            onPress: () => {
+              setAddedToCartSheetVisible(false);
+              navigation.navigate('CartTab', { screen: 'CartScreen' });
+            },
           },
           {
             key: 'continue',

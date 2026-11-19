@@ -36,6 +36,7 @@ import {
   formatPrice,
   isValidRemoteOrLocalUri,
   resolveProductPricing,
+  optimizeImageUrl,
 } from '../../utils/formatters';
 
 export const CartScreen = ({ navigation }) => {
@@ -218,14 +219,17 @@ export const CartScreen = ({ navigation }) => {
   };
 
   const openProductDetails = (productId) => {
-    navigation.navigate('HomeTab', {
-      screen: 'ProductDetails',
-      params: { productId },
-    });
+    if (!productId) {
+      return;
+    }
+    navigation.navigate('ProductDetails', { productId });
   };
 
   const renderCartItem = ({ item }) => {
     const hasValidImage = isValidRemoteOrLocalUri(item.image);
+    const thumbnailUri = hasValidImage
+      ? optimizeImageUrl(item.image, { width: 88, height: 88, crop: 'fill' })
+      : '';
 
     return (
       <AtelierCard style={styles.itemCard}>
@@ -237,7 +241,7 @@ export const CartScreen = ({ navigation }) => {
           >
             {hasValidImage ? (
               <Image
-                source={{ uri: item.image }}
+                source={{ uri: thumbnailUri }}
                 style={styles.itemThumbnail}
               />
             ) : (
@@ -416,8 +420,9 @@ export const CartScreen = ({ navigation }) => {
                 Promo Savings
               </AtelierText>
               <AtelierText
-                variant="caption"
+                variant="bodyLarge"
                 color={theme.colors.success}
+                style={styles.summaryValue}
               >
                 -{formatPrice(savings)}
               </AtelierText>
@@ -432,8 +437,9 @@ export const CartScreen = ({ navigation }) => {
               Shipping
             </AtelierText>
             <AtelierText
-              variant="caption"
+              variant="bodyLarge"
               color={theme.colors.goldText}
+              style={styles.summaryValue}
             >
               Free
             </AtelierText>
@@ -585,13 +591,12 @@ const styles = StyleSheet.create({
   },
   priceStepperRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: theme.spacing.sm,
   },
   priceColumn: {
-    justifyContent: 'flex-end',
-    paddingBottom: 1,
+    justifyContent: 'center',
   },
   itemPrice: {
     fontFamily: 'Montserrat_600SemiBold',

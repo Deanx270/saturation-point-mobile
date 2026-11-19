@@ -30,6 +30,7 @@ import {
   formatPrice,
   formatOrderStatus,
   isValidRemoteOrLocalUri,
+  optimizeImageUrl,
 } from '../../utils/formatters';
 import { ORDER_STATUS_TRANSITIONS } from '../../utils/orderStatus';
 
@@ -289,12 +290,12 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
     if (!targetProductId) {
       return;
     }
-    navigation.navigate('HomeTab', {
-      screen: 'ProductDetails',
-      params: focusReview
+    navigation.navigate(
+      'ProductDetails',
+      focusReview
         ? { productId: targetProductId, focusReview: true }
-        : { productId: targetProductId },
-    });
+        : { productId: targetProductId }
+    );
   };
 
   return (
@@ -425,7 +426,13 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
               <View style={styles.itemRow}>
                 {hasValidImage ? (
                   <Image
-                    source={{ uri: item.image }}
+                    source={{
+                      uri: optimizeImageUrl(item.image, {
+                        width: 70,
+                        height: 70,
+                        crop: 'fill',
+                      }),
+                    }}
                     style={styles.itemImage}
                   />
                 ) : (
@@ -573,8 +580,9 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
               Shipping
             </AtelierText>
             <AtelierText
-              variant="caption"
+              variant="bodyLarge"
               color={theme.colors.goldText}
+              style={styles.accountingValue}
             >
               Free
             </AtelierText>

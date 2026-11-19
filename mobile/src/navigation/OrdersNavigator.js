@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSelector } from 'react-redux';
 import OrdersListScreen from '../screens/orders/OrdersListScreen';
 import OrderDetailsScreen from '../screens/orders/OrderDetailsScreen';
+import ProductDetailsScreen from '../screens/product/ProductDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +26,10 @@ export const OrdersNavigator = () => {
       <Stack.Screen
         name="OrderDetails"
         component={OrderDetailsScreen}
+      />
+      <Stack.Screen
+        name="ProductDetails"
+        component={ProductDetailsScreen}
       />
     </Stack.Navigator>
   );

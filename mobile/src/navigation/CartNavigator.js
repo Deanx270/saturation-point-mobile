@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import CartScreen from '../screens/cart/CartScreen';
 import CheckoutScreen from '../screens/cart/CheckoutScreen';
 import OrderConfirmationScreen from '../screens/cart/OrderConfirmationScreen';
+import ProductDetailsScreen from '../screens/product/ProductDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,6 +31,10 @@ export const CartNavigator = () => {
       <Stack.Screen
         name="OrderConfirmation"
         component={OrderConfirmationScreen}
+      />
+      <Stack.Screen
+        name="ProductDetails"
+        component={ProductDetailsScreen}
       />
     </Stack.Navigator>
   );

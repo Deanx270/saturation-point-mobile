@@ -1,3 +1,5 @@
+import { PixelRatio } from 'react-native';
+
 export const formatPrice = (amount) => {
   const numericAmount = Number(amount) || 0;
   return `₱${numericAmount.toLocaleString('en-US', {
@@ -91,4 +93,79 @@ export const resolveProductPricing = (
     basePrice,
     effectivePrice: basePrice,
   };
+};
+
+const CLOUDINARY_UPLOAD_MARKER = '/image/upload/';
+
+const getTargetPixelDimension = (logicalPx) => {
+  const parsed = Number(logicalPx) || 0;
+  if (parsed <= 0) {
+    return 0;
+  }
+  const rawRatio = typeof PixelRatio?.get === 'function' ? PixelRatio.get() : 2;
+  const clampedRatio = Math.min(Math.max(rawRatio || 2, 2), 3);
+  const rawPixels = Math.round(parsed * clampedRatio);
+  const bucketed = Math.ceil(rawPixels / 20) * 20;
+  return Math.min(bucketed, 1400);
+};
+
+export const optimizeImageUrl = (
+  uri,
+  { width, height, crop = 'fill', gravity = 'auto' } = {}
+) => {
+  if (!uri || typeof uri !== 'string') {
+    return uri;
+  }
+  if (uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('data:')) {
+    return uri;
+  }
+
+  const targetWidth = getTargetPixelDimension(width);
+  const targetHeight = getTargetPixelDimension(height);
+  if (targetWidth <= 0) {
+    return uri;
+  }
+
+  if (uri.includes('res.cloudinary.com') && uri.includes(CLOUDINARY_UPLOAD_MARKER)) {
+    const markerIndex = uri.indexOf(CLOUDINARY_UPLOAD_MARKER);
+    const prefix = uri.slice(0, markerIndex + CLOUDINARY_UPLOAD_MARKER.length);
+    const suffix = uri.slice(markerIndex + CLOUDINARY_UPLOAD_MARKER.length);
+    const firstSegment = suffix.split('/')[0] || '';
+    const hasExistingTransforms =
+      !/^v\d+$/.test(firstSegment) &&
+      /(^|,)(w_|h_|c_|q_|f_|g_|dpr_)/.test(firstSegment);
+
+    if (hasExistingTransforms) {
+      return uri;
+    }
+
+    const transforms = ['f_auto', 'q_auto:good', `c_${crop}`];
+    if (crop === 'fill' || crop === 'thumb') {
+      transforms.push(`g_${gravity}`);
+    }
+    transforms.push(`w_${targetWidth}`);
+    if (targetHeight > 0) {
+      transforms.push(`h_${targetHeight}`);
+    }
+
+    return `${prefix}${transforms.join(',')}/${suffix}`;
+  }
+
+  if (uri.includes('images.unsplash.com')) {
+    try {
+      const parsedUrl = new URL(uri);
+      parsedUrl.searchParams.set('w', String(targetWidth));
+      if (!parsedUrl.searchParams.has('q')) {
+        parsedUrl.searchParams.set('q', '80');
+      }
+      if (!parsedUrl.searchParams.has('auto')) {
+        parsedUrl.searchParams.set('auto', 'format');
+      }
+      return parsedUrl.toString();
+    } catch (e) {
+      return uri;
+    }
+  }
+
+  return uri;
 };

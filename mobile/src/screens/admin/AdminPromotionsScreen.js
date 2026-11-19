@@ -30,6 +30,7 @@ import {
   formatPrice,
   formatDate,
   isValidRemoteOrLocalUri,
+  optimizeImageUrl,
 } from '../../utils/formatters';
 import { submitFormWithScroll } from '../../utils/formScroll';
 
@@ -702,7 +703,13 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                 >
                   {hasThumb ? (
                     <Image
-                      source={{ uri: thumb }}
+                      source={{
+                        uri: optimizeImageUrl(thumb, {
+                          width: 44,
+                          height: 44,
+                          crop: 'fill',
+                        }),
+                      }}
                       style={styles.productRowThumb}
                       resizeMode="cover"
                     />

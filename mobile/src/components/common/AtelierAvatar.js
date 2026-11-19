@@ -3,7 +3,7 @@ import { View, Image, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from './AtelierText';
-import { isValidRemoteOrLocalUri } from '../../utils/formatters';
+import { isValidRemoteOrLocalUri, optimizeImageUrl } from '../../utils/formatters';
 
 export const AtelierAvatar = ({
   uri,
@@ -13,11 +13,15 @@ export const AtelierAvatar = ({
 }) => {
   const [imageFailed, setImageFailed] = useState(false);
 
+  const hasValidUri = !imageFailed && isValidRemoteOrLocalUri(uri);
+  const optimizedUri = hasValidUri
+    ? optimizeImageUrl(uri, { width: size, height: size, crop: 'fill' })
+    : '';
+
   useEffect(() => {
     setImageFailed(false);
   }, [uri]);
 
-  const hasValidUri = !imageFailed && isValidRemoteOrLocalUri(uri);
   const radius = size / 2;
   const cleanInitial = String(name || '').trim().charAt(0).toUpperCase();
   const fontSize = Math.max(12, Math.round(size * 0.4));
@@ -35,7 +39,7 @@ export const AtelierAvatar = ({
         ]}
       >
         <Image
-          source={{ uri }}
+          source={{ uri: optimizedUri }}
           {...webImageProps}
           onError={() => setImageFailed(true)}
           style={{ width: size, height: size, borderRadius: radius }}

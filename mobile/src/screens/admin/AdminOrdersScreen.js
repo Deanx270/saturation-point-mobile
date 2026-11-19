@@ -27,6 +27,7 @@ import {
   formatPrice,
   formatOrderStatus,
   isValidRemoteOrLocalUri,
+  optimizeImageUrl,
 } from '../../utils/formatters';
 import { ORDER_STATUS_TRANSITIONS } from '../../utils/orderStatus';
 import { runAfterFrame } from '../../utils/afterFrame';
@@ -155,7 +156,13 @@ export const AdminOrdersScreen = ({ navigation }) => {
           <View style={styles.previewRow}>
             {hasThumb ? (
               <Image
-                source={{ uri: firstItem.image }}
+                source={{
+                  uri: optimizeImageUrl(firstItem.image, {
+                    width: 44,
+                    height: 44,
+                    crop: 'fill',
+                  }),
+                }}
                 style={styles.previewThumb}
               />
             ) : (

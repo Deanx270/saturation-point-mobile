@@ -46,6 +46,7 @@ import {
   formatPrice,
   isValidRemoteOrLocalUri,
   resolveProductPricing,
+  optimizeImageUrl,
 } from '../../utils/formatters';
 
 const SHOP_PAGE_LIMIT = 8;
@@ -432,7 +433,13 @@ export const ProductListScreen = ({ route, navigation }) => {
           <View style={styles.imageWrapper}>
             {hasImage ? (
               <Image
-                source={{ uri: firstImage }}
+                source={{
+                  uri: optimizeImageUrl(firstImage, {
+                    width: 180,
+                    height: 180,
+                    crop: 'fill',
+                  }),
+                }}
                 style={[
                   styles.productImage,
                   isOutOfStock && styles.productImageOutOfStock,

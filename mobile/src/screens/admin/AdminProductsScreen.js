@@ -24,7 +24,11 @@ import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierToast from '../../components/common/AtelierToast';
 import { fetchProducts, deleteProduct } from '../../redux/productsSlice';
-import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+import {
+  formatPrice,
+  isValidRemoteOrLocalUri,
+  optimizeImageUrl,
+} from '../../utils/formatters';
 import { runAfterFrame } from '../../utils/afterFrame';
 
 const ADMIN_PAGE_LIMIT = 8;
@@ -124,7 +128,13 @@ export const AdminProductsScreen = ({ navigation }) => {
         <View style={styles.cardRow}>
           {hasValidImage ? (
             <Image
-              source={{ uri: firstImage }}
+              source={{
+                uri: optimizeImageUrl(firstImage, {
+                  width: 96,
+                  height: 96,
+                  crop: 'fill',
+                }),
+              }}
               style={styles.thumbnail}
             />
           ) : (
