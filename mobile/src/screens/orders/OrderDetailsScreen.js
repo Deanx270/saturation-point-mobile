@@ -447,7 +447,8 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
                 <View style={styles.itemDetails}>
                   <AtelierText
                     variant="title2"
-                    numberOfLines={1}
+                    numberOfLines={2}
+                    style={styles.itemName}
                   >
                     {item.name}
                   </AtelierText>
@@ -751,6 +752,7 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   itemImage: {
     width: 70,
@@ -764,8 +766,15 @@ const styles = StyleSheet.create({
   },
   itemDetails: {
     flex: 1,
+    minHeight: 70,
     marginLeft: theme.spacing.md,
     justifyContent: 'space-between',
+    gap: 2,
+  },
+  itemName: {
+    fontSize: 15.5,
+    lineHeight: 20,
+    includeFontPadding: false,
   },
   itemPrice: {
     marginTop: 2,

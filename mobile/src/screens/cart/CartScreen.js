@@ -271,7 +271,7 @@ export const CartScreen = ({ navigation }) => {
                 </AtelierText>
                 <AtelierText
                   variant="title2"
-                  numberOfLines={1}
+                  numberOfLines={2}
                   style={styles.itemName}
                 >
                   {item.name}
@@ -578,8 +578,8 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   itemName: {
-    fontSize: 15.5,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 19,
     marginTop: 2,
     includeFontPadding: false,
   },
@@ -616,7 +616,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: theme.colors.surface,
-    padding: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     ...theme.shadows.card,
