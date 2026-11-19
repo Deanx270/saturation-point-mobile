@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -28,6 +28,7 @@ import {
   sanitizeUsernameInput,
   useUsernameAvailability,
 } from '../../utils/useUsernameAvailability';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const CompleteProfileSchema = Yup.object().shape({
   displayName: displayNameSchemaField,
@@ -36,6 +37,9 @@ const CompleteProfileSchema = Yup.object().shape({
 
 export const CompleteProfileScreen = () => {
   const dispatch = useDispatch();
+  const scrollViewRef = useRef(null);
+  const formTopRef = useRef(0);
+  const fieldYRef = useRef({});
   const { user, loading } = useSelector((state) => state.auth);
   const suggestedUsername = buildSuggestedUsername(user?.email);
   const { availabilityState, runUsernameCheck } = useUsernameAvailability(suggestedUsername);
@@ -100,6 +104,7 @@ export const CompleteProfileScreen = () => {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
@@ -123,6 +128,8 @@ export const CompleteProfileScreen = () => {
             handleBlur,
             handleSubmit,
             setFieldValue,
+            validateForm,
+            setTouched,
             values,
             errors,
             touched,
@@ -133,39 +140,58 @@ export const CompleteProfileScreen = () => {
             );
 
             return (
-              <View style={styles.formContainer}>
-                <AtelierInput
-                  label="Display Name"
-                  placeholder="Enter your display name"
-                  value={values.displayName}
-                  onChangeText={handleChange('displayName')}
-                  onBlur={handleBlur('displayName')}
-                  autoCapitalize="words"
-                  autoComplete="name"
-                  textContentType="name"
-                  error={errors.displayName}
-                  touched={touched.displayName}
-                />
-
-                <AtelierInput
-                  label="Username"
-                  prefix="@"
-                  placeholder="e.g. alex_santos"
-                  helperText={usernameFeedback.helperText}
-                  value={values.username}
-                  onChangeText={(text) => {
-                    const sanitized = sanitizeUsernameInput(text);
-                    setFieldValue('username', sanitized);
-                    runUsernameCheck(sanitized);
+              <View
+                style={styles.formContainer}
+                onLayout={(e) => {
+                  formTopRef.current = e.nativeEvent.layout.y;
+                }}
+              >
+                <View
+                  onLayout={(e) => {
+                    fieldYRef.current.displayName =
+                      formTopRef.current + e.nativeEvent.layout.y;
                   }}
-                  onBlur={handleBlur('username')}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="username"
-                  textContentType="username"
-                  error={usernameFeedback.error}
-                  touched={touched.username || usernameFeedback.isTaken}
-                />
+                >
+                  <AtelierInput
+                    label="Display Name"
+                    placeholder="Enter your display name"
+                    value={values.displayName}
+                    onChangeText={handleChange('displayName')}
+                    onBlur={handleBlur('displayName')}
+                    autoCapitalize="words"
+                    autoComplete="name"
+                    textContentType="name"
+                    error={errors.displayName}
+                    touched={touched.displayName}
+                  />
+                </View>
+
+                <View
+                  onLayout={(e) => {
+                    fieldYRef.current.username =
+                      formTopRef.current + e.nativeEvent.layout.y;
+                  }}
+                >
+                  <AtelierInput
+                    label="Username"
+                    prefix="@"
+                    placeholder="e.g. alex_santos"
+                    helperText={usernameFeedback.helperText}
+                    value={values.username}
+                    onChangeText={(text) => {
+                      const sanitized = sanitizeUsernameInput(text);
+                      setFieldValue('username', sanitized);
+                      runUsernameCheck(sanitized);
+                    }}
+                    onBlur={handleBlur('username')}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="username"
+                    textContentType="username"
+                    error={usernameFeedback.error}
+                    touched={touched.username || usernameFeedback.isTaken}
+                  />
+                </View>
 
                 <AtelierErrorBanner
                   message={submitError}
@@ -174,7 +200,16 @@ export const CompleteProfileScreen = () => {
 
                 <AtelierButton
                   title={loading && !skipping ? 'Saving...' : 'Continue'}
-                  onPress={handleSubmit}
+                  onPress={() =>
+                    submitFormWithScroll({
+                      validateForm,
+                      setTouched,
+                      handleSubmit,
+                      scrollViewRef,
+                      yPositions: fieldYRef.current,
+                      fieldOrder: ['displayName', 'username'],
+                    })
+                  }
                   loading={loading && !skipping}
                   disabled={
                     skipping ||

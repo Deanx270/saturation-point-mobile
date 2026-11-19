@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -25,6 +25,7 @@ import {
   emailSchemaField,
   passwordSchemaField,
 } from '../../utils/validationSchemas';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const RegisterSchema = Yup.object().shape({
   email: emailSchemaField,
@@ -36,6 +37,9 @@ const RegisterSchema = Yup.object().shape({
 
 export const RegisterScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const scrollViewRef = useRef(null);
+  const formTopRef = useRef(0);
+  const fieldYRef = useRef({});
   const { loading } = useSelector((state) => state.auth);
   const [submitError, setSubmitError] = useState('');
 
@@ -79,7 +83,9 @@ export const RegisterScreen = ({ navigation }) => {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
       >
         <AtelierBrandMark
@@ -101,51 +107,79 @@ export const RegisterScreen = ({ navigation }) => {
             handleChange,
             handleBlur,
             handleSubmit,
+            validateForm,
+            setTouched,
             values,
             errors,
             touched,
           }) => (
-            <View style={styles.formContainer}>
-              <AtelierInput
-                label="Email"
-                placeholder="Enter your email address"
-                value={values.email}
-                onChangeText={handleChange('email')}
-                onBlur={handleBlur('email')}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                textContentType="emailAddress"
-                error={errors.email}
-                touched={touched.email}
-              />
+            <View
+              style={styles.formContainer}
+              onLayout={(e) => {
+                formTopRef.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.email =
+                    formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Email"
+                  placeholder="Enter your email address"
+                  value={values.email}
+                  onChangeText={handleChange('email')}
+                  onBlur={handleBlur('email')}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  error={errors.email}
+                  touched={touched.email}
+                />
+              </View>
 
-              <AtelierInput
-                label="Password"
-                placeholder="Enter your password"
-                helperText="Must be at least 6 characters"
-                value={values.password}
-                onChangeText={handleChange('password')}
-                onBlur={handleBlur('password')}
-                secureTextEntry
-                autoComplete="new-password"
-                textContentType="newPassword"
-                error={errors.password}
-                touched={touched.password}
-              />
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.password =
+                    formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Password"
+                  placeholder="Enter your password"
+                  helperText="Must be at least 6 characters"
+                  value={values.password}
+                  onChangeText={handleChange('password')}
+                  onBlur={handleBlur('password')}
+                  secureTextEntry
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  error={errors.password}
+                  touched={touched.password}
+                />
+              </View>
 
-              <AtelierInput
-                label="Confirm Password"
-                placeholder="Re-enter your password"
-                value={values.confirmPassword}
-                onChangeText={handleChange('confirmPassword')}
-                onBlur={handleBlur('confirmPassword')}
-                secureTextEntry
-                autoComplete="new-password"
-                textContentType="newPassword"
-                error={errors.confirmPassword}
-                touched={touched.confirmPassword}
-              />
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.confirmPassword =
+                    formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Confirm Password"
+                  placeholder="Re-enter your password"
+                  value={values.confirmPassword}
+                  onChangeText={handleChange('confirmPassword')}
+                  onBlur={handleBlur('confirmPassword')}
+                  secureTextEntry
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  error={errors.confirmPassword}
+                  touched={touched.confirmPassword}
+                />
+              </View>
 
               <AtelierErrorBanner
                 message={submitError}
@@ -154,7 +188,16 @@ export const RegisterScreen = ({ navigation }) => {
 
               <AtelierButton
                 title={loading ? 'Creating Account...' : 'Create Account'}
-                onPress={handleSubmit}
+                onPress={() =>
+                  submitFormWithScroll({
+                    validateForm,
+                    setTouched,
+                    handleSubmit,
+                    scrollViewRef,
+                    yPositions: fieldYRef.current,
+                    fieldOrder: ['email', 'password', 'confirmPassword'],
+                  })
+                }
                 loading={loading}
                 style={styles.submitButton}
               />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -42,6 +42,7 @@ import {
   sanitizeUsernameInput,
   useUsernameAvailability,
 } from '../../utils/useUsernameAvailability';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const ProfileSchema = Yup.object().shape({
   displayName: displayNameSchemaField,
@@ -53,6 +54,8 @@ const SetUsernameSchema = Yup.object().shape({
 
 export const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const scrollViewRef = useRef(null);
+  const editSectionTopRef = useRef(0);
   const { user } = useSelector((state) => state.auth);
   const [avatarUri, setAvatarUri] = useState(user?.photoURL || null);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -296,7 +299,9 @@ export const ProfileScreen = ({ navigation }) => {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.avatarSection}>
@@ -493,11 +498,17 @@ export const ProfileScreen = ({ navigation }) => {
             handleChange,
             handleBlur,
             handleSubmit,
+            validateForm,
+            setTouched,
             values,
             errors,
             touched,
           }) => (
-            <View>
+            <View
+              onLayout={(e) => {
+                editSectionTopRef.current = e.nativeEvent.layout.y;
+              }}
+            >
               <AtelierInput
                 label="Display Name"
                 placeholder="Enter your display name"
@@ -516,7 +527,16 @@ export const ProfileScreen = ({ navigation }) => {
 
               <AtelierButton
                 title={savingProfile ? 'Saving...' : 'Save Changes'}
-                onPress={handleSubmit}
+                onPress={() =>
+                  submitFormWithScroll({
+                    validateForm,
+                    setTouched,
+                    handleSubmit,
+                    scrollViewRef,
+                    yPositions: { displayName: editSectionTopRef.current },
+                    fieldOrder: ['displayName'],
+                  })
+                }
                 loading={savingProfile}
                 disabled={uploadingPhoto || savingProfile}
                 style={styles.saveButton}

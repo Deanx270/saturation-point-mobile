@@ -48,6 +48,7 @@ import {
   isValidRemoteOrLocalUri,
   resolveProductPricing,
 } from '../../utils/formatters';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const ReviewSchema = Yup.object().shape({
   rating: Yup.number()
@@ -785,6 +786,8 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                     handleBlur,
                     handleSubmit,
                     setFieldValue,
+                    validateForm,
+                    setTouched,
                     values,
                     errors,
                     touched,
@@ -830,7 +833,20 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                         ) : null}
                         <AtelierButton
                           title={editingReview ? 'Update Review' : 'Submit Review'}
-                          onPress={handleSubmit}
+                          onPress={() =>
+                            submitFormWithScroll({
+                              validateForm,
+                              setTouched,
+                              handleSubmit,
+                              scrollViewRef,
+                              yPositions: {
+                                comment:
+                                  contentOffsetY.current +
+                                  (reviewsOffsetY.current || 0),
+                              },
+                              fieldOrder: ['rating', 'comment'],
+                            })
+                          }
                           loading={submitting}
                           variant="primary"
                           style={styles.submitReviewButton}
@@ -932,7 +948,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                         <Ionicons
                           key={s}
                           name={s <= rev.rating ? 'star' : 'star-outline'}
-                          size={14}
+                          size={13}
                           color={theme.colors.gold}
                         />
                       ))}

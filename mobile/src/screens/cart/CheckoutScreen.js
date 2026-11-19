@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -26,9 +26,13 @@ import {
   selectCartTotal,
   selectCartSavings,
   syncCartProductPricing,
+  removeFromCart,
+  updateQuantity,
 } from '../../redux/cartSlice';
+import { syncProductSnapshot } from '../../redux/productsSlice';
 import { createOrder } from '../../redux/ordersSlice';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, resolveProductPricing } from '../../utils/formatters';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const CheckoutSchema = Yup.object().shape({
   street: Yup.string()
@@ -75,11 +79,14 @@ const PAYMENT_METHOD_COD = 'Cash on Delivery';
 
 export const CheckoutScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const scrollViewRef = useRef(null);
+  const fieldYRef = useRef({});
   const items = useSelector(selectCartItems);
   const total = useSelector(selectCartTotal);
   const savings = useSelector(selectCartSavings);
   const { loading } = useSelector((state) => state.orders);
   const { user } = useSelector((state) => state.auth);
+  const [verifyingCheckout, setVerifyingCheckout] = useState(false);
 
   useEffect(() => {
     if (!user && navigation.canGoBack()) {
@@ -143,19 +150,88 @@ export const CheckoutScreen = ({ navigation }) => {
   const totalQuantity = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
 
   const handleOrderSubmit = async (values) => {
+    if (verifyingCheckout || loading) {
+      return;
+    }
+
+    setVerifyingCheckout(true);
+    let liveTotal = total;
+    const syncedItems = [...items];
+
+    try {
+      const notices = [];
+      let computedLiveTotal = 0;
+
+      await Promise.all(
+        items.map(async (item, index) => {
+          try {
+            const res = await apiClient.get(`/products/${item.product}`);
+            const latest = res.data;
+            if (!latest?._id) {
+              computedLiveTotal += Number(item.price) * item.quantity;
+              return;
+            }
+            const pricing = resolveProductPricing(latest);
+            const liveStock = Math.max(0, Number(latest.stock) || 0);
+            dispatch(syncProductSnapshot(latest));
+            dispatch(syncCartProductPricing(latest));
+
+            if (liveStock <= 0) {
+              dispatch(removeFromCart(item.product));
+              notices.push(`${item.name} is now out of stock and was removed.`);
+              return;
+            }
+
+            const effectiveQty = Math.min(item.quantity, liveStock);
+            if (item.quantity > liveStock) {
+              dispatch(updateQuantity({ product: item.product, quantity: liveStock }));
+              notices.push(`${item.name} quantity adjusted to ${liveStock}.`);
+            }
+
+            if (Math.abs(pricing.effectivePrice - Number(item.price)) > 0.01) {
+              notices.push(
+                `${item.name} price updated to ${formatPrice(pricing.effectivePrice)} (${
+                  pricing.hasPromo ? 'promotion updated' : 'promotion ended'
+                }).`
+              );
+            }
+
+            syncedItems[index] = {
+              ...item,
+              price: pricing.effectivePrice,
+              quantity: effectiveQty,
+            };
+            computedLiveTotal += pricing.effectivePrice * effectiveQty;
+          } catch (e) {
+            computedLiveTotal += Number(item.price) * item.quantity;
+          }
+        })
+      );
+
+      if (notices.length > 0) {
+        Alert.alert('Order Summary Updated', notices.join('\n'));
+        return;
+      }
+
+      liveTotal = computedLiveTotal;
+    } finally {
+      setVerifyingCheckout(false);
+    }
+
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {}
 
     const orderPayload = {
-      orderItems: items.map((i) => ({
+      orderItems: syncedItems.map((i) => ({
         product: i.product,
         name: i.name,
         price: i.price,
         quantity: i.quantity,
         image: i.image,
       })),
-      totalAmount: total,
+      totalAmount: liveTotal,
+      expectedTotalAmount: liveTotal,
       paymentMethod: PAYMENT_METHOD_COD,
       shippingAddress: {
         street: values.street.trim(),
@@ -203,6 +279,8 @@ export const CheckoutScreen = ({ navigation }) => {
           handleBlur,
           handleSubmit,
           setFieldValue,
+          validateForm,
+          setTouched,
           values,
           errors,
           touched,
@@ -212,6 +290,7 @@ export const CheckoutScreen = ({ navigation }) => {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <ScrollView
+              ref={scrollViewRef}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.scrollContent}
@@ -284,21 +363,33 @@ export const CheckoutScreen = ({ navigation }) => {
                 Shipping Address
               </AtelierText>
 
-              <AtelierInput
-                label="Street Address"
-                placeholder="e.g. 123 Ayala Avenue, Unit 4B"
-                value={values.street}
-                onChangeText={handleChange('street')}
-                onBlur={handleBlur('street')}
-                autoCapitalize="words"
-                autoComplete="street-address"
-                textContentType="fullStreetAddress"
-                error={errors.street}
-                touched={touched.street}
-                style={styles.compactInput}
-              />
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.street = e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Street Address"
+                  placeholder="e.g. 123 Ayala Avenue, Unit 4B"
+                  value={values.street}
+                  onChangeText={handleChange('street')}
+                  onBlur={handleBlur('street')}
+                  autoCapitalize="words"
+                  autoComplete="street-address"
+                  textContentType="fullStreetAddress"
+                  error={errors.street}
+                  touched={touched.street}
+                  style={styles.compactInput}
+                />
+              </View>
 
-              <View style={styles.twoColumnRow}>
+              <View
+                style={styles.twoColumnRow}
+                onLayout={(e) => {
+                  fieldYRef.current.city = e.nativeEvent.layout.y;
+                  fieldYRef.current.postalCode = e.nativeEvent.layout.y;
+                }}
+              >
                 <View style={styles.columnLeft}>
                   <AtelierInput
                     label="City"
@@ -334,19 +425,25 @@ export const CheckoutScreen = ({ navigation }) => {
                 </View>
               </View>
 
-              <AtelierInput
-                label="Country"
-                placeholder="e.g. Philippines"
-                value={values.country}
-                onChangeText={handleChange('country')}
-                onBlur={handleBlur('country')}
-                autoCapitalize="words"
-                autoComplete="country"
-                textContentType="countryName"
-                error={errors.country}
-                touched={touched.country}
-                style={styles.compactInput}
-              />
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.country = e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Country"
+                  placeholder="e.g. Philippines"
+                  value={values.country}
+                  onChangeText={handleChange('country')}
+                  onBlur={handleBlur('country')}
+                  autoCapitalize="words"
+                  autoComplete="country"
+                  textContentType="countryName"
+                  error={errors.country}
+                  touched={touched.country}
+                  style={styles.compactInput}
+                />
+              </View>
 
               <AtelierText
                 variant="title2"
@@ -389,9 +486,22 @@ export const CheckoutScreen = ({ navigation }) => {
 
             <View style={styles.footerBar}>
               <AtelierButton
-                title={loading ? 'Placing Order...' : `Place Order (${formatPrice(total)})`}
-                onPress={handleSubmit}
-                loading={loading}
+                title={
+                  loading || verifyingCheckout
+                    ? 'Placing Order...'
+                    : `Place Order (${formatPrice(total)})`
+                }
+                onPress={() =>
+                  submitFormWithScroll({
+                    validateForm,
+                    setTouched,
+                    handleSubmit,
+                    scrollViewRef,
+                    yPositions: fieldYRef.current,
+                    fieldOrder: ['street', 'city', 'postalCode', 'country'],
+                  })
+                }
+                loading={loading || verifyingCheckout}
                 style={styles.submitButton}
               />
             </View>

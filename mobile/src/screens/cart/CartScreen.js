@@ -28,7 +28,11 @@ import {
   clearCart,
 } from '../../redux/cartSlice';
 import { syncProductSnapshot } from '../../redux/productsSlice';
-import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+import {
+  formatPrice,
+  isValidRemoteOrLocalUri,
+  resolveProductPricing,
+} from '../../utils/formatters';
 
 export const CartScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -124,24 +128,34 @@ export const CartScreen = ({ navigation }) => {
             if (!latest?._id) {
               return;
             }
+            const latestPricing = resolveProductPricing(latest);
+            const liveStock = Math.max(0, Number(latest.stock) || 0);
             dispatch(syncProductSnapshot(latest));
             dispatch(syncCartProductPricing(latest));
-            const liveStock = Math.max(0, Number(latest.stock) || 0);
             if (liveStock <= 0) {
               dispatch(removeFromCart(item.product));
               adjustments.push(`${item.name} is now out of stock and was removed.`);
-            } else if (item.quantity > liveStock) {
-              dispatch(updateQuantity({ product: item.product, quantity: liveStock }));
-              adjustments.push(
-                `${item.name} quantity adjusted to ${liveStock} (available stock).`
-              );
+            } else {
+              if (item.quantity > liveStock) {
+                dispatch(updateQuantity({ product: item.product, quantity: liveStock }));
+                adjustments.push(
+                  `${item.name} quantity adjusted to ${liveStock} (available stock).`
+                );
+              }
+              if (Math.abs(latestPricing.effectivePrice - Number(item.price)) > 0.01) {
+                adjustments.push(
+                  `${item.name} updated to ${formatPrice(latestPricing.effectivePrice)} (${
+                    latestPricing.hasPromo ? 'promotion updated' : 'promotion ended'
+                  }).`
+                );
+              }
             }
           } catch (e) {}
         })
       );
 
       if (adjustments.length > 0) {
-        Alert.alert('Cart Stock Updated', adjustments.join('\n'));
+        Alert.alert('Cart Updated', adjustments.join('\n'));
         return;
       }
 

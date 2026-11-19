@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -27,6 +27,7 @@ import {
   pickImagesFromGallery,
   captureImageWithCamera,
 } from '../../utils/imagePickerHelper';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const DEFAULT_CATEGORIES = ['Fountain Pens', 'Inks', 'Paper'];
 
@@ -50,6 +51,9 @@ const ProductSchema = Yup.object().shape({
 export const AdminProductFormScreen = ({ route, navigation }) => {
   const { product, isEditing } = route.params || {};
   const dispatch = useDispatch();
+  const scrollViewRef = useRef(null);
+  const formTopRef = useRef(0);
+  const fieldYRef = useRef({});
   const storeCategories = useSelector((state) => state.products.categories);
   const storeBrands = useSelector((state) => state.products.brands);
 
@@ -193,7 +197,9 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
       >
         <AtelierText
@@ -302,6 +308,8 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
             handleSubmit,
             setFieldValue,
             setFieldTouched,
+            validateForm,
+            setTouched,
             values,
             errors,
             touched,
@@ -322,18 +330,36 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
             };
 
             return (
-              <View style={styles.formContainer}>
-                <AtelierInput
-                  label="Product Name"
-                  placeholder="e.g. Lamy Safari Fountain Pen"
-                  value={values.name}
-                  onChangeText={handleChange('name')}
-                  onBlur={handleBlur('name')}
-                  error={errors.name}
-                  touched={touched.name}
-                />
+              <View
+                style={styles.formContainer}
+                onLayout={(e) => {
+                  formTopRef.current = e.nativeEvent.layout.y;
+                }}
+              >
+                <View
+                  onLayout={(e) => {
+                    fieldYRef.current.name =
+                      formTopRef.current + e.nativeEvent.layout.y;
+                  }}
+                >
+                  <AtelierInput
+                    label="Product Name"
+                    placeholder="e.g. Lamy Safari Fountain Pen"
+                    value={values.name}
+                    onChangeText={handleChange('name')}
+                    onBlur={handleBlur('name')}
+                    error={errors.name}
+                    touched={touched.name}
+                  />
+                </View>
 
-                <View style={styles.brandFieldWrapper}>
+                <View
+                  style={styles.brandFieldWrapper}
+                  onLayout={(e) => {
+                    fieldYRef.current.brand =
+                      formTopRef.current + e.nativeEvent.layout.y;
+                  }}
+                >
                   <AtelierText
                     variant="caption"
                     color={theme.colors.inkSecondary}
@@ -415,7 +441,14 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                   })}
                 </View>
 
-                <View style={styles.twoColumnRow}>
+                <View
+                  style={styles.twoColumnRow}
+                  onLayout={(e) => {
+                    const rowY = formTopRef.current + e.nativeEvent.layout.y;
+                    fieldYRef.current.price = rowY;
+                    fieldYRef.current.stock = rowY;
+                  }}
+                >
                   <View style={styles.columnLeft}>
                     <AtelierInput
                       label="Price (₱)"
@@ -443,21 +476,43 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                   </View>
                 </View>
 
-                <AtelierInput
-                  label="Description"
-                  placeholder="Enter product description, specifications, and materials..."
-                  value={values.description}
-                  onChangeText={handleChange('description')}
-                  onBlur={handleBlur('description')}
-                  multiline
-                  numberOfLines={4}
-                  error={errors.description}
-                  touched={touched.description}
-                />
+                <View
+                  onLayout={(e) => {
+                    fieldYRef.current.description =
+                      formTopRef.current + e.nativeEvent.layout.y;
+                  }}
+                >
+                  <AtelierInput
+                    label="Description"
+                    placeholder="Enter product description, specifications, and materials..."
+                    value={values.description}
+                    onChangeText={handleChange('description')}
+                    onBlur={handleBlur('description')}
+                    multiline
+                    numberOfLines={4}
+                    error={errors.description}
+                    touched={touched.description}
+                  />
+                </View>
 
                 <AtelierButton
                   title={submitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Product'}
-                  onPress={handleSubmit}
+                  onPress={() =>
+                    submitFormWithScroll({
+                      validateForm,
+                      setTouched,
+                      handleSubmit,
+                      scrollViewRef,
+                      yPositions: fieldYRef.current,
+                      fieldOrder: [
+                        'name',
+                        'brand',
+                        'price',
+                        'stock',
+                        'description',
+                      ],
+                    })
+                  }
                   loading={submitting}
                   style={styles.submitButton}
                 />

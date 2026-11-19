@@ -180,9 +180,15 @@ const getProducts = async (req, res) => {
       const scopedIds = validIds
         ? validIds.filter((id) => promoMap.has(id))
         : promoIdList;
-      query._id = { $in: scopedIds };
+      query._id = {
+        $in: scopedIds
+          .filter((id) => mongoose.Types.ObjectId.isValid(id))
+          .map((id) => new mongoose.Types.ObjectId(id)),
+      };
     } else if (validIds !== null) {
-      query._id = { $in: validIds };
+      query._id = {
+        $in: validIds.map((id) => new mongoose.Types.ObjectId(id)),
+      };
     }
 
     if (keyword) {
@@ -228,6 +234,12 @@ const getProducts = async (req, res) => {
       sortOption = { rating: -1, _id: 1 };
     }
 
+    const basePipeline = [
+      { $match: query },
+      { $addFields: { inStock: { $gt: ['$stock', 0] } } },
+      { $sort: { inStock: -1, ...sortOption } },
+    ];
+
     const hasPagination =
       req.query.page !== undefined || req.query.limit !== undefined;
 
@@ -238,7 +250,12 @@ const getProducts = async (req, res) => {
 
       const [total, products] = await Promise.all([
         Product.countDocuments(query),
-        Product.find(query).sort(sortOption).skip(skip).limit(limit),
+        Product.aggregate([
+          ...basePipeline,
+          { $skip: skip },
+          { $limit: limit },
+          { $project: { inStock: 0 } },
+        ]),
       ]);
 
       const syncedProducts = await syncProductReviewAuthors(products);
@@ -255,7 +272,10 @@ const getProducts = async (req, res) => {
       });
     }
 
-    const products = await Product.find(query).sort(sortOption);
+    const products = await Product.aggregate([
+      ...basePipeline,
+      { $project: { inStock: 0 } },
+    ]);
     const syncedProducts = await syncProductReviewAuthors(products);
     const enrichedProducts = await attachActivePromotions(syncedProducts, promoMap);
     res.json(enrichedProducts);

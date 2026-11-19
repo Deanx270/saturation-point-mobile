@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -25,6 +25,7 @@ import {
   identifierSchemaField,
   loginPasswordSchemaField,
 } from '../../utils/validationSchemas';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const LoginSchema = Yup.object().shape({
   identifier: identifierSchemaField,
@@ -33,6 +34,9 @@ const LoginSchema = Yup.object().shape({
 
 export const LoginScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const scrollViewRef = useRef(null);
+  const formTopRef = useRef(0);
+  const fieldYRef = useRef({});
   const { loading } = useSelector((state) => state.auth);
   const [submitError, setSubmitError] = useState('');
 
@@ -78,7 +82,9 @@ export const LoginScreen = ({ navigation }) => {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
       >
         <AtelierBrandMark
@@ -96,42 +102,63 @@ export const LoginScreen = ({ navigation }) => {
             handleChange,
             handleBlur,
             handleSubmit,
+            validateForm,
+            setTouched,
             values,
             errors,
             touched,
           }) => (
-            <View style={styles.formContainer}>
-              <AtelierInput
-                label="Email or Username"
-                placeholder="Enter your email or username"
-                value={values.identifier}
-                onChangeText={handleChange('identifier')}
-                onBlur={handleBlur('identifier')}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="username"
-                textContentType="username"
-                importantForAutofill="yes"
-                error={errors.identifier}
-                touched={touched.identifier}
-                style={styles.compactInput}
-              />
+            <View
+              style={styles.formContainer}
+              onLayout={(e) => {
+                formTopRef.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.identifier =
+                    formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Email or Username"
+                  placeholder="Enter your email or username"
+                  value={values.identifier}
+                  onChangeText={handleChange('identifier')}
+                  onBlur={handleBlur('identifier')}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="username"
+                  textContentType="username"
+                  importantForAutofill="yes"
+                  error={errors.identifier}
+                  touched={touched.identifier}
+                  style={styles.compactInput}
+                />
+              </View>
 
-              <AtelierInput
-                label="Password"
-                placeholder="Enter your password"
-                value={values.password}
-                onChangeText={handleChange('password')}
-                onBlur={handleBlur('password')}
-                secureTextEntry
-                autoComplete="current-password"
-                textContentType="password"
-                importantForAutofill="yes"
-                error={errors.password}
-                touched={touched.password}
-                style={styles.compactInput}
-              />
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.password =
+                    formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Password"
+                  placeholder="Enter your password"
+                  value={values.password}
+                  onChangeText={handleChange('password')}
+                  onBlur={handleBlur('password')}
+                  secureTextEntry
+                  autoComplete="current-password"
+                  textContentType="password"
+                  importantForAutofill="yes"
+                  error={errors.password}
+                  touched={touched.password}
+                  style={styles.compactInput}
+                />
+              </View>
 
               <AtelierErrorBanner
                 message={submitError}
@@ -140,7 +167,16 @@ export const LoginScreen = ({ navigation }) => {
 
               <AtelierButton
                 title={loading ? 'Signing In...' : 'Sign In'}
-                onPress={handleSubmit}
+                onPress={() =>
+                  submitFormWithScroll({
+                    validateForm,
+                    setTouched,
+                    handleSubmit,
+                    scrollViewRef,
+                    yPositions: fieldYRef.current,
+                    fieldOrder: ['identifier', 'password'],
+                  })
+                }
                 loading={loading}
                 style={styles.submitButton}
               />

@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
-  Alert,
   Image,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -20,6 +19,8 @@ import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
+import AtelierToast from '../../components/common/AtelierToast';
+import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import apiClient from '../../api/client';
 import {
   fetchProducts,
@@ -30,10 +31,10 @@ import {
   formatDate,
   isValidRemoteOrLocalUri,
 } from '../../utils/formatters';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const DURATION_OPTIONS = [
   { label: '1 Day', days: 1 },
-  { label: '3 Days', days: 3 },
   { label: '7 Days', days: 7 },
   { label: '30 Days', days: 30 },
 ];
@@ -46,10 +47,24 @@ const PromoSchema = Yup.object().shape({
     .min(1, 'Minimum 1%')
     .max(99, 'Maximum 99%')
     .required('Discount percentage is required'),
+  customDays: Yup.number().when('durationMode', {
+    is: 'custom',
+    then: (schema) =>
+      schema
+        .typeError('Enter valid whole days')
+        .integer('Enter whole days')
+        .min(1, 'Minimum 1 day')
+        .max(90, 'Maximum 90 days')
+        .required('Custom duration is required'),
+    otherwise: (schema) => schema.notRequired(),
+  }),
 });
 
 export const AdminPromotionsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const scrollViewRef = useRef(null);
+  const formTopRef = useRef(0);
+  const fieldYRef = useRef({});
   const { adminItems, items, activePromotions } = useSelector(
     (state) => state.products
   );
@@ -58,12 +73,18 @@ export const AdminPromotionsScreen = ({ navigation }) => {
     [adminItems, items]
   );
   const [selectedProductIds, setSelectedProductIds] = useState([]);
-  const [durationDays, setDurationDays] = useState(7);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [productQuery, setProductQuery] = useState('');
   const [productError, setProductError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [broadcasting, setBroadcasting] = useState(false);
   const [endingPromoId, setEndingPromoId] = useState(null);
+  const [endPromoTarget, setEndPromoTarget] = useState(null);
+  const [toastState, setToastState] = useState({
+    visible: false,
+    message: '',
+    key: 0,
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -116,8 +137,25 @@ export const AdminPromotionsScreen = ({ navigation }) => {
     return `${selectedProducts.length} products selected`;
   };
 
-  const getCampaignHint = () => {
-    const durationLabel = `${durationDays} ${durationDays === 1 ? 'day' : 'days'}`;
+  const showToast = (message) => {
+    setToastState({
+      visible: true,
+      message,
+      key: Date.now(),
+    });
+  };
+
+  const resolveEffectiveDays = (values) => {
+    if (values.durationMode === 'custom') {
+      const parsed = parseInt(String(values.customDays || '').trim(), 10);
+      return Number.isNaN(parsed) ? 7 : parsed;
+    }
+    return values.presetDays || 7;
+  };
+
+  const getCampaignHint = (values) => {
+    const activeDays = resolveEffectiveDays(values);
+    const durationLabel = `${activeDays} ${activeDays === 1 ? 'day' : 'days'}`;
     if (selectedProducts.length === 0) {
       return `Lasts ${durationLabel} and replaces any overlapping promo on selected items.`;
     }
@@ -133,28 +171,30 @@ export const AdminPromotionsScreen = ({ navigation }) => {
       return;
     }
 
+    const effectiveDays = resolveEffectiveDays(values);
     setProductError('');
+    setActionError('');
     setBroadcasting(true);
     try {
       const response = await apiClient.post('/promotions/broadcast', {
         title: values.title.trim(),
         body: values.body.trim(),
         discountPercent: Number(values.discountPercent),
-        durationDays,
+        durationDays: effectiveDays,
         productIds: selectedProductIds,
       });
 
-      await dispatch(fetchActivePromotions());
-      Alert.alert(
-        'Promotion Active',
-        response.data?.message || 'Promotional notification sent to registered users.'
-      );
+      await Promise.all([
+        dispatch(fetchActivePromotions()),
+        dispatch(fetchProducts({ target: 'shop', page: 1, limit: 8 })),
+      ]);
       resetForm();
       setSelectedProductIds([]);
-      setDurationDays(7);
+      showToast(
+        response.data?.message || 'Promotion saved and notification dispatched.'
+      );
     } catch (error) {
-      Alert.alert(
-        'Send Failed',
+      setActionError(
         error.response?.data?.message || 'Unable to send notification.'
       );
     } finally {
@@ -163,31 +203,32 @@ export const AdminPromotionsScreen = ({ navigation }) => {
   };
 
   const handleEndPromotion = (promo) => {
-    Alert.alert(
-      'End Promotion',
-      `End "${promo.title}" now? Customers will immediately see regular pricing.`,
-      [
-        { text: 'Keep Active', style: 'cancel' },
-        {
-          text: 'End Now',
-          style: 'destructive',
-          onPress: async () => {
-            setEndingPromoId(promo._id);
-            try {
-              await apiClient.delete(`/promotions/${promo._id}`);
-              await dispatch(fetchActivePromotions());
-            } catch (error) {
-              Alert.alert(
-                'Update Failed',
-                error.response?.data?.message || 'Unable to end promotion.'
-              );
-            } finally {
-              setEndingPromoId(null);
-            }
-          },
-        },
-      ]
-    );
+    setActionError('');
+    setEndPromoTarget(promo);
+  };
+
+  const handleConfirmEndPromotion = async () => {
+    const promo = endPromoTarget;
+    if (!promo?._id || endingPromoId) {
+      return;
+    }
+    setEndPromoTarget(null);
+    setEndingPromoId(promo._id);
+    setActionError('');
+    try {
+      await apiClient.delete(`/promotions/${promo._id}`);
+      await Promise.all([
+        dispatch(fetchActivePromotions()),
+        dispatch(fetchProducts({ target: 'shop', page: 1, limit: 8 })),
+      ]);
+      showToast(`"${promo.title}" ended. Regular pricing restored.`);
+    } catch (error) {
+      setActionError(
+        error.response?.data?.message || 'Unable to end promotion.'
+      );
+    } finally {
+      setEndingPromoId(null);
+    }
   };
 
   return (
@@ -199,7 +240,9 @@ export const AdminPromotionsScreen = ({ navigation }) => {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
       >
         <AtelierCard style={styles.infoCard}>
@@ -219,11 +262,21 @@ export const AdminPromotionsScreen = ({ navigation }) => {
           </AtelierText>
         </AtelierCard>
 
+        {actionError ? (
+          <AtelierErrorBanner
+            message={actionError}
+            style={styles.actionErrorBanner}
+          />
+        ) : null}
+
         <Formik
           initialValues={{
             title: '',
             body: '',
             discountPercent: '15',
+            durationMode: 'preset',
+            presetDays: 7,
+            customDays: '14',
           }}
           validationSchema={PromoSchema}
           onSubmit={handleBroadcast}
@@ -232,45 +285,78 @@ export const AdminPromotionsScreen = ({ navigation }) => {
             handleChange,
             handleBlur,
             handleSubmit,
+            setFieldValue,
+            validateForm,
+            setTouched,
             values,
             errors,
             touched,
           }) => (
-            <View style={styles.formContainer}>
-              <AtelierInput
-                label="Title"
-                placeholder="e.g. Weekend Ink Sale"
-                value={values.title}
-                onChangeText={handleChange('title')}
-                onBlur={handleBlur('title')}
-                error={errors.title}
-                touched={touched.title}
-              />
+            <View
+              style={styles.formContainer}
+              onLayout={(e) => {
+                formTopRef.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.title = formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Title"
+                  placeholder="e.g. Weekend Ink Sale"
+                  value={values.title}
+                  onChangeText={handleChange('title')}
+                  onBlur={handleBlur('title')}
+                  error={errors.title}
+                  touched={touched.title}
+                />
+              </View>
 
-              <AtelierInput
-                label="Message"
-                placeholder="e.g. Save 15% on archival inks and fountain pens this weekend."
-                value={values.body}
-                onChangeText={handleChange('body')}
-                onBlur={handleBlur('body')}
-                multiline
-                numberOfLines={3}
-                error={errors.body}
-                touched={touched.body}
-              />
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.body = formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Message"
+                  placeholder="e.g. Save 15% on archival inks and fountain pens this weekend."
+                  value={values.body}
+                  onChangeText={handleChange('body')}
+                  onBlur={handleBlur('body')}
+                  multiline
+                  numberOfLines={3}
+                  error={errors.body}
+                  touched={touched.body}
+                />
+              </View>
 
-              <AtelierInput
-                label="Discount (%)"
-                placeholder="e.g. 15"
-                value={values.discountPercent}
-                onChangeText={handleChange('discountPercent')}
-                onBlur={handleBlur('discountPercent')}
-                keyboardType="numeric"
-                error={errors.discountPercent}
-                touched={touched.discountPercent}
-              />
+              <View
+                onLayout={(e) => {
+                  fieldYRef.current.discountPercent =
+                    formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
+                <AtelierInput
+                  label="Discount (%)"
+                  placeholder="e.g. 15"
+                  value={values.discountPercent}
+                  onChangeText={handleChange('discountPercent')}
+                  onBlur={handleBlur('discountPercent')}
+                  keyboardType="numeric"
+                  error={errors.discountPercent}
+                  touched={touched.discountPercent}
+                />
+              </View>
 
-              <View style={styles.durationWrapper}>
+              <View
+                style={styles.durationWrapper}
+                onLayout={(e) => {
+                  fieldYRef.current.customDays =
+                    formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
                 <AtelierText
                   variant="caption"
                   color={theme.colors.inkSecondary}
@@ -280,14 +366,19 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                 </AtelierText>
                 <View style={styles.durationChipsRow}>
                   {DURATION_OPTIONS.map((option) => {
-                    const isSelected = durationDays === option.days;
+                    const isSelected =
+                      values.durationMode === 'preset' &&
+                      values.presetDays === option.days;
                     return (
                       <AtelierPressable
                         key={option.days}
                         tone={isSelected ? 'solid' : 'surface'}
                         haptic="selection"
                         hitSlop={4}
-                        onPress={() => setDurationDays(option.days)}
+                        onPress={() => {
+                          setFieldValue('durationMode', 'preset');
+                          setFieldValue('presetDays', option.days);
+                        }}
                         style={[
                           styles.durationChip,
                           isSelected && styles.durationChipSelected,
@@ -304,10 +395,56 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                       </AtelierPressable>
                     );
                   })}
+                  <AtelierPressable
+                    tone={values.durationMode === 'custom' ? 'solid' : 'surface'}
+                    haptic="selection"
+                    hitSlop={4}
+                    onPress={() => setFieldValue('durationMode', 'custom')}
+                    style={[
+                      styles.durationChip,
+                      values.durationMode === 'custom' &&
+                        styles.durationChipSelected,
+                    ]}
+                  >
+                    <AtelierText
+                      variant="caption"
+                      color={
+                        values.durationMode === 'custom'
+                          ? '#FFFFFF'
+                          : theme.colors.inkSecondary
+                      }
+                    >
+                      Custom
+                    </AtelierText>
+                  </AtelierPressable>
                 </View>
+
+                {values.durationMode === 'custom' ? (
+                  <AtelierInput
+                    label="Custom Duration (Days)"
+                    placeholder="e.g. 14"
+                    helperText="Enter between 1 and 90 days"
+                    value={values.customDays}
+                    onChangeText={(text) =>
+                      setFieldValue('customDays', text.replace(/[^0-9]/g, ''))
+                    }
+                    onBlur={handleBlur('customDays')}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    error={errors.customDays}
+                    touched={touched.customDays}
+                    style={styles.customDaysInput}
+                  />
+                ) : null}
               </View>
 
-              <View style={styles.selectorWrapper}>
+              <View
+                style={styles.selectorWrapper}
+                onLayout={(e) => {
+                  fieldYRef.current.products =
+                    formTopRef.current + e.nativeEvent.layout.y;
+                }}
+              >
                 <AtelierText
                   variant="caption"
                   color={theme.colors.inkSecondary}
@@ -394,14 +531,37 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                     color={theme.colors.inkMuted}
                     style={styles.helperText}
                   >
-                    {getCampaignHint()}
+                    {getCampaignHint(values)}
                   </AtelierText>
                 )}
               </View>
 
               <AtelierButton
                 title={broadcasting ? 'Sending...' : 'Send Notification'}
-                onPress={handleSubmit}
+                onPress={() =>
+                  submitFormWithScroll({
+                    validateForm,
+                    setTouched,
+                    handleSubmit,
+                    scrollViewRef,
+                    yPositions: fieldYRef.current,
+                    fieldOrder: [
+                      'title',
+                      'body',
+                      'discountPercent',
+                      'customDays',
+                      'products',
+                    ],
+                    onBeforeValidate: () => {
+                      if (selectedProductIds.length === 0) {
+                        setProductError('Select at least one featured product');
+                        return { products: 'Required' };
+                      }
+                      setProductError('');
+                      return {};
+                    },
+                  })
+                }
                 loading={broadcasting}
                 style={styles.submitButton}
               />
@@ -591,6 +751,34 @@ export const AdminPromotionsScreen = ({ navigation }) => {
           )}
         </ScrollView>
       </AtelierBottomSheet>
+
+      <AtelierBottomSheet
+        visible={Boolean(endPromoTarget)}
+        onClose={() => {
+          if (!endingPromoId) {
+            setEndPromoTarget(null);
+          }
+        }}
+        title="End Promotion"
+        showCloseButton={false}
+        subtitle={`End "${endPromoTarget?.title || ''}" immediately? Customers will return to regular pricing across shop and checkout.`}
+        options={[
+          {
+            key: 'confirm-end',
+            label: 'End Promotion Now',
+            icon: 'stop-circle-outline',
+            destructive: true,
+            onPress: handleConfirmEndPromotion,
+          },
+        ]}
+      />
+
+      <AtelierToast
+        visible={toastState.visible}
+        toastKey={toastState.key}
+        message={toastState.message}
+        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -615,11 +803,18 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 20,
   },
+  actionErrorBanner: {
+    marginBottom: theme.spacing.md,
+  },
   formContainer: {
     marginTop: 0,
   },
   durationWrapper: {
     marginBottom: theme.spacing.lg,
+  },
+  customDaysInput: {
+    marginTop: theme.spacing.md,
+    marginBottom: 0,
   },
   durationChipsRow: {
     flexDirection: 'row',

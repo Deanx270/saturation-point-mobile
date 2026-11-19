@@ -9,7 +9,12 @@ const {
 
 const createOrder = async (req, res) => {
   try {
-    const { orderItems, paymentMethod, shippingAddress } = req.body;
+    const {
+      orderItems,
+      paymentMethod,
+      shippingAddress,
+      expectedTotalAmount,
+    } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({ message: 'No items in order' });
@@ -68,6 +73,17 @@ const createOrder = async (req, res) => {
         price: unitPrice,
         quantity: qty,
         image: item.image || product.images?.[0] || '',
+      });
+    }
+
+    if (
+      expectedTotalAmount !== undefined &&
+      expectedTotalAmount !== null &&
+      Math.abs(Number(expectedTotalAmount) - computedTotalAmount) > 0.01
+    ) {
+      return res.status(409).json({
+        message: 'Promotion or product pricing has changed. Please review your updated total.',
+        updatedTotalAmount: computedTotalAmount,
       });
     }
 

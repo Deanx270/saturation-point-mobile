@@ -47,6 +47,7 @@ export const navigateFromNotification = (data) => {
           screen: 'ProductList',
           params: {
             promoProductIds,
+            promotionId: data.promotionId || '',
             discountPercent: Number(data.discountPercent) || 0,
             promoTitle: data.promoTitle || '',
           },

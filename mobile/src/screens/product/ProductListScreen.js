@@ -113,12 +113,14 @@ export const ProductListScreen = ({ route, navigation }) => {
     dispatch(resetFilters());
     setSearchInput('');
     setPromoFilter({
+      promotionId: route?.params?.promotionId || '',
       productIds: incomingPromoIds,
       discountPercent: Number(route?.params?.discountPercent) || 0,
       promoTitle: route?.params?.promoTitle || '',
     });
   }, [
     incomingPromoKey,
+    route?.params?.promotionId,
     route?.params?.discountPercent,
     route?.params?.promoTitle,
     dispatch,
@@ -194,12 +196,40 @@ export const ProductListScreen = ({ route, navigation }) => {
         const promos = Array.isArray(action.payload?.promotions)
           ? action.payload.promotions
           : [];
+        const activePromoIds = new Set(promos.map((p) => String(p._id)));
         const signature = promos
           .map((p) => `${p._id}:${p.discountPercent}:${(p.productIds || []).length}`)
           .join('|');
+
+        if (promoFilter) {
+          const isStalePromoFilter =
+            promos.length === 0 ||
+            (promoFilter.promotionId && !activePromoIds.has(String(promoFilter.promotionId)));
+          if (isStalePromoFilter) {
+            setPromoFilter(null);
+            dispatch(setOnSaleOnly(false));
+            if (navigation.setParams) {
+              navigation.setParams({
+                promotionId: undefined,
+                promoProductIds: undefined,
+                discountPercent: undefined,
+                promoTitle: undefined,
+              });
+            }
+          }
+        } else if (onSaleOnly && promos.length === 0) {
+          dispatch(setOnSaleOnly(false));
+        }
+
+        const hasStaleCardPromo = items.some(
+          (it) =>
+            it.activePromotion &&
+            !activePromoIds.has(String(it.activePromotion._id))
+        );
+
         if (
-          promoSignatureRef.current &&
-          promoSignatureRef.current !== signature &&
+          (hasStaleCardPromo ||
+            (promoSignatureRef.current && promoSignatureRef.current !== signature)) &&
           items.length > 0
         ) {
           loadPage(1);
@@ -209,7 +239,7 @@ export const ProductListScreen = ({ route, navigation }) => {
       return () => {
         active = false;
       };
-    }, [dispatch, loadPage, items.length])
+    }, [dispatch, loadPage, items, promoFilter, onSaleOnly, navigation])
   );
 
   useEffect(() => {
@@ -277,6 +307,7 @@ export const ProductListScreen = ({ route, navigation }) => {
     dispatch(setOnSaleOnly(false));
     if (navigation.setParams) {
       navigation.setParams({
+        promotionId: undefined,
         promoProductIds: undefined,
         discountPercent: undefined,
         promoTitle: undefined,
@@ -421,19 +452,22 @@ export const ProductListScreen = ({ route, navigation }) => {
               <View
                 pointerEvents="none"
                 style={styles.outOfStockWash}
-              >
-                <View style={styles.outOfStockPill}>
-                  <AtelierText
-                    variant="overline"
-                    color={theme.colors.inkSecondary}
-                    style={styles.outOfStockText}
-                  >
-                    Out of Stock
-                  </AtelierText>
-                </View>
-              </View>
+              />
             ) : null}
-            {!isOutOfStock && pricing.hasPromo ? (
+            {isOutOfStock ? (
+              <View
+                pointerEvents="none"
+                style={styles.outOfStockPill}
+              >
+                <AtelierText
+                  variant="overline"
+                  color={theme.colors.inkSecondary}
+                  style={styles.outOfStockText}
+                >
+                  Out of Stock
+                </AtelierText>
+              </View>
+            ) : pricing.hasPromo ? (
               <View style={styles.cardPromoBadge}>
                 <AtelierText
                   variant="caption"
@@ -1148,6 +1182,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     backgroundColor: theme.colors.surfaceSubtle,
     position: 'relative',
+    overflow: 'hidden',
   },
   cardPromoBadge: {
     position: 'absolute',
@@ -1205,24 +1240,28 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   outOfStockWash: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(250, 249, 246, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.sm,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(250, 249, 246, 0.42)',
   },
   outOfStockPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     borderWidth: 1,
     borderColor: theme.colors.borderMedium,
     borderRadius: theme.radii.badge,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   outOfStockText: {
     fontSize: 10,
     lineHeight: 13,
-    letterSpacing: 0.8,
+    letterSpacing: 0.7,
   },
   imagePlaceholder: {
     width: '100%',
