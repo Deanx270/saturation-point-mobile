@@ -5,6 +5,7 @@ import {
   removeCartItemFromDatabase,
   clearCartDatabase,
 } from '../services/sqliteService';
+import { resolveProductPricing } from '../utils/formatters';
 
 const cartSlice = createSlice({
   name: 'cart',
@@ -36,6 +37,15 @@ const cartSlice = createSlice({
         const cappedNext =
           availableStock > 0 ? Math.min(availableStock, rawNext) : rawNext;
         existingItem.quantity = Math.max(1, cappedNext);
+        if (incomingItem.price !== undefined) {
+          existingItem.price = incomingItem.price;
+        }
+        if (incomingItem.originalPrice !== undefined) {
+          existingItem.originalPrice = incomingItem.originalPrice;
+        }
+        if (incomingItem.discountPercent !== undefined) {
+          existingItem.discountPercent = incomingItem.discountPercent;
+        }
         if (incomingItem.stock !== undefined) {
           existingItem.stock = incomingItem.stock;
         }
@@ -46,11 +56,42 @@ const cartSlice = createSlice({
           availableStock > 0 ? Math.min(availableStock, incomingQty) : incomingQty;
         const newItem = {
           ...incomingItem,
+          originalPrice: incomingItem.originalPrice ?? incomingItem.price,
+          discountPercent: incomingItem.discountPercent || 0,
           quantity: Math.max(1, cappedQty),
         };
         state.items.push(newItem);
         saveCartItemToDatabase(newItem);
       }
+    },
+    syncCartProductPricing: (state, action) => {
+      const latest = action.payload;
+      if (!latest?._id) {
+        return;
+      }
+      const existingItem = state.items.find(
+        (item) => item.product === latest._id
+      );
+      if (!existingItem) {
+        return;
+      }
+      const pricing = resolveProductPricing(latest);
+      existingItem.price = pricing.effectivePrice;
+      existingItem.originalPrice = pricing.basePrice;
+      existingItem.discountPercent = pricing.discountPercent;
+      if (latest.name) {
+        existingItem.name = latest.name;
+      }
+      if (latest.brand) {
+        existingItem.brand = latest.brand;
+      }
+      if (latest.images?.[0]) {
+        existingItem.image = latest.images[0];
+      }
+      if (latest.stock !== undefined) {
+        existingItem.stock = Math.max(0, Number(latest.stock) || 0);
+      }
+      saveCartItemToDatabase(existingItem);
     },
     updateQuantity: (state, action) => {
       const { product, quantity } = action.payload;
@@ -81,6 +122,7 @@ const cartSlice = createSlice({
 export const {
   hydrateCart,
   addToCart,
+  syncCartProductPricing,
   updateQuantity,
   removeFromCart,
   clearCart,
@@ -91,5 +133,10 @@ export const selectCartCount = (state) =>
   state.cart.items.reduce((acc, item) => acc + item.quantity, 0);
 export const selectCartTotal = (state) =>
   state.cart.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+export const selectCartSavings = (state) =>
+  state.cart.items.reduce((acc, item) => {
+    const base = Number(item.originalPrice) || item.price;
+    return acc + Math.max(0, base - item.price) * item.quantity;
+  }, 0);
 
 export default cartSlice.reducer;

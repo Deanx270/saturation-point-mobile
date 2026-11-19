@@ -119,14 +119,12 @@ export const OrderConfirmationScreen = ({ route, navigation }) => {
           Your order has been received and is now being prepared for shipping.
         </AtelierText>
 
-        <AtelierCard
-          subtle
-          style={styles.referenceCard}
-        >
+        <AtelierCard style={styles.referenceCard}>
           <View style={styles.refRow}>
             <AtelierText
-              variant="caption"
+              variant="bodySmall"
               color={theme.colors.inkMuted}
+              style={styles.refLabel}
             >
               Order ID
             </AtelierText>
@@ -138,10 +136,12 @@ export const OrderConfirmationScreen = ({ route, navigation }) => {
               #{orderId ? orderId.slice(-8).toUpperCase() : 'ORD-0001'}
             </AtelierText>
           </View>
+          <View style={styles.refDivider} />
           <View style={styles.refRow}>
             <AtelierText
-              variant="caption"
+              variant="bodySmall"
               color={theme.colors.inkMuted}
+              style={styles.refLabel}
             >
               Order Total (COD)
             </AtelierText>
@@ -215,18 +215,29 @@ const styles = StyleSheet.create({
   },
   referenceCard: {
     width: '100%',
+    backgroundColor: theme.colors.surface,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
   },
   refRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 4,
+    minHeight: 42,
+    paddingVertical: theme.spacing.sm,
+  },
+  refLabel: {
+    fontFamily: 'Montserrat_500Medium',
+  },
+  refDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
   },
   refValue: {
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 20,
   },
   viewOrderButton: {
     width: '100%',

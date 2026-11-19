@@ -100,7 +100,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
     {
       key: 'orders',
       title: 'Manage Orders',
-      subtitle: 'Update and track orders',
+      subtitle: 'Track & fulfill',
       icon: 'clipboard-outline',
       badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Pending` : `${allOrders.length}`,
       badgeStatus: pendingOrdersCount > 0 ? 'gold' : 'default',

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   Image,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,12 +16,28 @@ import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
 import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
+import AtelierBadge from '../../components/common/AtelierBadge';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import apiClient from '../../api/client';
-import { fetchProducts } from '../../redux/productsSlice';
-import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+import {
+  fetchProducts,
+  fetchActivePromotions,
+} from '../../redux/productsSlice';
+import {
+  formatPrice,
+  formatDate,
+  isValidRemoteOrLocalUri,
+} from '../../utils/formatters';
+
+const DURATION_OPTIONS = [
+  { label: '1 Day', days: 1 },
+  { label: '3 Days', days: 3 },
+  { label: '7 Days', days: 7 },
+  { label: '14 Days', days: 14 },
+  { label: '30 Days', days: 30 },
+];
 
 const PromoSchema = Yup.object().shape({
   title: Yup.string().trim().required('Notification title is required'),
@@ -34,16 +51,26 @@ const PromoSchema = Yup.object().shape({
 
 export const AdminPromotionsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { adminItems, items } = useSelector((state) => state.products);
+  const { adminItems, items, activePromotions } = useSelector(
+    (state) => state.products
+  );
   const productOptions = useMemo(
     () => (adminItems.length > 0 ? adminItems : items),
     [adminItems, items]
   );
   const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [durationDays, setDurationDays] = useState(7);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [productQuery, setProductQuery] = useState('');
   const [productError, setProductError] = useState('');
   const [broadcasting, setBroadcasting] = useState(false);
+  const [endingPromoId, setEndingPromoId] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      dispatch(fetchActivePromotions());
+    }, [dispatch])
+  );
 
   useEffect(() => {
     if (productOptions.length < 20) {
@@ -91,13 +118,14 @@ export const AdminPromotionsScreen = ({ navigation }) => {
   };
 
   const getCampaignHint = () => {
+    const durationLabel = `${durationDays} ${durationDays === 1 ? 'day' : 'days'}`;
     if (selectedProducts.length === 0) {
-      return 'Choose 1 item for a direct product link, or 2+ items for a curated sale list.';
+      return `Lasts ${durationLabel} and replaces any overlapping promo on selected items.`;
     }
     if (selectedProducts.length === 1) {
-      return 'Tapping this notification opens the selected product directly.';
+      return `Opens product view directly; ${durationLabel} campaign replaces overlaps.`;
     }
-    return `Tapping this notification opens a curated sale list of ${selectedProducts.length} products.`;
+    return `Opens ${selectedProducts.length} featured items; ${durationLabel} campaign replaces overlaps.`;
   };
 
   const handleBroadcast = async (values, { resetForm }) => {
@@ -113,15 +141,18 @@ export const AdminPromotionsScreen = ({ navigation }) => {
         title: values.title.trim(),
         body: values.body.trim(),
         discountPercent: Number(values.discountPercent),
+        durationDays,
         productIds: selectedProductIds,
       });
 
+      await dispatch(fetchActivePromotions());
       Alert.alert(
-        'Notification Sent',
+        'Promotion Active',
         response.data?.message || 'Promotional notification sent to registered users.'
       );
       resetForm();
       setSelectedProductIds([]);
+      setDurationDays(7);
     } catch (error) {
       Alert.alert(
         'Send Failed',
@@ -130,6 +161,34 @@ export const AdminPromotionsScreen = ({ navigation }) => {
     } finally {
       setBroadcasting(false);
     }
+  };
+
+  const handleEndPromotion = (promo) => {
+    Alert.alert(
+      'End Promotion',
+      `End "${promo.title}" now? Customers will immediately see regular pricing.`,
+      [
+        { text: 'Keep Active', style: 'cancel' },
+        {
+          text: 'End Now',
+          style: 'destructive',
+          onPress: async () => {
+            setEndingPromoId(promo._id);
+            try {
+              await apiClient.delete(`/promotions/${promo._id}`);
+              await dispatch(fetchActivePromotions());
+            } catch (error) {
+              Alert.alert(
+                'Update Failed',
+                error.response?.data?.message || 'Unable to end promotion.'
+              );
+            } finally {
+              setEndingPromoId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -211,6 +270,43 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                 error={errors.discountPercent}
                 touched={touched.discountPercent}
               />
+
+              <View style={styles.durationWrapper}>
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.inkSecondary}
+                  style={styles.pickerLabel}
+                >
+                  Campaign Duration
+                </AtelierText>
+                <View style={styles.durationChipsRow}>
+                  {DURATION_OPTIONS.map((option) => {
+                    const isSelected = durationDays === option.days;
+                    return (
+                      <AtelierPressable
+                        key={option.days}
+                        tone={isSelected ? 'solid' : 'surface'}
+                        haptic="selection"
+                        hitSlop={4}
+                        onPress={() => setDurationDays(option.days)}
+                        style={[
+                          styles.durationChip,
+                          isSelected && styles.durationChipSelected,
+                        ]}
+                      >
+                        <AtelierText
+                          variant="caption"
+                          color={
+                            isSelected ? '#FFFFFF' : theme.colors.inkSecondary
+                          }
+                        >
+                          {option.label}
+                        </AtelierText>
+                      </AtelierPressable>
+                    );
+                  })}
+                </View>
+              </View>
 
               <View style={styles.selectorWrapper}>
                 <AtelierText
@@ -313,6 +409,68 @@ export const AdminPromotionsScreen = ({ navigation }) => {
             </View>
           )}
         </Formik>
+
+        {activePromotions.length > 0 ? (
+          <View style={styles.activeSection}>
+            <AtelierText
+              variant="title2"
+              style={styles.activeSectionTitle}
+            >
+              Active Promotions
+            </AtelierText>
+            {activePromotions.map((promo) => {
+              const itemCount = Array.isArray(promo.productIds)
+                ? promo.productIds.length
+                : 0;
+              const isEnding = endingPromoId === promo._id;
+              return (
+                <AtelierCard
+                  key={promo._id}
+                  style={styles.activePromoCard}
+                >
+                  <View style={styles.activePromoRow}>
+                    <View style={styles.activePromoInfo}>
+                      <View style={styles.activePromoTitleRow}>
+                        <AtelierText
+                          variant="bodyMedium"
+                          color={theme.colors.inkPrimary}
+                          numberOfLines={1}
+                          style={styles.activePromoName}
+                        >
+                          {promo.title}
+                        </AtelierText>
+                        <AtelierBadge
+                          label={`${promo.discountPercent}% OFF`}
+                          status="gold"
+                        />
+                      </View>
+                      <AtelierText
+                        variant="bodySmall"
+                        color={theme.colors.inkMuted}
+                      >
+                        {`${itemCount} ${itemCount === 1 ? 'item' : 'items'} • Ends ${formatDate(promo.expiresAt)}`}
+                      </AtelierText>
+                    </View>
+                    <AtelierPressable
+                      tone="subtle"
+                      hitSlop={6}
+                      disabled={isEnding}
+                      onPress={() => handleEndPromotion(promo)}
+                      style={styles.endPromoAction}
+                    >
+                      <AtelierText
+                        variant="caption"
+                        color={theme.colors.error}
+                      >
+                        {isEnding ? 'Ending...' : 'End'}
+                      </AtelierText>
+                    </AtelierPressable>
+                  </View>
+                </AtelierCard>
+              );
+            })}
+          </View>
+        ) : null}
       </ScrollView>
 
       <AtelierBottomSheet
@@ -444,10 +602,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.canvas,
   },
   scrollContent: {
-    padding: theme.spacing.xl,
+    padding: theme.spacing.lg,
     paddingBottom: theme.spacing.hero,
   },
   infoCard: {
+    backgroundColor: theme.colors.surface,
     marginBottom: theme.spacing.lg,
   },
   infoLabel: {
@@ -459,6 +618,30 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     marginTop: 0,
+  },
+  durationWrapper: {
+    marginBottom: theme.spacing.lg,
+  },
+  durationChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  durationChip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 8,
+    minHeight: 36,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  durationChipSelected: {
+    backgroundColor: theme.colors.inkPrimary,
+    borderColor: theme.colors.inkPrimary,
   },
   selectorWrapper: {
     marginBottom: theme.spacing.md,
@@ -530,7 +713,47 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.hero,
+    marginBottom: theme.spacing.lg,
+  },
+  activeSection: {
+    marginTop: theme.spacing.md,
+  },
+  activeSectionTitle: {
+    marginBottom: theme.spacing.md,
+  },
+  activePromoCard: {
+    backgroundColor: theme.colors.surface,
+    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.md,
+  },
+  activePromoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  activePromoInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  activePromoTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  activePromoName: {
+    flexShrink: 1,
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14.5,
+  },
+  endPromoAction: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 6,
+    borderRadius: theme.radii.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.errorBorder,
+    backgroundColor: theme.colors.errorBg,
   },
   sheetSearchInput: {
     marginBottom: theme.spacing.sm,

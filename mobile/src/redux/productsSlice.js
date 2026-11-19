@@ -8,6 +8,7 @@ const normalizeProductsPayload = (data) => {
       page: 1,
       total: data.length,
       hasMore: false,
+      activePromoCount: null,
     };
   }
   const products = Array.isArray(data?.products) ? data.products : [];
@@ -16,6 +17,8 @@ const normalizeProductsPayload = (data) => {
     page: Number(data?.page) || 1,
     total: Number(data?.total) || products.length,
     hasMore: Boolean(data?.hasMore),
+    activePromoCount:
+      typeof data?.activePromoCount === 'number' ? data.activePromoCount : null,
   };
 };
 
@@ -121,6 +124,20 @@ export const fetchProductFilters = createAsyncThunk(
   }
 );
 
+export const fetchActivePromotions = createAsyncThunk(
+  'products/fetchActivePromotions',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get('/promotions/active');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || 'Unable to load promotions.'
+      );
+    }
+  }
+);
+
 export const fetchProductDetails = createAsyncThunk(
   'products/fetchProductDetails',
   async (productId, { rejectWithValue }) => {
@@ -209,6 +226,9 @@ const productsSlice = createSlice({
     minPrice: '',
     maxPrice: '',
     minRating: '',
+    onSaleOnly: false,
+    activePromoCount: 0,
+    activePromotions: [],
   },
   reducers: {
     setSearchKeyword: (state, action) => {
@@ -227,6 +247,9 @@ const productsSlice = createSlice({
     setMinRating: (state, action) => {
       state.minRating = action.payload;
     },
+    setOnSaleOnly: (state, action) => {
+      state.onSaleOnly = Boolean(action.payload);
+    },
     resetFilters: (state) => {
       state.searchKeyword = '';
       state.selectedCategory = 'All';
@@ -234,6 +257,7 @@ const productsSlice = createSlice({
       state.minPrice = '';
       state.maxPrice = '';
       state.minRating = '';
+      state.onSaleOnly = false;
     },
     clearSelectedProduct: (state) => {
       state.selectedProduct = null;
@@ -273,7 +297,18 @@ const productsSlice = createSlice({
         }
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
-        const { target, requestedPage, products, page, total, hasMore } = action.payload;
+        const {
+          target,
+          requestedPage,
+          products,
+          page,
+          total,
+          hasMore,
+          activePromoCount,
+        } = action.payload;
+        if (typeof activePromoCount === 'number') {
+          state.activePromoCount = activePromoCount;
+        }
         if (target === 'admin') {
           if (state.activeAdminRequestId && state.activeAdminRequestId !== action.meta.requestId) {
             return;
@@ -329,6 +364,15 @@ const productsSlice = createSlice({
         }
         if (action.payload?.brands?.length > 0) {
           state.brands = ['All', ...action.payload.brands];
+        }
+      })
+      .addCase(fetchActivePromotions.fulfilled, (state, action) => {
+        const list = Array.isArray(action.payload?.promotions)
+          ? action.payload.promotions
+          : [];
+        state.activePromotions = list;
+        if (typeof action.payload?.activeProductCount === 'number') {
+          state.activePromoCount = action.payload.activeProductCount;
         }
       })
       .addCase(fetchProductDetails.pending, (state, action) => {
@@ -457,6 +501,7 @@ export const {
   setSelectedBrand,
   setPriceFilter,
   setMinRating,
+  setOnSaleOnly,
   resetFilters,
   clearSelectedProduct,
   syncProductSnapshot,

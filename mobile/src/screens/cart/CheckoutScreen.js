@@ -2,6 +2,8 @@ import React, { useEffect, useCallback } from 'react';
 import {
   View,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Alert,
 } from 'react-native';
@@ -18,7 +20,13 @@ import AtelierButton from '../../components/common/AtelierButton';
 import AtelierCard from '../../components/common/AtelierCard';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierEmptyState from '../../components/common/AtelierEmptyState';
-import { selectCartItems, selectCartTotal } from '../../redux/cartSlice';
+import apiClient from '../../api/client';
+import {
+  selectCartItems,
+  selectCartTotal,
+  selectCartSavings,
+  syncCartProductPricing,
+} from '../../redux/cartSlice';
 import { createOrder } from '../../redux/ordersSlice';
 import { formatPrice } from '../../utils/formatters';
 
@@ -69,6 +77,7 @@ export const CheckoutScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const items = useSelector(selectCartItems);
   const total = useSelector(selectCartTotal);
+  const savings = useSelector(selectCartSavings);
   const { loading } = useSelector((state) => state.orders);
   const { user } = useSelector((state) => state.auth);
 
@@ -82,8 +91,26 @@ export const CheckoutScreen = ({ navigation }) => {
     useCallback(() => {
       if (!user && navigation.canGoBack()) {
         navigation.popToTop();
+        return undefined;
       }
-    }, [user, navigation])
+      if (items.length === 0) {
+        return undefined;
+      }
+      let active = true;
+      Promise.all(
+        items.map(async (item) => {
+          try {
+            const res = await apiClient.get(`/products/${item.product}`);
+            if (active && res.data?._id) {
+              dispatch(syncCartProductPricing(res.data));
+            }
+          } catch (e) {}
+        })
+      );
+      return () => {
+        active = false;
+      };
+    }, [user, navigation, dispatch, items.length])
   );
 
   if (!user) {
@@ -161,79 +188,102 @@ export const CheckoutScreen = ({ navigation }) => {
         navigation={navigation}
       />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+      <Formik
+        initialValues={{
+          street: '',
+          city: '',
+          postalCode: '',
+          country: '',
+        }}
+        validationSchema={CheckoutSchema}
+        onSubmit={handleOrderSubmit}
       >
-        <AtelierCard
-          subtle
-          style={styles.summaryCard}
-        >
-          <AtelierText
-            variant="caption"
-            color={theme.colors.goldText}
-            style={styles.cardSectionTitle}
+        {({
+          handleChange,
+          handleBlur,
+          handleSubmit,
+          setFieldValue,
+          values,
+          errors,
+          touched,
+        }) => (
+          <KeyboardAvoidingView
+            style={styles.flexBody}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            Order Summary
-          </AtelierText>
-          <View style={styles.summaryRow}>
-            <AtelierText
-              variant="bodyMedium"
-              color={theme.colors.inkSecondary}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollContent}
             >
-              Items
-            </AtelierText>
-            <AtelierText
-              variant="bodyLarge"
-              style={styles.summaryBold}
-            >
-              {totalQuantity} {totalQuantity === 1 ? 'item' : 'items'}
-            </AtelierText>
-          </View>
-          <View style={styles.summaryRow}>
-            <AtelierText
-              variant="bodyMedium"
-              color={theme.colors.inkSecondary}
-            >
-              Total
-            </AtelierText>
-            <AtelierText
-              variant="bodyLarge"
-              color={theme.colors.inkPrimary}
-              style={styles.summaryTotal}
-            >
-              {formatPrice(total)}
-            </AtelierText>
-          </View>
-        </AtelierCard>
+              <AtelierCard style={styles.summaryCard}>
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.goldText}
+                  style={styles.cardSectionTitle}
+                >
+                  Order Summary
+                </AtelierText>
+                <View style={styles.summaryRow}>
+                  <AtelierText
+                    variant="bodySmall"
+                    color={theme.colors.inkMuted}
+                    style={styles.summaryLabel}
+                  >
+                    Items
+                  </AtelierText>
+                  <AtelierText
+                    variant="bodyMedium"
+                    color={theme.colors.inkPrimary}
+                    style={styles.summaryValue}
+                  >
+                    {totalQuantity} {totalQuantity === 1 ? 'item' : 'items'}
+                  </AtelierText>
+                </View>
+                {savings > 0 ? (
+                  <View style={styles.summaryRow}>
+                    <AtelierText
+                      variant="bodySmall"
+                      color={theme.colors.inkMuted}
+                      style={styles.summaryLabel}
+                    >
+                      Promo Savings
+                    </AtelierText>
+                    <AtelierText
+                      variant="bodyMedium"
+                      color={theme.colors.success}
+                      style={styles.summaryValue}
+                    >
+                      -{formatPrice(savings)}
+                    </AtelierText>
+                  </View>
+                ) : null}
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryTotalRow}>
+                  <AtelierText
+                    variant="bodyMedium"
+                    color={theme.colors.inkSecondary}
+                    style={styles.summaryTotalLabel}
+                  >
+                    Total (COD)
+                  </AtelierText>
+                  <AtelierText
+                    variant="bodyLarge"
+                    color={theme.colors.goldText}
+                    style={styles.summaryTotal}
+                  >
+                    {formatPrice(total)}
+                  </AtelierText>
+                </View>
+              </AtelierCard>
 
-        <AtelierText
-          variant="title2"
-          style={styles.sectionHeader}
-        >
-          Shipping Address
-        </AtelierText>
+              <AtelierText
+                variant="title2"
+                style={styles.sectionHeader}
+              >
+                Shipping Address
+              </AtelierText>
 
-        <Formik
-          initialValues={{
-            street: '',
-            city: '',
-            postalCode: '',
-            country: '',
-          }}
-          validationSchema={CheckoutSchema}
-          onSubmit={handleOrderSubmit}
-        >
-          {({
-            handleChange,
-            handleBlur,
-            handleSubmit,
-            setFieldValue,
-            values,
-            errors,
-            touched,
-          }) => (
-            <View>
               <AtelierInput
                 label="Street Address"
                 placeholder="e.g. 123 Ayala Avenue, Unit 4B"
@@ -245,6 +295,7 @@ export const CheckoutScreen = ({ navigation }) => {
                 textContentType="fullStreetAddress"
                 error={errors.street}
                 touched={touched.street}
+                style={styles.compactInput}
               />
 
               <View style={styles.twoColumnRow}>
@@ -260,6 +311,7 @@ export const CheckoutScreen = ({ navigation }) => {
                     textContentType="addressCity"
                     error={errors.city}
                     touched={touched.city}
+                    style={styles.compactInput}
                   />
                 </View>
                 <View style={styles.columnRight}>
@@ -277,6 +329,7 @@ export const CheckoutScreen = ({ navigation }) => {
                     textContentType="postalCode"
                     error={errors.postalCode}
                     touched={touched.postalCode}
+                    style={styles.compactInput}
                   />
                 </View>
               </View>
@@ -292,11 +345,12 @@ export const CheckoutScreen = ({ navigation }) => {
                 textContentType="countryName"
                 error={errors.country}
                 touched={touched.country}
+                style={styles.compactInput}
               />
 
               <AtelierText
                 variant="title2"
-                style={styles.sectionHeader}
+                style={styles.paymentHeader}
               >
                 Payment Method
               </AtelierText>
@@ -305,13 +359,14 @@ export const CheckoutScreen = ({ navigation }) => {
                 <View style={styles.paymentRadioRow}>
                   <Ionicons
                     name="cash-outline"
-                    size={22}
+                    size={20}
                     color={theme.colors.goldText}
                     style={styles.codIcon}
                   />
                   <View style={styles.paymentDetails}>
                     <AtelierText
-                      variant="title2"
+                      variant="bodyLarge"
+                      color={theme.colors.inkPrimary}
                       style={styles.paymentTitle}
                     >
                       Cash on Delivery
@@ -330,7 +385,9 @@ export const CheckoutScreen = ({ navigation }) => {
                   />
                 </View>
               </AtelierCard>
+            </ScrollView>
 
+            <View style={styles.footerBar}>
               <AtelierButton
                 title={loading ? 'Placing Order...' : `Place Order (${formatPrice(total)})`}
                 onPress={handleSubmit}
@@ -338,9 +395,9 @@ export const CheckoutScreen = ({ navigation }) => {
                 style={styles.submitButton}
               />
             </View>
-          )}
-        </Formik>
-      </ScrollView>
+          </KeyboardAvoidingView>
+        )}
+      </Formik>
     </View>
   );
 };
@@ -350,12 +407,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.canvas,
   },
+  flexBody: {
+    flex: 1,
+  },
   scrollContent: {
-    padding: theme.spacing.lg,
-    paddingBottom: 60,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
   },
   summaryCard: {
-    marginBottom: theme.spacing.xl,
+    backgroundColor: theme.colors.surface,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
   },
   cardSectionTitle: {
     marginBottom: theme.spacing.sm,
@@ -364,10 +428,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  summaryBold: {
+  summaryLabel: {
+    fontFamily: 'Montserrat_500Medium',
+  },
+  summaryValue: {
     fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginVertical: theme.spacing.sm,
+  },
+  summaryTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryTotalLabel: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
   },
   summaryTotal: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -375,8 +459,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   sectionHeader: {
+    marginBottom: theme.spacing.sm,
+  },
+  compactInput: {
     marginBottom: theme.spacing.md,
-    marginTop: theme.spacing.sm,
+  },
+  paymentHeader: {
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   twoColumnRow: {
     flexDirection: 'row',
@@ -389,12 +479,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   paymentCard: {
-    marginBottom: theme.spacing.md,
     backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
   },
   selectedPaymentCard: {
     borderColor: theme.colors.gold,
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
   paymentRadioRow: {
     flexDirection: 'row',
@@ -407,11 +497,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   paymentTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 15,
+    lineHeight: 20,
+  },
+  footerBar: {
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    ...theme.shadows.card,
   },
   submitButton: {
-    marginTop: theme.spacing.xl,
-    marginBottom: theme.spacing.hero,
+    width: '100%',
   },
 });
 

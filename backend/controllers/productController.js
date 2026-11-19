@@ -3,6 +3,11 @@ const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Brand = require('../models/Brand');
 const User = require('../models/User');
+const {
+  getActivePromotionsMap,
+  attachActivePromotions,
+  removeProductFromPromotions,
+} = require('../utils/promotionPricing');
 
 const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -147,15 +152,36 @@ const extractImageUrls = (req, fallbackImages = null) => {
 
 const getProducts = async (req, res) => {
   try {
-    const { ids, keyword, category, brand, minPrice, maxPrice, minRating, sort } = req.query;
+    const {
+      ids,
+      keyword,
+      category,
+      brand,
+      minPrice,
+      maxPrice,
+      minRating,
+      sort,
+      onSale,
+    } = req.query;
 
+    const promoMap = await getActivePromotionsMap();
     const query = {};
 
+    let validIds = null;
     if (ids !== undefined) {
-      const validIds = String(ids)
+      validIds = String(ids)
         .split(',')
         .map((id) => id.trim())
         .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    }
+
+    if (onSale === 'true') {
+      const promoIdList = Array.from(promoMap.keys());
+      const scopedIds = validIds
+        ? validIds.filter((id) => promoMap.has(id))
+        : promoIdList;
+      query._id = { $in: scopedIds };
+    } else if (validIds !== null) {
       query._id = { $in: validIds };
     }
 
@@ -216,20 +242,23 @@ const getProducts = async (req, res) => {
       ]);
 
       const syncedProducts = await syncProductReviewAuthors(products);
+      const enrichedProducts = await attachActivePromotions(syncedProducts, promoMap);
 
       return res.json({
-        products: syncedProducts,
+        products: enrichedProducts,
         page,
         limit,
         total,
         totalPages: Math.max(1, Math.ceil(total / limit)),
         hasMore: skip + products.length < total,
+        activePromoCount: promoMap.size,
       });
     }
 
     const products = await Product.find(query).sort(sortOption);
     const syncedProducts = await syncProductReviewAuthors(products);
-    res.json(syncedProducts);
+    const enrichedProducts = await attachActivePromotions(syncedProducts, promoMap);
+    res.json(enrichedProducts);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -242,7 +271,8 @@ const getProductById = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     const syncedProduct = await syncProductReviewAuthors(product);
-    res.json(syncedProduct);
+    const enrichedProduct = await attachActivePromotions(syncedProduct);
+    res.json(enrichedProduct);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -339,6 +369,7 @@ const deleteProduct = async (req, res) => {
     }
 
     await Product.findByIdAndDelete(req.params.id);
+    await removeProductFromPromotions(req.params.id);
     res.json({ message: 'Product removed successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

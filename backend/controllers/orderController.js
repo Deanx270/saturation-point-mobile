@@ -2,10 +2,14 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const { sendExpoPushNotifications } = require('../utils/pushNotificationSender');
+const {
+  getActivePromotionsMap,
+  computeDiscountedPrice,
+} = require('../utils/promotionPricing');
 
 const createOrder = async (req, res) => {
   try {
-    const { orderItems, totalAmount, paymentMethod, shippingAddress } = req.body;
+    const { orderItems, paymentMethod, shippingAddress } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({ message: 'No items in order' });
@@ -33,28 +37,50 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a valid country name' });
     }
 
+    const promoMap = await getActivePromotionsMap();
+    const validatedItems = [];
+    const resolvedOrderItems = [];
+    let computedTotalAmount = 0;
+
     for (const item of orderItems) {
+      const qty = Number(item.quantity);
+      if (!Number.isInteger(qty) || qty < 1) {
+        return res.status(400).json({ message: `Invalid quantity for ${item.name || 'item'}` });
+      }
       const product = await Product.findById(item.product);
       if (!product) {
         return res.status(404).json({ message: `Product not found: ${item.name}` });
       }
-      if (product.stock < item.quantity) {
+      if (product.stock < qty) {
         return res.status(400).json({
           message: `Insufficient stock for ${product.name}. Available: ${product.stock}`,
         });
       }
+      const activePromo = promoMap.get(String(product._id));
+      const unitPrice = activePromo
+        ? computeDiscountedPrice(product.price, activePromo.discountPercent)
+        : product.price;
+      computedTotalAmount += unitPrice * qty;
+      validatedItems.push({ product, qty });
+      resolvedOrderItems.push({
+        product: product._id,
+        name: product.name,
+        price: unitPrice,
+        quantity: qty,
+        image: item.image || product.images?.[0] || '',
+      });
     }
 
-    for (const item of orderItems) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: -item.quantity },
+    for (const { product, qty } of validatedItems) {
+      await Product.findByIdAndUpdate(product._id, {
+        $inc: { stock: -qty },
       });
     }
 
     const order = await Order.create({
       user: req.user._id,
-      orderItems,
-      totalAmount,
+      orderItems: resolvedOrderItems,
+      totalAmount: computedTotalAmount,
       paymentMethod: 'Cash on Delivery',
       shippingAddress: {
         street,

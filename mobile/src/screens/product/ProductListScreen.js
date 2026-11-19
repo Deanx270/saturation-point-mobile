@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../../theme';
@@ -30,16 +31,22 @@ import AtelierBrandMark from '../../components/common/AtelierBrandMark';
 import {
   fetchProducts,
   fetchProductFilters,
+  fetchActivePromotions,
   setSearchKeyword,
   setSelectedCategory,
   setSelectedBrand,
   setPriceFilter,
   setMinRating,
+  setOnSaleOnly,
   resetFilters,
   syncProductSnapshot,
 } from '../../redux/productsSlice';
 import { addToCart, selectCartItems } from '../../redux/cartSlice';
-import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+import {
+  formatPrice,
+  isValidRemoteOrLocalUri,
+  resolveProductPricing,
+} from '../../utils/formatters';
 
 const SHOP_PAGE_LIMIT = 8;
 
@@ -71,6 +78,8 @@ export const ProductListScreen = ({ route, navigation }) => {
     minPrice,
     maxPrice,
     minRating,
+    onSaleOnly,
+    activePromoCount,
   } = useSelector((state) => state.products);
 
   const [searchInput, setSearchInput] = useState(searchKeyword);
@@ -82,12 +91,14 @@ export const ProductListScreen = ({ route, navigation }) => {
   const [maxPriceDraft, setMaxPriceDraft] = useState(maxPrice);
   const [brandDraft, setBrandDraft] = useState(selectedBrand);
   const [ratingDraft, setRatingDraft] = useState(minRating);
+  const [onSaleDraft, setOnSaleDraft] = useState(onSaleOnly);
   const [toastState, setToastState] = useState({
     visible: false,
     message: '',
     key: 0,
   });
   const activeRequestRef = useRef(null);
+  const promoSignatureRef = useRef('');
 
   const incomingPromoIds = Array.isArray(route?.params?.promoProductIds)
     ? route.params.promoProductIds.filter(Boolean)
@@ -137,6 +148,7 @@ export const ProductListScreen = ({ route, navigation }) => {
           page: targetPage,
           limit: SHOP_PAGE_LIMIT,
           ids: promoIdsParam,
+          onSale: onSaleOnly ? 'true' : undefined,
           keyword: searchKeyword || undefined,
           category: selectedCategory === 'All' ? undefined : selectedCategory,
           brand: selectedBrand === 'All' ? undefined : selectedBrand,
@@ -151,6 +163,7 @@ export const ProductListScreen = ({ route, navigation }) => {
     [
       dispatch,
       promoIdsParam,
+      onSaleOnly,
       searchKeyword,
       selectedCategory,
       selectedBrand,
@@ -168,6 +181,34 @@ export const ProductListScreen = ({ route, navigation }) => {
       }
     };
   }, [loadPage]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      dispatch(fetchActivePromotions()).then((action) => {
+        if (!active || !fetchActivePromotions.fulfilled.match(action)) {
+          return;
+        }
+        const promos = Array.isArray(action.payload?.promotions)
+          ? action.payload.promotions
+          : [];
+        const signature = promos
+          .map((p) => `${p._id}:${p.discountPercent}:${(p.productIds || []).length}`)
+          .join('|');
+        if (
+          promoSignatureRef.current &&
+          promoSignatureRef.current !== signature &&
+          items.length > 0
+        ) {
+          loadPage(1);
+        }
+        promoSignatureRef.current = signature;
+      });
+      return () => {
+        active = false;
+      };
+    }, [dispatch, loadPage, items.length])
+  );
 
   useEffect(() => {
     if (searchInput === searchKeyword) {
@@ -197,6 +238,13 @@ export const ProductListScreen = ({ route, navigation }) => {
   }, [hasMore, loading, loadingMore, loadPage, page]);
 
   const handleCategorySelect = (category) => {
+    if (category === 'On Sale') {
+      handleClearPromoFilter();
+      dispatch(setSelectedCategory('All'));
+      dispatch(setOnSaleOnly(!onSaleOnly));
+      return;
+    }
+    dispatch(setOnSaleOnly(false));
     dispatch(setSelectedCategory(category));
   };
 
@@ -205,6 +253,7 @@ export const ProductListScreen = ({ route, navigation }) => {
     setMaxPriceDraft(maxPrice);
     setBrandDraft(selectedBrand);
     setRatingDraft(minRating);
+    setOnSaleDraft(onSaleOnly);
     setFilterModalVisible(true);
   };
 
@@ -217,11 +266,13 @@ export const ProductListScreen = ({ route, navigation }) => {
     );
     dispatch(setSelectedBrand(brandDraft || 'All'));
     dispatch(setMinRating(ratingDraft || ''));
+    dispatch(setOnSaleOnly(onSaleDraft));
     setFilterModalVisible(false);
   };
 
   const handleClearPromoFilter = () => {
     setPromoFilter(null);
+    dispatch(setOnSaleOnly(false));
     if (navigation.setParams) {
       navigation.setParams({
         promoProductIds: undefined,
@@ -237,6 +288,7 @@ export const ProductListScreen = ({ route, navigation }) => {
     setMaxPriceDraft('');
     setBrandDraft('All');
     setRatingDraft('');
+    setOnSaleDraft(false);
     handleClearPromoFilter();
     dispatch(resetFilters());
     setFilterModalVisible(false);
@@ -278,16 +330,15 @@ export const ProductListScreen = ({ route, navigation }) => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch (e) {}
 
-      const effectiveUnitPrice =
-        activePromoDiscount > 0
-          ? Math.round(latestProduct.price * (1 - activePromoDiscount / 100))
-          : latestProduct.price;
+      const pricing = resolveProductPricing(latestProduct, activePromoDiscount);
 
       dispatch(
         addToCart({
           product: latestProduct._id,
           name: latestProduct.name,
-          price: effectiveUnitPrice,
+          price: pricing.effectivePrice,
+          originalPrice: pricing.basePrice,
+          discountPercent: pricing.discountPercent,
           image: latestProduct.images?.[0] || '',
           brand: latestProduct.brand,
           stock: liveStock,
@@ -307,18 +358,25 @@ export const ProductListScreen = ({ route, navigation }) => {
     minPrice ||
     maxPrice ||
     minRating ||
+    onSaleOnly ||
     (selectedBrand && selectedBrand !== 'All')
   );
+
+  const chipCategories =
+    activePromoCount > 0 || onSaleOnly
+      ? ['All', 'On Sale', ...categories.filter((c) => c !== 'All')]
+      : categories;
 
   const renderProductItem = ({ item }) => {
     const firstImage = item.images && item.images.length > 0 ? item.images[0] : '';
     const hasImage = isValidRemoteOrLocalUri(firstImage);
     const existingCartItem = cartItems.find((entry) => entry.product === item._id);
     const inCartQty = existingCartItem ? existingCartItem.quantity : 0;
-    const hasCardPromo = activePromoDiscount > 0;
-    const displayPrice = hasCardPromo
-      ? Math.round(item.price * (1 - activePromoDiscount / 100))
-      : item.price;
+    const pricing = resolveProductPricing(
+      item,
+      activePromoDiscount,
+      promoFilter?.promoTitle || ''
+    );
 
     return (
       <View style={styles.gridItemContainer}>
@@ -327,11 +385,11 @@ export const ProductListScreen = ({ route, navigation }) => {
           onPress={() =>
             navigation.navigate(
               'ProductDetails',
-              hasCardPromo
+              pricing.hasPromo
                 ? {
                     productId: item._id,
-                    discountPercent: activePromoDiscount,
-                    promoTitle: promoFilter?.promoTitle || '',
+                    discountPercent: pricing.discountPercent,
+                    promoTitle: pricing.promoTitle,
                   }
                 : { productId: item._id }
             )
@@ -353,6 +411,17 @@ export const ProductListScreen = ({ route, navigation }) => {
                 />
               </View>
             )}
+            {pricing.hasPromo ? (
+              <View style={styles.cardPromoBadge}>
+                <AtelierText
+                  variant="caption"
+                  color={theme.colors.goldText}
+                  style={styles.cardPromoBadgeText}
+                >
+                  {`${pricing.discountPercent}% OFF`}
+                </AtelierText>
+              </View>
+            ) : null}
           </View>
           <View style={styles.cardDetails}>
             <AtelierText
@@ -393,9 +462,9 @@ export const ProductListScreen = ({ route, navigation }) => {
                   numberOfLines={1}
                   style={styles.priceText}
                 >
-                  {formatPrice(displayPrice)}
+                  {formatPrice(pricing.effectivePrice)}
                 </AtelierText>
-                {hasCardPromo ? (
+                {pricing.hasPromo ? (
                   <AtelierText
                     variant="caption"
                     color={theme.colors.inkMuted}
@@ -532,8 +601,11 @@ export const ProductListScreen = ({ route, navigation }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryScroll}
         >
-          {categories.map((cat) => {
-            const isSelected = selectedCategory === cat;
+          {chipCategories.map((cat) => {
+            const isOnSaleChip = cat === 'On Sale';
+            const isSelected = isOnSaleChip
+              ? onSaleOnly
+              : !onSaleOnly && selectedCategory === cat;
             return (
               <AtelierPressable
                 key={cat}
@@ -546,13 +618,28 @@ export const ProductListScreen = ({ route, navigation }) => {
                 ]}
                 onPress={() => handleCategorySelect(cat)}
               >
-                <AtelierText
-                  variant="caption"
-                  color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
-                  style={styles.chipText}
-                >
-                  {cat}
-                </AtelierText>
+                <View style={styles.chipInnerRow}>
+                  {isOnSaleChip ? (
+                    <Ionicons
+                      name="pricetag-outline"
+                      size={13}
+                      color={isSelected ? '#FFFFFF' : theme.colors.goldText}
+                    />
+                  ) : null}
+                  <AtelierText
+                    variant="caption"
+                    color={
+                      isSelected
+                        ? '#FFFFFF'
+                        : isOnSaleChip
+                        ? theme.colors.goldText
+                        : theme.colors.inkSecondary
+                    }
+                    style={styles.chipText}
+                  >
+                    {cat}
+                  </AtelierText>
+                </View>
               </AtelierPressable>
             );
           })}
@@ -765,6 +852,46 @@ export const ProductListScreen = ({ route, navigation }) => {
           showsVerticalScrollIndicator={false}
           style={styles.modalScroll}
         >
+          {(activePromoCount > 0 || onSaleDraft) ? (
+            <>
+              <AtelierText
+                variant="caption"
+                color={theme.colors.inkSecondary}
+                style={styles.filterSectionLabel}
+              >
+                Promotions
+              </AtelierText>
+              <View style={styles.filterChipsWrap}>
+                {[
+                  { label: 'All Items', value: false },
+                  { label: 'On Sale Only', value: true },
+                ].map((option) => {
+                  const isSelected = onSaleDraft === option.value;
+                  return (
+                    <AtelierPressable
+                      key={option.label}
+                      tone={isSelected ? 'solid' : 'surface'}
+                      haptic="selection"
+                      hitSlop={4}
+                      onPress={() => setOnSaleDraft(option.value)}
+                      style={[
+                        styles.filterChip,
+                        isSelected && styles.filterChipSelected,
+                      ]}
+                    >
+                      <AtelierText
+                        variant="caption"
+                        color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
+                      >
+                        {option.label}
+                      </AtelierText>
+                    </AtelierPressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
+
           <AtelierText
             variant="caption"
             color={theme.colors.inkSecondary}
@@ -935,6 +1062,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.inkPrimary,
     borderColor: theme.colors.inkPrimary,
   },
+  chipInnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   chipText: {
     letterSpacing: 0.4,
   },
@@ -972,6 +1104,23 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     backgroundColor: theme.colors.surfaceSubtle,
+    position: 'relative',
+  },
+  cardPromoBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: theme.colors.goldLight,
+    borderWidth: 1,
+    borderColor: 'rgba(161, 98, 7, 0.28)',
+    borderRadius: theme.radii.badge,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  cardPromoBadgeText: {
+    fontSize: 10.5,
+    lineHeight: 14,
+    letterSpacing: 0.3,
   },
   promoFilterBanner: {
     flexDirection: 'row',
@@ -1040,6 +1189,8 @@ const styles = StyleSheet.create({
   },
   priceColumn: {
     flexShrink: 1,
+    minHeight: 36,
+    justifyContent: 'center',
     marginRight: 6,
   },
   priceText: {

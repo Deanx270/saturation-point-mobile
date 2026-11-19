@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   FlatList,
@@ -7,6 +7,7 @@ import {
   Alert,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import apiClient from '../../api/client';
@@ -20,6 +21,8 @@ import AtelierQuantityStepper from '../../components/common/AtelierQuantityStepp
 import {
   selectCartItems,
   selectCartTotal,
+  selectCartSavings,
+  syncCartProductPricing,
   updateQuantity,
   removeFromCart,
   clearCart,
@@ -31,8 +34,32 @@ export const CartScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const items = useSelector(selectCartItems);
   const total = useSelector(selectCartTotal);
+  const savings = useSelector(selectCartSavings);
   const { user } = useSelector((state) => state.auth);
   const [checkingStock, setCheckingStock] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (items.length === 0) {
+        return undefined;
+      }
+      let active = true;
+      Promise.all(
+        items.map(async (item) => {
+          try {
+            const res = await apiClient.get(`/products/${item.product}`);
+            if (active && res.data?._id) {
+              dispatch(syncProductSnapshot(res.data));
+              dispatch(syncCartProductPricing(res.data));
+            }
+          } catch (e) {}
+        })
+      );
+      return () => {
+        active = false;
+      };
+    }, [dispatch, items.length])
+  );
 
   const handleSetQuantity = (item, nextQty) => {
     if (
@@ -98,6 +125,7 @@ export const CartScreen = ({ navigation }) => {
               return;
             }
             dispatch(syncProductSnapshot(latest));
+            dispatch(syncCartProductPricing(latest));
             const liveStock = Math.max(0, Number(latest.stock) || 0);
             if (liveStock <= 0) {
               dispatch(removeFromCart(item.product));
@@ -194,13 +222,25 @@ export const CartScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.priceStepperRow}>
-              <AtelierText
-                variant="bodyLarge"
-                color={theme.colors.inkPrimary}
-                style={styles.itemPrice}
-              >
-                {formatPrice(item.price * item.quantity)}
-              </AtelierText>
+              <View style={styles.priceColumn}>
+                <AtelierText
+                  variant="bodyLarge"
+                  color={theme.colors.inkPrimary}
+                  style={styles.itemPrice}
+                >
+                  {formatPrice(item.price * item.quantity)}
+                </AtelierText>
+                {item.discountPercent > 0 &&
+                Number(item.originalPrice) > item.price ? (
+                  <AtelierText
+                    variant="caption"
+                    color={theme.colors.inkMuted}
+                    style={styles.originalLinePrice}
+                  >
+                    {formatPrice(Number(item.originalPrice) * item.quantity)}
+                  </AtelierText>
+                ) : null}
+              </View>
 
               <AtelierQuantityStepper
                 compact
@@ -289,6 +329,23 @@ export const CartScreen = ({ navigation }) => {
               {formatPrice(total)}
             </AtelierText>
           </View>
+
+          {savings > 0 ? (
+            <View style={styles.summaryRow}>
+              <AtelierText
+                variant="bodyMedium"
+                color={theme.colors.inkSecondary}
+              >
+                Promo Savings
+              </AtelierText>
+              <AtelierText
+                variant="caption"
+                color={theme.colors.success}
+              >
+                -{formatPrice(savings)}
+              </AtelierText>
+            </View>
+          ) : null}
 
           <View style={styles.summaryRow}>
             <AtelierText
@@ -393,10 +450,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: theme.spacing.sm,
   },
+  priceColumn: {
+    justifyContent: 'center',
+  },
   itemPrice: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
     lineHeight: 22,
+  },
+  originalLinePrice: {
+    textDecorationLine: 'line-through',
+    fontSize: 11,
   },
   summaryContainer: {
     position: 'absolute',

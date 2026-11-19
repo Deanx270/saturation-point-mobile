@@ -40,7 +40,12 @@ import {
   resetReviewStatus,
   removeReview,
 } from '../../redux/reviewsSlice';
-import { formatPrice, isValidRemoteOrLocalUri } from '../../utils/formatters';
+import {
+  formatPrice,
+  formatDate,
+  isValidRemoteOrLocalUri,
+  resolveProductPricing,
+} from '../../utils/formatters';
 
 const ReviewSchema = Yup.object().shape({
   rating: Yup.number()
@@ -124,9 +129,14 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
 
   const [lastAddedQty, setLastAddedQty] = useState(1);
 
-  const parsedDiscount = Number(discountPercent) || 0;
-  const hasPromoDiscount = parsedDiscount > 0 && parsedDiscount < 100;
   const isStaleProduct = !selectedProduct || (productId && selectedProduct._id !== productId);
+  const pricing = !isStaleProduct
+    ? resolveProductPricing(selectedProduct, discountPercent, promoTitle)
+    : resolveProductPricing(null, discountPercent, promoTitle);
+  const parsedDiscount = pricing.discountPercent;
+  const hasPromoDiscount = pricing.hasPromo;
+  const effectivePromoTitle = pricing.promoTitle;
+  const promoExpiresAt = pricing.expiresAt;
   const existingCartItem = !isStaleProduct
     ? cartItems.find((item) => item.product === selectedProduct._id)
     : null;
@@ -134,11 +144,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   const remainingStock = !isStaleProduct
     ? Math.max(0, (selectedProduct.stock || 0) - existingCartQty)
     : 0;
-  const effectiveUnitPrice = !isStaleProduct
-    ? hasPromoDiscount
-      ? Math.round(selectedProduct.price * (1 - parsedDiscount / 100))
-      : selectedProduct.price
-    : 0;
+  const effectiveUnitPrice = !isStaleProduct ? pricing.effectivePrice : 0;
 
   useEffect(() => {
     if (
@@ -221,15 +227,19 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (e) {}
 
-      const unitPrice = hasPromoDiscount
-        ? Math.round(latestProduct.price * (1 - parsedDiscount / 100))
-        : latestProduct.price;
+      const latestPricing = resolveProductPricing(
+        latestProduct,
+        parsedDiscount,
+        effectivePromoTitle
+      );
 
       dispatch(
         addToCart({
           product: latestProduct._id,
           name: latestProduct.name,
-          price: unitPrice,
+          price: latestPricing.effectivePrice,
+          originalPrice: latestPricing.basePrice,
+          discountPercent: latestPricing.discountPercent,
           quantity: qtyToAdd,
           image: latestProduct.images?.[0] || '',
           brand: latestProduct.brand,
@@ -536,7 +546,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
             <View style={styles.promoBanner}>
               <Ionicons
                 name="pricetag-outline"
-                size={16}
+                size={15}
                 color={theme.colors.goldText}
               />
               <AtelierText
@@ -544,7 +554,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                 color={theme.colors.goldText}
                 style={styles.promoBannerText}
               >
-                {`${promoTitle ? `${promoTitle} — ` : ''}${parsedDiscount}% Off Applied`}
+                {`${effectivePromoTitle ? `${effectivePromoTitle} — ` : ''}${parsedDiscount}% Off${
+                  promoExpiresAt ? ` • Ends ${formatDate(promoExpiresAt)}` : ''
+                }`}
               </AtelierText>
             </View>
           )}
@@ -1064,14 +1076,14 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 6,
-    borderRadius: theme.radii.xs,
-    backgroundColor: '#FAF5E8',
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.goldLight,
     borderWidth: 1,
-    borderColor: theme.colors.gold,
+    borderColor: 'rgba(161, 98, 7, 0.28)',
     marginBottom: theme.spacing.sm,
   },
   promoBannerText: {
-    letterSpacing: 0.6,
+    letterSpacing: 0.3,
   },
   ratingPriceRow: {
     flexDirection: 'row',
