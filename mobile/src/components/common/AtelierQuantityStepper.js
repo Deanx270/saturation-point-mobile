@@ -125,7 +125,7 @@ export const AtelierQuantityStepper = ({
         haptic={haptic}
         hitSlop={hitSlop}
         disabled={isDecrementDisabled}
-        style={[buttonStyle, isDecrementDisabled && styles.disabledButton]}
+        style={buttonStyle}
         onPress={() => handleStep(-1)}
         accessibilityLabel={decrementLabel}
       >
@@ -135,6 +135,7 @@ export const AtelierQuantityStepper = ({
           color={
             isDecrementDisabled ? theme.colors.inkMuted : theme.colors.inkPrimary
           }
+          style={isDecrementDisabled && styles.disabledIcon}
         />
       </AtelierPressable>
 
@@ -162,7 +163,7 @@ export const AtelierQuantityStepper = ({
         haptic={haptic}
         hitSlop={hitSlop}
         disabled={isIncrementDisabled}
-        style={[buttonStyle, isIncrementDisabled && styles.disabledButton]}
+        style={buttonStyle}
         onPress={() => handleStep(1)}
         accessibilityLabel={incrementLabel}
       >
@@ -172,6 +173,7 @@ export const AtelierQuantityStepper = ({
           color={
             isIncrementDisabled ? theme.colors.inkMuted : theme.colors.inkPrimary
           }
+          style={isIncrementDisabled && styles.disabledIcon}
         />
       </AtelierPressable>
     </View>
@@ -184,13 +186,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 0,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.borderMedium,
     borderRadius: theme.radii.xs,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceSubtle,
     overflow: 'hidden',
   },
   compactContainer: {
-    backgroundColor: theme.colors.surfaceSubtle,
+    borderColor: theme.colors.borderMedium,
   },
   regularButton: {
     width: theme.touchTarget.minWidth,
@@ -204,12 +206,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  disabledButton: {
-    opacity: 0.35,
+  disabledIcon: {
+    opacity: 0.38,
   },
   inputBase: {
     textAlign: 'center',
     color: theme.colors.inkPrimary,
+    backgroundColor: theme.colors.surface,
     paddingVertical: 0,
     paddingHorizontal: 4,
     includeFontPadding: false,

@@ -51,10 +51,10 @@ import {
 const SHOP_PAGE_LIMIT = 8;
 
 const RATING_OPTIONS = [
-  { label: 'Any', value: '' },
-  { label: '3★ & up', value: '3' },
-  { label: '4★ & up', value: '4' },
-  { label: '4.5★ & up', value: '4.5' },
+  { label: 'Any', value: '', star: false },
+  { label: '3+', value: '3', star: true },
+  { label: '4+', value: '4', star: true },
+  { label: '4.5+', value: '4.5', star: true },
 ];
 
 export const ProductListScreen = ({ route, navigation }) => {
@@ -83,6 +83,7 @@ export const ProductListScreen = ({ route, navigation }) => {
   } = useSelector((state) => state.products);
 
   const [searchInput, setSearchInput] = useState(searchKeyword);
+  const [fetchStarted, setFetchStarted] = useState(items.length > 0);
   const [promoFilter, setPromoFilter] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [addingProductId, setAddingProductId] = useState(null);
@@ -174,6 +175,7 @@ export const ProductListScreen = ({ route, navigation }) => {
   );
 
   useEffect(() => {
+    setFetchStarted(true);
     loadPage(1);
     return () => {
       if (activeRequestRef.current) {
@@ -372,6 +374,7 @@ export const ProductListScreen = ({ route, navigation }) => {
     const hasImage = isValidRemoteOrLocalUri(firstImage);
     const existingCartItem = cartItems.find((entry) => entry.product === item._id);
     const inCartQty = existingCartItem ? existingCartItem.quantity : 0;
+    const isOutOfStock = (Number(item.stock) || 0) <= 0;
     const pricing = resolveProductPricing(
       item,
       activePromoDiscount,
@@ -399,7 +402,10 @@ export const ProductListScreen = ({ route, navigation }) => {
             {hasImage ? (
               <Image
                 source={{ uri: firstImage }}
-                style={styles.productImage}
+                style={[
+                  styles.productImage,
+                  isOutOfStock && styles.productImageOutOfStock,
+                ]}
                 resizeMode="cover"
               />
             ) : (
@@ -411,7 +417,23 @@ export const ProductListScreen = ({ route, navigation }) => {
                 />
               </View>
             )}
-            {pricing.hasPromo ? (
+            {isOutOfStock ? (
+              <View
+                pointerEvents="none"
+                style={styles.outOfStockWash}
+              >
+                <View style={styles.outOfStockPill}>
+                  <AtelierText
+                    variant="overline"
+                    color={theme.colors.inkSecondary}
+                    style={styles.outOfStockText}
+                  >
+                    Out of Stock
+                  </AtelierText>
+                </View>
+              </View>
+            ) : null}
+            {!isOutOfStock && pricing.hasPromo ? (
               <View style={styles.cardPromoBadge}>
                 <AtelierText
                   variant="caption"
@@ -458,7 +480,11 @@ export const ProductListScreen = ({ route, navigation }) => {
               <View style={styles.priceColumn}>
                 <AtelierText
                   variant="bodyLarge"
-                  color={theme.colors.inkPrimary}
+                  color={
+                    isOutOfStock
+                      ? theme.colors.inkMuted
+                      : theme.colors.inkPrimary
+                  }
                   numberOfLines={1}
                   style={styles.priceText}
                 >
@@ -482,22 +508,27 @@ export const ProductListScreen = ({ route, navigation }) => {
                     stopPropagation
                     haptic="none"
                     hitSlop={8}
-                    disabled={item.stock <= 0 || addingProductId === item._id}
+                    disabled={isOutOfStock || addingProductId === item._id}
                     pressedStyle={styles.quickAddPressed}
                     style={[
                       styles.quickAddButton,
                       inCartQty > 0 && styles.quickAddInCart,
-                      item.stock <= 0 && styles.quickAddDisabled,
+                      isOutOfStock && styles.quickAddDisabled,
                     ]}
                     onPress={() => handleAddToCart(item)}
                     accessibilityLabel={`Add ${item.name} to cart`}
                   >
-                    <View style={styles.cartAddIcon}>
+                    <View
+                      style={[
+                        styles.cartAddIcon,
+                        isOutOfStock && styles.cartAddIconDisabled,
+                      ]}
+                    >
                       <Ionicons
                         name="cart-outline"
                         size={17}
                         color={
-                          item.stock <= 0
+                          isOutOfStock
                             ? theme.colors.inkMuted
                             : inCartQty > 0
                             ? theme.colors.goldText
@@ -509,10 +540,11 @@ export const ProductListScreen = ({ route, navigation }) => {
                         style={[
                           styles.cartPlusDot,
                           {
-                            backgroundColor:
-                              inCartQty > 0
-                                ? '#FEFDF7'
-                                : theme.colors.surface,
+                            backgroundColor: isOutOfStock
+                              ? theme.colors.surfaceSubtle
+                              : inCartQty > 0
+                              ? '#FEFDF7'
+                              : theme.colors.surface,
                           },
                         ]}
                       >
@@ -520,7 +552,7 @@ export const ProductListScreen = ({ route, navigation }) => {
                           name="add"
                           size={9}
                           color={
-                            item.stock <= 0
+                            isOutOfStock
                               ? theme.colors.inkMuted
                               : inCartQty > 0
                               ? theme.colors.goldText
@@ -703,7 +735,7 @@ export const ProductListScreen = ({ route, navigation }) => {
         </View>
       ) : null}
 
-      {loading && items.length === 0 ? (
+      {(loading || !fetchStarted) && items.length === 0 && !error ? (
         <View style={styles.skeletonContainer}>
           {[1, 2, 3, 4].map((n) => (
             <View
@@ -861,7 +893,7 @@ export const ProductListScreen = ({ route, navigation }) => {
               >
                 Promotions
               </AtelierText>
-              <View style={styles.filterChipsWrap}>
+              <View style={styles.fixedChipsRow}>
                 {[
                   { label: 'All Items', value: false },
                   { label: 'On Sale Only', value: true },
@@ -876,6 +908,7 @@ export const ProductListScreen = ({ route, navigation }) => {
                       onPress={() => setOnSaleDraft(option.value)}
                       style={[
                         styles.filterChip,
+                        styles.fixedFilterChip,
                         isSelected && styles.filterChipSelected,
                       ]}
                     >
@@ -929,7 +962,7 @@ export const ProductListScreen = ({ route, navigation }) => {
           >
             Minimum Rating
           </AtelierText>
-          <View style={styles.filterChipsWrap}>
+          <View style={styles.fixedChipsRow}>
             {RATING_OPTIONS.map((option) => {
               const isSelected = ratingDraft === option.value;
               return (
@@ -941,15 +974,25 @@ export const ProductListScreen = ({ route, navigation }) => {
                   onPress={() => setRatingDraft(option.value)}
                   style={[
                     styles.filterChip,
+                    styles.fixedFilterChip,
                     isSelected && styles.filterChipSelected,
                   ]}
                 >
-                  <AtelierText
-                    variant="caption"
-                    color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
-                  >
-                    {option.label}
-                  </AtelierText>
+                  <View style={styles.ratingChipInner}>
+                    {option.star ? (
+                      <Ionicons
+                        name="star"
+                        size={12}
+                        color={isSelected ? '#FFFFFF' : theme.colors.gold}
+                      />
+                    ) : null}
+                    <AtelierText
+                      variant="caption"
+                      color={isSelected ? '#FFFFFF' : theme.colors.inkSecondary}
+                    >
+                      {option.label}
+                    </AtelierText>
+                  </View>
                 </AtelierPressable>
               );
             })}
@@ -1158,6 +1201,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  productImageOutOfStock: {
+    opacity: 0.72,
+  },
+  outOfStockWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(250, 249, 246, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.sm,
+  },
+  outOfStockPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 1,
+    borderColor: theme.colors.borderMedium,
+    borderRadius: theme.radii.badge,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  outOfStockText: {
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 0.8,
+  },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
@@ -1264,10 +1330,12 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.inkPrimary,
     transform: [{ scale: 0.94 }],
   },
+  cartAddIconDisabled: {
+    opacity: 0.38,
+  },
   quickAddDisabled: {
     backgroundColor: theme.colors.surfaceSubtle,
     borderColor: theme.colors.border,
-    opacity: 0.5,
   },
   skeletonContainer: {
     flexDirection: 'row',
@@ -1300,6 +1368,11 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     marginTop: theme.spacing.xs,
   },
+  fixedChipsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
   filterChipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1313,10 +1386,19 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceSubtle,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+  },
+  fixedFilterChip: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.xs,
+  },
+  ratingChipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   filterChipSelected: {
     backgroundColor: theme.colors.inkPrimary,

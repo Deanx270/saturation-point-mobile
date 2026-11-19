@@ -2,10 +2,12 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import {
   View,
   ScrollView,
+  FlatList,
   StyleSheet,
   Image,
   Alert,
   Keyboard,
+  useWindowDimensions,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -68,7 +70,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
   } = route.params || {};
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const scrollViewRef = useRef(null);
+  const galleryRef = useRef(null);
   const contentOffsetY = useRef(0);
   const reviewsOffsetY = useRef(null);
   const didAutoScrollRef = useRef(false);
@@ -98,6 +102,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
     contentOffsetY.current = 0;
     reviewsOffsetY.current = null;
     setSelectedImageIndex(0);
+    galleryRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     setQuantity(1);
     setStockWarning('');
     setEditingReview(null);
@@ -446,10 +451,43 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
       >
         <View style={styles.imageGallery}>
           {images.length > 0 ? (
-            <Image
-              source={{ uri: images[safeImageIndex] }}
-              style={styles.mainImage}
-              resizeMode="contain"
+            <FlatList
+              ref={galleryRef}
+              data={images}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(_, idx) => `gallery-${idx}`}
+              getItemLayout={(_, index) => ({
+                length: windowWidth,
+                offset: windowWidth * index,
+                index,
+              })}
+              onScrollToIndexFailed={(info) => {
+                galleryRef.current?.scrollToOffset?.({
+                  offset: info.index * windowWidth,
+                  animated: true,
+                });
+              }}
+              onMomentumScrollEnd={(event) => {
+                const nextIdx = Math.round(
+                  event.nativeEvent.contentOffset.x / Math.max(1, windowWidth)
+                );
+                if (!Number.isNaN(nextIdx)) {
+                  setSelectedImageIndex(
+                    Math.max(0, Math.min(images.length - 1, nextIdx))
+                  );
+                }
+              }}
+              renderItem={({ item: uri }) => (
+                <View style={[styles.gallerySlide, { width: windowWidth }]}>
+                  <Image
+                    source={{ uri }}
+                    style={styles.mainImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
             />
           ) : (
             <View style={styles.imagePlaceholder}>
@@ -460,6 +498,20 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
               />
             </View>
           )}
+          {images.length > 1 ? (
+            <View
+              pointerEvents="none"
+              style={styles.galleryCounterPill}
+            >
+              <AtelierText
+                variant="caption"
+                color="#FFFFFF"
+                style={styles.galleryCounterText}
+              >
+                {`${safeImageIndex + 1} / ${images.length}`}
+              </AtelierText>
+            </View>
+          ) : null}
           <AtelierPressable
             tone="subtle"
             style={[
@@ -488,7 +540,13 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                 key={idx}
                 tone="subtle"
                 haptic="selection"
-                onPress={() => setSelectedImageIndex(idx)}
+                onPress={() => {
+                  setSelectedImageIndex(idx);
+                  galleryRef.current?.scrollToIndex?.({
+                    index: idx,
+                    animated: true,
+                  });
+                }}
                 style={[
                   styles.thumbnail,
                   safeImageIndex === idx && styles.activeThumbnail,
@@ -624,8 +682,9 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
               <View style={styles.quantitySection}>
                 <View style={styles.quantityLabelCol}>
                   <AtelierText
-                    variant="caption"
-                    color={theme.colors.inkSecondary}
+                    variant="title2"
+                    color={theme.colors.inkPrimary}
+                    style={styles.quantityTitle}
                   >
                     Quantity
                   </AtelierText>
@@ -814,38 +873,69 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                     style={styles.reviewItemCard}
                   >
                     <View style={styles.reviewHeaderRow}>
-                      <View style={styles.reviewerIdentityRow}>
-                        <AtelierAvatar
-                          uri={rev.photoURL}
-                          name={rev.name}
-                          size={32}
-                        />
-                        <View style={styles.reviewerNameGroup}>
-                          <AtelierText
-                            variant="title2"
-                            numberOfLines={1}
-                            style={styles.reviewerName}
-                          >
-                            {rev.name}
-                          </AtelierText>
+                      <AtelierAvatar
+                        uri={rev.photoURL}
+                        name={rev.name}
+                        size={36}
+                        style={styles.reviewerAvatar}
+                      />
+                      <View style={styles.reviewerMetaCol}>
+                        <AtelierText
+                          variant="bodyMedium"
+                          color={theme.colors.inkPrimary}
+                          numberOfLines={1}
+                          style={styles.reviewerName}
+                        >
+                          {rev.name}
+                        </AtelierText>
+                        <View style={styles.reviewerSubRow}>
                           {isOwnReview ? (
-                            <AtelierBadge
-                              label="Your Review"
-                              status="gold"
-                            />
+                            <AtelierText
+                              variant="caption"
+                              color={theme.colors.goldText}
+                              style={styles.ownReviewTag}
+                            >
+                              Your review
+                            </AtelierText>
+                          ) : null}
+                          {isOwnReview && rev.createdAt ? (
+                            <AtelierText
+                              variant="bodySmall"
+                              color={theme.colors.inkMuted}
+                              style={styles.reviewDateText}
+                            >
+                              •
+                            </AtelierText>
+                          ) : null}
+                          {rev.createdAt ? (
+                            <AtelierText
+                              variant="bodySmall"
+                              color={theme.colors.inkMuted}
+                              style={styles.reviewDateText}
+                            >
+                              {formatDate(rev.createdAt)}
+                            </AtelierText>
+                          ) : !isOwnReview ? (
+                            <AtelierText
+                              variant="bodySmall"
+                              color={theme.colors.inkMuted}
+                              style={styles.reviewDateText}
+                            >
+                              Verified buyer
+                            </AtelierText>
                           ) : null}
                         </View>
                       </View>
-                      <View style={styles.ratingStars}>
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Ionicons
-                            key={s}
-                            name={s <= rev.rating ? 'star' : 'star-outline'}
-                            size={14}
-                            color={theme.colors.gold}
-                          />
-                        ))}
-                      </View>
+                    </View>
+                    <View style={styles.reviewRatingRow}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Ionicons
+                          key={s}
+                          name={s <= rev.rating ? 'star' : 'star-outline'}
+                          size={14}
+                          color={theme.colors.gold}
+                        />
+                      ))}
                     </View>
                     <AtelierText
                       variant="bodyMedium"
@@ -1005,6 +1095,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
+  gallerySlide: {
+    height: 340,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryCounterPill: {
+    position: 'absolute',
+    right: theme.spacing.lg,
+    bottom: theme.spacing.md,
+    backgroundColor: 'rgba(28, 25, 23, 0.68)',
+    borderRadius: theme.radii.badge,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 3,
+  },
+  galleryCounterText: {
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 0.4,
+  },
   mainImage: {
     width: '100%',
     height: '100%',
@@ -1130,6 +1239,9 @@ const styles = StyleSheet.create({
     minWidth: 100,
     paddingRight: theme.spacing.md,
   },
+  quantityTitle: {
+    marginBottom: 2,
+  },
   stockWarningText: {
     marginTop: 2,
   },
@@ -1181,25 +1293,41 @@ const styles = StyleSheet.create({
   reviewHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
   },
-  reviewerIdentityRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
+  reviewerAvatar: {
+    flexShrink: 0,
   },
-  reviewerNameGroup: {
+  reviewerMetaCol: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: theme.spacing.xs,
+    minWidth: 0,
+    justifyContent: 'center',
   },
   reviewerName: {
-    fontSize: 15,
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14.5,
+    lineHeight: 19,
+  },
+  reviewerSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 1,
+  },
+  ownReviewTag: {
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
+  reviewDateText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  reviewRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginBottom: theme.spacing.xs,
   },
   reviewComment: {
     lineHeight: 20,

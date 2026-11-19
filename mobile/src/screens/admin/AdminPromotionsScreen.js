@@ -35,7 +35,6 @@ const DURATION_OPTIONS = [
   { label: '1 Day', days: 1 },
   { label: '3 Days', days: 3 },
   { label: '7 Days', days: 7 },
-  { label: '14 Days', days: 14 },
   { label: '30 Days', days: 30 },
 ];
 
@@ -624,13 +623,13 @@ const styles = StyleSheet.create({
   },
   durationChipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: theme.spacing.sm,
   },
   durationChip: {
-    paddingHorizontal: theme.spacing.md,
+    flex: 1,
+    paddingHorizontal: theme.spacing.xs,
     paddingVertical: 8,
-    minHeight: 36,
+    minHeight: 38,
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,

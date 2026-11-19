@@ -499,10 +499,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
           Shipping Address
         </AtelierText>
 
-        <AtelierCard
-          subtle
-          style={styles.addressCard}
-        >
+        <AtelierCard style={styles.addressCard}>
           {user?.role === 'admin' && selectedOrder.user?.displayName ? (
             <View style={styles.customerBlock}>
               <AtelierText
@@ -769,6 +766,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   addressCard: {
+    backgroundColor: theme.colors.surface,
     marginBottom: theme.spacing.xl,
   },
   customerBlock: {
