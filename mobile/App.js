@@ -19,7 +19,7 @@ import AppNavigator, {
   navigationRef,
 } from './src/navigation/AppNavigator';
 import { initDatabase } from './src/services/sqliteService';
-import { hydrateCart } from './src/redux/cartSlice';
+import { hydrateCart, syncCartOwner } from './src/redux/cartSlice';
 import {
   loadStoredAuth,
   syncPushToken,
@@ -59,6 +59,7 @@ const GlobalAuthFeedback = () => {
             icon: 'log-out-outline',
             destructive: true,
             disabled: signingOut,
+            immediate: true,
             onPress: () => dispatch(logout()),
           },
           {
@@ -118,6 +119,14 @@ const AppContent = () => {
     };
     tryNavigate();
   }, []);
+
+  useEffect(() => {
+    if (initialLoading) {
+      return;
+    }
+    const nextOwner = user?._id ? String(user._id) : 'guest';
+    dispatch(syncCartOwner(nextOwner));
+  }, [dispatch, initialLoading, user?._id]);
 
   useEffect(() => {
     initDatabase();

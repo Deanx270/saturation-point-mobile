@@ -5,7 +5,6 @@ import {
   FlatList,
   StyleSheet,
   Image,
-  Alert,
   Keyboard,
   useWindowDimensions,
 } from 'react-native';
@@ -219,14 +218,12 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
 
       if (liveStock <= 0) {
         setStockWarning('This item is now out of stock.');
-        Alert.alert('Out of Stock', `${latestProduct.name} is currently out of stock.`);
         return;
       }
 
       if (liveRemaining <= 0) {
-        Alert.alert(
-          'Stock Limit Reached',
-          `You already have the maximum available stock (${liveStock}) for ${latestProduct.name} in your cart.`
+        setStockWarning(
+          `Maximum available stock (${liveStock}) is already in your cart.`
         );
         return;
       }
@@ -234,10 +231,6 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
       if (quantity > liveRemaining) {
         setQuantity(liveRemaining);
         setStockWarning(`Maximum available to add is ${liveRemaining}.`);
-        Alert.alert(
-          'Stock Updated',
-          `Only ${liveRemaining} more ${liveRemaining === 1 ? 'unit is' : 'units are'} available (${liveStock} total in stock).`
-        );
         return;
       }
 
@@ -296,8 +289,6 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
       editReview.fulfilled.match(result)
     ) {
       resetForm();
-    } else if (result.payload) {
-      Alert.alert('Review Not Saved', result.payload);
     }
   };
 

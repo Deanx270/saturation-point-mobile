@@ -12,6 +12,7 @@ import {
   getCurrentPushTokenAsync,
   registerForPushNotificationsAsync,
 } from '../services/pushNotificationService';
+import { syncCartOwner } from './cartSlice';
 
 const normalizeEmailKey = (email) =>
   typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -203,17 +204,33 @@ export const syncPushToken = createAsyncThunk(
 
 export const logout = createAsyncThunk(
   'auth/logout',
-  async (providedToken, { rejectWithValue }) => {
-    try {
-      const pushToken = providedToken || (await getCurrentPushTokenAsync());
-      if (pushToken) {
-        await apiClient.post('/users/push-token/remove', { pushToken }).catch(() => {});
-      }
-      await clearAuthStorage();
-      return true;
-    } catch (error) {
-      return rejectWithValue('Sign out failed');
+  async (providedToken, { dispatch, getState }) => {
+    const activeAuthToken = getState().auth.token;
+    dispatch(clearAuthSession());
+    dispatch(syncCartOwner('guest'));
+    clearAuthStorage().catch(() => {});
+
+    if (activeAuthToken) {
+      Promise.resolve(
+        providedToken || getCurrentPushTokenAsync()
+      )
+        .then((pushToken) => {
+          if (!pushToken) {
+            return null;
+          }
+          return apiClient.post(
+            '/users/push-token/remove',
+            { pushToken },
+            {
+              headers: { Authorization: `Bearer ${activeAuthToken}` },
+              timeout: 8000,
+            }
+          );
+        })
+        .catch(() => {});
     }
+
+    return true;
   }
 );
 
@@ -239,6 +256,17 @@ const authSlice = createSlice({
     },
     cancelSignOut: (state) => {
       state.signOutPromptVisible = false;
+    },
+    clearAuthSession: (state) => {
+      state.signingOut = false;
+      state.signOutPromptVisible = false;
+      state.user = null;
+      state.token = null;
+      state.error = null;
+      state.authNotice = {
+        key: Date.now(),
+        message: 'Signed out successfully',
+      };
     },
     clearAuthNotice: (state) => {
       state.authNotice = null;
@@ -391,7 +419,8 @@ const authSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(logout.pending, (state) => {
-        state.signingOut = true;
+        state.signingOut = false;
+        state.signOutPromptVisible = false;
       })
       .addCase(logout.fulfilled, (state) => {
         state.signingOut = false;
@@ -399,10 +428,6 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.error = null;
-        state.authNotice = {
-          key: Date.now(),
-          message: 'Signed out successfully',
-        };
       })
       .addCase(logout.rejected, (state) => {
         state.signingOut = false;
@@ -415,6 +440,7 @@ export const {
   clearAuthError,
   requestSignOut,
   cancelSignOut,
+  clearAuthSession,
   clearAuthNotice,
   showAuthNotice,
   setVerificationCooldown,

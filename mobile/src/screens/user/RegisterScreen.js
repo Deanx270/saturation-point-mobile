@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  Alert,
   Platform,
   BackHandler,
 } from 'react-native';
@@ -114,9 +113,6 @@ export const RegisterScreen = ({ navigation }) => {
           ? result.payload
           : result.payload?.message || 'Unable to create account.';
       setSubmitError(errorMsg);
-      if (Platform.OS !== 'web') {
-        Alert.alert('Registration Failed', errorMsg);
-      }
     }
   };
 

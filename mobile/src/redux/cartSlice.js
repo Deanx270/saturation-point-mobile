@@ -4,25 +4,48 @@ import {
   saveCartItemToDatabase,
   removeCartItemFromDatabase,
   clearCartDatabase,
+  mergeGuestCartToUserInDatabase,
 } from '../services/sqliteService';
 import { resolveProductPricing } from '../utils/formatters';
+
+const resolveOwnerId = (ownerId) => (ownerId ? String(ownerId) : 'guest');
 
 const cartSlice = createSlice({
   name: 'cart',
   initialState: {
     items: [],
+    ownerId: 'guest',
     hydrated: false,
   },
   reducers: {
-    hydrateCart: (state) => {
+    hydrateCart: (state, action) => {
+      const owner = resolveOwnerId(action.payload ?? state.ownerId);
+      state.ownerId = owner;
       try {
-        state.items = getCartItemsFromDatabase();
+        state.items = getCartItemsFromDatabase(owner);
+      } catch (error) {
+        state.items = [];
+      }
+      state.hydrated = true;
+    },
+    syncCartOwner: (state, action) => {
+      const nextOwner = resolveOwnerId(action.payload);
+      if (state.ownerId === nextOwner && state.hydrated) {
+        return;
+      }
+      state.ownerId = nextOwner;
+      try {
+        state.items =
+          nextOwner === 'guest'
+            ? getCartItemsFromDatabase('guest')
+            : mergeGuestCartToUserInDatabase(nextOwner);
       } catch (error) {
         state.items = [];
       }
       state.hydrated = true;
     },
     addToCart: (state, action) => {
+      const owner = resolveOwnerId(state.ownerId);
       const incomingItem = action.payload;
       const incomingQty = incomingItem.quantity || 1;
       const existingItem = state.items.find(
@@ -49,7 +72,7 @@ const cartSlice = createSlice({
         if (incomingItem.stock !== undefined) {
           existingItem.stock = incomingItem.stock;
         }
-        saveCartItemToDatabase(existingItem);
+        saveCartItemToDatabase(existingItem, owner);
       } else {
         const availableStock = Number(incomingItem.stock);
         const cappedQty =
@@ -61,10 +84,11 @@ const cartSlice = createSlice({
           quantity: Math.max(1, cappedQty),
         };
         state.items.push(newItem);
-        saveCartItemToDatabase(newItem);
+        saveCartItemToDatabase(newItem, owner);
       }
     },
     syncCartProductPricing: (state, action) => {
+      const owner = resolveOwnerId(state.ownerId);
       const latest = action.payload;
       if (!latest?._id) {
         return;
@@ -91,32 +115,36 @@ const cartSlice = createSlice({
       if (latest.stock !== undefined) {
         existingItem.stock = Math.max(0, Number(latest.stock) || 0);
       }
-      saveCartItemToDatabase(existingItem);
+      saveCartItemToDatabase(existingItem, owner);
     },
     updateQuantity: (state, action) => {
+      const owner = resolveOwnerId(state.ownerId);
       const { product, quantity } = action.payload;
       const existingItem = state.items.find((item) => item.product === product);
 
       if (existingItem) {
         if (quantity <= 0) {
           state.items = state.items.filter((item) => item.product !== product);
-          removeCartItemFromDatabase(product);
+          removeCartItemFromDatabase(product, owner);
         } else {
           existingItem.quantity = quantity;
-          saveCartItemToDatabase(existingItem);
+          saveCartItemToDatabase(existingItem, owner);
         }
       }
     },
     removeFromCart: (state, action) => {
+      const owner = resolveOwnerId(state.ownerId);
       const productId = action.payload;
       state.items = state.items.filter((item) => item.product !== productId);
-      removeCartItemFromDatabase(productId);
+      removeCartItemFromDatabase(productId, owner);
     },
     clearCart: (state) => {
+      const owner = resolveOwnerId(state.ownerId);
       state.items = [];
-      clearCartDatabase();
+      clearCartDatabase(owner);
     },
     restoreCartItems: (state, action) => {
+      const owner = resolveOwnerId(state.ownerId);
       const list = Array.isArray(action.payload)
         ? action.payload
         : action.payload
@@ -135,7 +163,7 @@ const cartSlice = createSlice({
             quantity: Math.max(1, Number(entry.quantity) || 1),
           };
           state.items.push(normalized);
-          saveCartItemToDatabase(normalized);
+          saveCartItemToDatabase(normalized, owner);
         }
       }
     },
@@ -144,6 +172,7 @@ const cartSlice = createSlice({
 
 export const {
   hydrateCart,
+  syncCartOwner,
   addToCart,
   syncCartProductPricing,
   updateQuantity,

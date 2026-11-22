@@ -83,6 +83,7 @@ const buildUserPayload = (user, token) => {
     role: user.role,
     isEmailVerified: Boolean(user.isEmailVerified),
     profileCompleted: Boolean(user.profileCompleted || user.username),
+    hasPassword: Boolean(user.password),
   };
   if (token) {
     payload.token = token;
@@ -250,6 +251,10 @@ const loginUser = async (req, res) => {
       return res.status(403).json({ message: 'Your account has been deactivated' });
     }
 
+    if (!user.password) {
+      return res.status(401).json({ message: 'Invalid email, username, or password' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email, username, or password' });
@@ -314,7 +319,7 @@ const socialLogin = async (req, res) => {
       return res.status(401).json({ message: 'Verified social account email is required' });
     }
 
-    let user = await User.findOne({ $or: [{ firebaseUid }, { email }] });
+    let user = await User.findOne({ $or: [{ firebaseUid }, { email }] }).select('+password');
 
     if (!user) {
       user = await User.create({
@@ -358,11 +363,11 @@ const socialLogin = async (req, res) => {
 
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('+password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json(user);
+    res.json(buildUserPayload(user));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -370,7 +375,7 @@ const getUserProfile = async (req, res) => {
 
 const updateUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('+password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -409,9 +414,42 @@ const updateUserProfile = async (req, res) => {
       photoURLChanged = true;
     }
 
-    if (req.body.password) {
+    const rawNewPassword =
+      typeof req.body.newPassword === 'string'
+        ? req.body.newPassword
+        : typeof req.body.password === 'string'
+        ? req.body.password
+        : '';
+
+    if (rawNewPassword.trim().length > 0) {
+      if (rawNewPassword.length < 6) {
+        return res.status(400).json({
+          message: 'New password must be at least 6 characters',
+        });
+      }
+      if (user.password) {
+        const currentPassword =
+          typeof req.body.currentPassword === 'string' ? req.body.currentPassword : '';
+        if (!currentPassword) {
+          return res.status(400).json({
+            message: 'Current password is required',
+          });
+        }
+        const isCurrentMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isCurrentMatch) {
+          return res.status(400).json({
+            message: 'Current password is incorrect',
+          });
+        }
+        const isSamePassword = await bcrypt.compare(rawNewPassword, user.password);
+        if (isSamePassword) {
+          return res.status(400).json({
+            message: 'New password must be different from your current password',
+          });
+        }
+      }
       const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(req.body.password, salt);
+      user.password = await bcrypt.hash(rawNewPassword, salt);
     }
 
     await user.save();

@@ -3,8 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  Alert,
-  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Formik } from 'formik';
@@ -104,9 +102,6 @@ export const LoginScreen = ({ navigation, route }) => {
           ? result.payload
           : result.payload?.message || 'Invalid email or password.';
       setSubmitError(errorMsg);
-      if (Platform.OS !== 'web') {
-        Alert.alert('Sign In Failed', errorMsg);
-      }
     }
   };
 

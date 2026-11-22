@@ -462,6 +462,9 @@ const productsSlice = createSlice({
           applyOrderStockDelta(state, order.orderItems, 1);
         }
       })
+      .addCase('auth/clearAuthSession', (state) => {
+        state.selectedProduct = null;
+      })
       .addCase('auth/logout/fulfilled', (state) => {
         state.selectedProduct = null;
       })

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -34,6 +34,7 @@ import {
 } from '../../utils/imagePickerHelper';
 import {
   displayNameSchemaField,
+  passwordSchemaField,
   usernameSchemaField,
 } from '../../utils/validationSchemas';
 import {
@@ -52,21 +53,50 @@ const SetUsernameSchema = Yup.object().shape({
   username: usernameSchemaField,
 });
 
+const buildPasswordSchema = (requiresCurrentPassword) =>
+  Yup.object().shape({
+    ...(requiresCurrentPassword
+      ? {
+          currentPassword: Yup.string().required('Current password is required'),
+        }
+      : {}),
+    newPassword: passwordSchemaField.test(
+      'different-from-current',
+      'New password must be different from your current password',
+      function validateDifferent(value) {
+        const current = this.parent.currentPassword;
+        return !requiresCurrentPassword || !current || !value || value !== current;
+      }
+    ),
+    confirmPassword: Yup.string()
+      .oneOf([Yup.ref('newPassword')], 'Passwords do not match')
+      .required('Please confirm your new password'),
+  });
+
 export const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const { height: windowHeight } = useWindowDimensions();
   const scrollViewRef = useRef(null);
   const editSectionTopRef = useRef(0);
   const { user } = useSelector((state) => state.auth);
+  const hasExistingPassword = user?.hasPassword !== false;
+  const passwordSchema = useMemo(
+    () => buildPasswordSchema(hasExistingPassword),
+    [hasExistingPassword]
+  );
   const [avatarUri, setAvatarUri] = useState(user?.photoURL || null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [syncingPush, setSyncingPush] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [usernameSheetVisible, setUsernameSheetVisible] = useState(false);
+  const [passwordSheetVisible, setPasswordSheetVisible] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [usernameErrorMsg, setUsernameErrorMsg] = useState('');
+  const [passwordErrorMsg, setPasswordErrorMsg] = useState('');
   const [toastState, setToastState] = useState({
     visible: false,
     message: '',
@@ -194,9 +224,6 @@ export const ProfileScreen = ({ navigation }) => {
       } else {
         const errorMsg = result.payload || 'Unable to update profile.';
         setProfileError(errorMsg);
-        if (Platform.OS !== 'web') {
-          Alert.alert('Update Failed', errorMsg);
-        }
       }
     } finally {
       setSavingProfile(false);
@@ -245,12 +272,52 @@ export const ProfileScreen = ({ navigation }) => {
       } else {
         const errorMsg = result.payload || 'Unable to save username.';
         setUsernameErrorMsg(errorMsg);
-        if (Platform.OS !== 'web') {
-          Alert.alert('Unable to Save', errorMsg);
-        }
       }
     } finally {
       setSavingUsername(false);
+    }
+  };
+
+  const handleOpenPasswordSheet = () => {
+    setPasswordErrorMsg('');
+    setPasswordSheetVisible(true);
+  };
+
+  const handleClosePasswordSheet = () => {
+    if (savingPassword) {
+      return;
+    }
+    setPasswordSheetVisible(false);
+    setPasswordErrorMsg('');
+  };
+
+  const handlePasswordSubmit = async (values, { resetForm }) => {
+    if (savingPassword) {
+      return;
+    }
+    setPasswordErrorMsg('');
+    setSavingPassword(true);
+    try {
+      const payload = {
+        newPassword: values.newPassword,
+      };
+      if (hasExistingPassword) {
+        payload.currentPassword = values.currentPassword;
+      }
+      const result = await dispatch(updateProfile(payload));
+      if (updateProfile.fulfilled.match(result)) {
+        resetForm();
+        setPasswordSheetVisible(false);
+        setToastState((prev) => ({
+          visible: true,
+          message: hasExistingPassword ? 'Password updated' : 'Password set',
+          key: prev.key + 1,
+        }));
+      } else {
+        setPasswordErrorMsg(result.payload || 'Unable to update password.');
+      }
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -407,6 +474,40 @@ export const ProfileScreen = ({ navigation }) => {
               </View>
             </AtelierPressable>
           )}
+
+          <View style={styles.infoDivider} />
+
+          <AtelierPressable
+            tone="surface"
+            hitSlop={6}
+            style={styles.infoActionRow}
+            onPress={handleOpenPasswordSheet}
+            accessibilityLabel={
+              hasExistingPassword ? 'Change password' : 'Set password'
+            }
+          >
+            <AtelierText
+              variant="bodySmall"
+              color={theme.colors.inkMuted}
+              style={styles.infoLabelText}
+            >
+              Password
+            </AtelierText>
+            <View style={styles.inlineActionLink}>
+              <AtelierText
+                variant="bodySmall"
+                color={theme.colors.goldText}
+                style={styles.inlineActionText}
+              >
+                {hasExistingPassword ? 'Change password' : 'Set password'}
+              </AtelierText>
+              <Ionicons
+                name="chevron-forward"
+                size={15}
+                color={theme.colors.goldText}
+              />
+            </View>
+          </AtelierPressable>
 
           <View style={styles.infoDivider} />
 
@@ -650,6 +751,120 @@ export const ProfileScreen = ({ navigation }) => {
               </View>
             );
           }}
+        </Formik>
+      </AtelierBottomSheet>
+
+      <AtelierBottomSheet
+        visible={passwordSheetVisible}
+        onClose={handleClosePasswordSheet}
+        title={hasExistingPassword ? 'Change Password' : 'Set Password'}
+        subtitle={
+          hasExistingPassword
+            ? 'Confirm your current password, then choose a new password.'
+            : 'Add a password so you can also sign in with your email or username.'
+        }
+        maxHeight={Math.round(windowHeight * 0.85)}
+      >
+        <Formik
+          enableReinitialize
+          initialValues={{
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+          }}
+          validationSchema={passwordSchema}
+          onSubmit={handlePasswordSubmit}
+        >
+          {({
+            handleChange,
+            handleBlur,
+            handleSubmit,
+            values,
+            errors,
+            touched,
+          }) => (
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.sheetForm}>
+                {hasExistingPassword ? (
+                  <AtelierInput
+                    label="Current Password"
+                    placeholder="Enter current password"
+                    value={values.currentPassword}
+                    onChangeText={(text) => {
+                      setPasswordErrorMsg('');
+                      handleChange('currentPassword')(text);
+                    }}
+                    onBlur={handleBlur('currentPassword')}
+                    secureTextEntry
+                    autoComplete="current-password"
+                    textContentType="password"
+                    error={errors.currentPassword}
+                    touched={touched.currentPassword}
+                    style={styles.compactInput}
+                  />
+                ) : null}
+
+                <AtelierInput
+                  label="New Password"
+                  placeholder="Enter new password"
+                  helperText="Minimum 6 characters"
+                  value={values.newPassword}
+                  onChangeText={(text) => {
+                    setPasswordErrorMsg('');
+                    handleChange('newPassword')(text);
+                  }}
+                  onBlur={handleBlur('newPassword')}
+                  secureTextEntry
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  error={errors.newPassword}
+                  touched={touched.newPassword}
+                  style={styles.compactInput}
+                />
+
+                <AtelierInput
+                  label="Confirm New Password"
+                  placeholder="Re-enter new password"
+                  value={values.confirmPassword}
+                  onChangeText={(text) => {
+                    setPasswordErrorMsg('');
+                    handleChange('confirmPassword')(text);
+                  }}
+                  onBlur={handleBlur('confirmPassword')}
+                  secureTextEntry
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  error={errors.confirmPassword}
+                  touched={touched.confirmPassword}
+                  style={
+                    passwordErrorMsg ? styles.inputWithBanner : styles.compactInput
+                  }
+                />
+
+                <AtelierErrorBanner
+                  message={passwordErrorMsg}
+                  style={styles.errorBanner}
+                />
+
+                <AtelierButton
+                  title={
+                    savingPassword
+                      ? 'Saving...'
+                      : hasExistingPassword
+                      ? 'Save Password'
+                      : 'Set Password'
+                  }
+                  onPress={handleSubmit}
+                  loading={savingPassword}
+                  disabled={savingPassword}
+                  style={styles.sheetSaveButton}
+                />
+              </View>
+            </ScrollView>
+          )}
         </Formik>
       </AtelierBottomSheet>
     </View>

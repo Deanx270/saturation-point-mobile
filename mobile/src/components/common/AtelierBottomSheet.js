@@ -270,6 +270,14 @@ const AtelierBottomSheetContent = ({
   }, []);
 
   const handleSelectOption = (option) => {
+    if (option.immediate) {
+      pendingActionRef.current = null;
+      handleDismiss();
+      if (option.onPress) {
+        option.onPress();
+      }
+      return;
+    }
     pendingActionRef.current = option.onPress || null;
     handleDismiss();
   };

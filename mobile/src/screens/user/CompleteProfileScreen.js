@@ -3,8 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  Alert,
-  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Formik } from 'formik';
@@ -46,11 +44,8 @@ export const CompleteProfileScreen = () => {
   const [skipping, setSkipping] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  const reportError = (title, message) => {
+  const reportError = (_title, message) => {
     setSubmitError(message);
-    if (Platform.OS !== 'web') {
-      Alert.alert(title, message);
-    }
   };
 
   const handleCompleteSubmit = async (values) => {

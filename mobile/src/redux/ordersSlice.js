@@ -1,7 +1,23 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../api/client';
 import { clearCart } from './cartSlice';
-import { logout } from './authSlice';
+import { clearAuthSession, logout } from './authSlice';
+
+const resetOrdersState = (state) => {
+  state.myOrders = [];
+  state.allOrders = [];
+  state.selectedOrder = null;
+  state.loading = false;
+  state.error = null;
+  state.allOrdersLoading = false;
+  state.allOrdersError = null;
+  state.detailLoading = false;
+  state.detailError = null;
+  state.detailErrorTargetId = null;
+  state.activeDetailRequestId = null;
+  state.updatingOrderId = null;
+  state.checkoutSuccess = false;
+};
 
 const getApiErrorMessage = (error, fallback) => {
   return (
@@ -221,21 +237,8 @@ const ordersSlice = createSlice({
       .addCase(cancelMyOrder.rejected, (state) => {
         state.updatingOrderId = null;
       })
-      .addCase(logout.fulfilled, (state) => {
-        state.myOrders = [];
-        state.allOrders = [];
-        state.selectedOrder = null;
-        state.loading = false;
-        state.error = null;
-        state.allOrdersLoading = false;
-        state.allOrdersError = null;
-        state.detailLoading = false;
-        state.detailError = null;
-        state.detailErrorTargetId = null;
-        state.activeDetailRequestId = null;
-        state.updatingOrderId = null;
-        state.checkoutSuccess = false;
-      });
+      .addCase(clearAuthSession, resetOrdersState)
+      .addCase(logout.fulfilled, resetOrdersState);
   },
 });
 

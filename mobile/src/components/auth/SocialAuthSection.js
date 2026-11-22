@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Platform, Alert, Image } from 'react-native';
+import { View, StyleSheet, Platform, Image } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -184,11 +184,8 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
     Boolean(authConfig.facebookAppId);
   const webReady = Platform.OS === 'web' && isFirebaseConfigured();
 
-  const reportError = (title, message) => {
+  const reportError = (_title, message) => {
     setErrorMessage(message);
-    if (Platform.OS !== 'web') {
-      Alert.alert(title, message);
-    }
   };
 
   const submitFirebaseIdToken = async (idToken) => {
