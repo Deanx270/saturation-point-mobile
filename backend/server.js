@@ -36,7 +36,16 @@ if (!process.env.JWT_SECRET) {
 
 mongoose
   .connect(mongoUri)
-  .then(() => console.log('Connected to MongoDB Atlas: The Saturation Point'))
+  .then(async () => {
+    console.log('Connected to MongoDB Atlas: The Saturation Point');
+    try {
+      const User = require('./models/User');
+      await User.updateMany(
+        { isEmailVerified: { $exists: false } },
+        { $set: { isEmailVerified: true } }
+      );
+    } catch (e) {}
+  })
   .catch((err) => console.error('MongoDB Atlas connection error:', err));
 
 const userRoutes = require('./routes/userRoutes');

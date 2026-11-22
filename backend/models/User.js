@@ -63,6 +63,18 @@ const userSchema = new mongoose.Schema(
       enum: ['active', 'disabled'],
       default: 'active',
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: {
+      type: String,
+      select: false,
+    },
+    emailVerificationExpires: {
+      type: Date,
+      select: false,
+    },
     pushTokens: [pushTokenSchema],
   },
   { timestamps: true }

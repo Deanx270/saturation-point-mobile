@@ -34,6 +34,13 @@ export const register = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await apiClient.post('/users/register', credentials);
+      if (response.data?.requiresVerification) {
+        return {
+          requiresVerification: true,
+          email: response.data.email,
+          message: response.data.message,
+        };
+      }
       const { token, ...user } = response.data;
       await saveAuthToken(token);
       await saveAuthUser(user);
@@ -56,8 +63,38 @@ export const login = createAsyncThunk(
       await saveAuthUser(user);
       return { token, user };
     } catch (error) {
+      if (error.response?.data?.isEmailVerified === false) {
+        return rejectWithValue({
+          message:
+            error.response.data.message ||
+            'Please verify your email address before signing in.',
+          isEmailVerified: false,
+          email:
+            error.response.data.email ||
+            credentials.email ||
+            credentials.identifier,
+        });
+      }
       return rejectWithValue(
         error.response?.data?.message || error.message || 'Sign in failed'
+      );
+    }
+  }
+);
+
+export const resendVerification = createAsyncThunk(
+  'auth/resendVerification',
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post('/users/resend-verification', {
+        email,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          error.message ||
+          'Failed to resend verification email'
       );
     }
   }
@@ -181,8 +218,13 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.loading = false;
-        state.token = action.payload.token;
-        state.user = action.payload.user;
+        if (action.payload?.requiresVerification) {
+          state.token = null;
+          state.user = null;
+        } else {
+          state.token = action.payload.token;
+          state.user = action.payload.user;
+        }
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
@@ -199,7 +241,10 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error =
+          typeof action.payload === 'object' && action.payload?.message
+            ? action.payload.message
+            : action.payload;
       })
       .addCase(socialLogin.pending, (state) => {
         state.loading = true;

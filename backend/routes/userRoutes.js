@@ -3,6 +3,8 @@ const router = express.Router();
 const {
   registerUser,
   loginUser,
+  verifyEmail,
+  resendVerificationEmail,
   socialLogin,
   getUserProfile,
   updateUserProfile,
@@ -16,6 +18,8 @@ const { upload } = require('../utils/cloudinary');
 router.get('/check-username', checkUsernameAvailability);
 router.post('/register', registerUser);
 router.post('/login', loginUser);
+router.get('/verify-email', verifyEmail);
+router.post('/resend-verification', resendVerificationEmail);
 router.post('/social-login', socialLogin);
 router.get('/profile', protect, getUserProfile);
 router.put('/profile', protect, upload.single('photo'), updateUserProfile);

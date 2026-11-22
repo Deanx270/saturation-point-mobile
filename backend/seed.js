@@ -233,6 +233,7 @@ const ensureUser = async ({ email, username, displayName, role, passwordPlain, p
       role,
       photoURL: photoURL || '',
       status: 'active',
+      isEmailVerified: true,
     });
   }
   return user;
