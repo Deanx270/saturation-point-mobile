@@ -32,7 +32,7 @@ export const AtelierBadge = ({ label, status = 'default', style }) => {
         return {
           bg: theme.colors.goldLight,
           text: theme.colors.goldText,
-          border: 'rgba(161, 98, 7, 0.28)',
+          border: theme.colors.goldBorder,
         };
       case 'shipped':
         return {

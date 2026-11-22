@@ -75,6 +75,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    emailVerificationSentAt: {
+      type: Date,
+      select: false,
+    },
     pushTokens: [pushTokenSchema],
   },
   { timestamps: true }

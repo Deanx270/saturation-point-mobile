@@ -5,8 +5,31 @@ import { theme } from '../../theme';
 import AtelierText from './AtelierText';
 import AtelierPressable from './AtelierPressable';
 
+const BANNER_TONES = {
+  error: {
+    bg: theme.colors.errorBg,
+    border: theme.colors.errorBorder,
+    text: theme.colors.error,
+    icon: 'alert-circle-outline',
+  },
+  success: {
+    bg: theme.colors.successBg,
+    border: theme.colors.successBorder,
+    text: theme.colors.success,
+    icon: 'checkmark-circle-outline',
+  },
+  gold: {
+    bg: theme.colors.goldLight,
+    border: theme.colors.goldBorder,
+    text: theme.colors.goldText,
+    icon: 'mail-unread-outline',
+  },
+};
+
 export const AtelierErrorBanner = ({
   message = 'Unable to connect to the server. Check your connection and try again.',
+  tone = 'error',
+  actionLabel = 'Retry',
   onRetry,
   style,
 }) => {
@@ -14,18 +37,29 @@ export const AtelierErrorBanner = ({
     return null;
   }
 
+  const palette = BANNER_TONES[tone] || BANNER_TONES.error;
+
   return (
-    <View style={[styles.container, style]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: palette.bg,
+          borderColor: palette.border,
+        },
+        style,
+      ]}
+    >
       <View style={styles.row}>
         <Ionicons
-          name="alert-circle-outline"
+          name={palette.icon}
           size={20}
-          color={theme.colors.error}
+          color={palette.text}
           style={styles.icon}
         />
         <AtelierText
           variant="bodySmall"
-          color={theme.colors.error}
+          color={palette.text}
           style={styles.messageText}
         >
           {message}
@@ -35,13 +69,16 @@ export const AtelierErrorBanner = ({
             tone="surface"
             hitSlop={6}
             onPress={onRetry}
-            style={styles.retryButton}
+            style={[
+              styles.retryButton,
+              { borderColor: palette.border },
+            ]}
           >
             <AtelierText
               variant="caption"
-              color={theme.colors.error}
+              color={palette.text}
             >
-              Retry
+              {actionLabel}
             </AtelierText>
           </AtelierPressable>
         )}
@@ -52,9 +89,7 @@ export const AtelierErrorBanner = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.errorBg,
     borderWidth: 1,
-    borderColor: theme.colors.errorBorder,
     borderRadius: theme.radii.sm,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
@@ -79,7 +114,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: theme.colors.errorBorder,
     borderRadius: theme.radii.xs,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',

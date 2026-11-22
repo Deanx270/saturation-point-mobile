@@ -10,6 +10,7 @@ export const theme = {
     goldText: '#A16207',
     goldLight: '#FAF1D8',
     goldHover: '#A16207',
+    goldBorder: 'rgba(161, 98, 7, 0.28)',
     border: 'rgba(28, 25, 23, 0.08)',
     borderMedium: 'rgba(28, 25, 23, 0.16)',
     borderFocused: '#1C1917',

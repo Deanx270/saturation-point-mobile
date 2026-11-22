@@ -74,6 +74,8 @@ const GlobalAuthFeedback = () => {
         visible={Boolean(authNotice?.message)}
         toastKey={authNotice?.key}
         message={authNotice?.message}
+        iconName={authNotice?.tone === 'error' ? 'alert-circle' : 'checkmark-circle'}
+        iconColor={authNotice?.tone === 'error' ? theme.colors.errorBorder : theme.colors.gold}
         onDismiss={() => dispatch(clearAuthNotice())}
         style={{ bottom: Math.max(insets.bottom, theme.spacing.md) + 74 }}
       />

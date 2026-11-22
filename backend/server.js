@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -16,7 +17,19 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
+        fontSrc: ["'self'", 'https:', 'data:'],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        upgradeInsecureRequests: null,
+      },
+    },
+  })
+);
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

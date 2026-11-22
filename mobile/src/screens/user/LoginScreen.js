@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -9,7 +9,6 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import AtelierText from '../../components/common/AtelierText';
 import AtelierInput from '../../components/common/AtelierInput';
@@ -18,12 +17,12 @@ import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierBrandMark from '../../components/common/AtelierBrandMark';
 import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
-import AtelierCard from '../../components/common/AtelierCard';
-import AtelierToast from '../../components/common/AtelierToast';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
-import { login, resendVerification } from '../../redux/authSlice';
+import EmailVerificationNotice from '../../components/auth/EmailVerificationNotice';
+import { login } from '../../redux/authSlice';
 import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
 import { useRedirectIfAuthenticated } from '../../utils/authNavigation';
+import { useVerificationResend } from '../../utils/useVerificationResend';
 import {
   identifierSchemaField,
   loginPasswordSchemaField,
@@ -41,51 +40,33 @@ export const LoginScreen = ({ navigation, route }) => {
   const formTopRef = useRef(0);
   const fieldYRef = useRef({});
   const { loading } = useSelector((state) => state.auth);
+  const isVerifiedParam =
+    route?.params?.verified === true || route?.params?.verified === 'true';
+
   const [submitError, setSubmitError] = useState('');
   const [unverifiedNotice, setUnverifiedNotice] = useState(null);
-  const [resending, setResending] = useState(false);
-  const [toastState, setToastState] = useState({
-    visible: false,
-    message: '',
-    key: 0,
-  });
+  const [verifiedBannerVisible, setVerifiedBannerVisible] = useState(isVerifiedParam);
 
   const navigateToProfile = useRedirectIfAuthenticated(navigation);
+  const {
+    resending,
+    cooldownSeconds,
+    resetCooldown,
+    handleResend,
+  } = useVerificationResend();
 
-  const showToast = (message) => {
-    setToastState({
-      visible: true,
-      message,
-      key: Date.now(),
-    });
-  };
-
-  const handleResendFromLogin = async () => {
-    if (!unverifiedNotice?.email || resending) {
-      return;
+  useEffect(() => {
+    if (isVerifiedParam) {
+      setVerifiedBannerVisible(true);
+      setUnverifiedNotice(null);
+      setSubmitError('');
     }
-    setResending(true);
-    try {
-      const result = await dispatch(
-        resendVerification({ email: unverifiedNotice.email })
-      );
-      if (resendVerification.fulfilled.match(result)) {
-        showToast('Verification email resent. Please check your inbox.');
-      } else {
-        showToast(
-          typeof result.payload === 'string'
-            ? result.payload
-            : result.payload?.message || 'Failed to resend confirmation email.'
-        );
-      }
-    } finally {
-      setResending(false);
-    }
-  };
+  }, [isVerifiedParam]);
 
   const handleLoginSubmit = async (values, formikHelpers) => {
     setSubmitError('');
     setUnverifiedNotice(null);
+    setVerifiedBannerVisible(false);
     const cleanIdentifier = values.identifier.trim();
     const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
@@ -106,27 +87,26 @@ export const LoginScreen = ({ navigation, route }) => {
       if (!requiresOnboarding) {
         navigateToProfile();
       }
+    } else if (
+      result.payload &&
+      typeof result.payload === 'object' &&
+      result.payload.isEmailVerified === false
+    ) {
+      setUnverifiedNotice({
+        email: result.payload.email || cleanIdentifier,
+        message:
+          result.payload.message ||
+          'Please verify your email address before signing in.',
+      });
+      resetCooldown();
     } else {
-      if (
-        result.payload &&
-        typeof result.payload === 'object' &&
-        result.payload.isEmailVerified === false
-      ) {
-        setUnverifiedNotice({
-          email: result.payload.email || cleanIdentifier,
-          message:
-            result.payload.message ||
-            'Please verify your email address before signing in.',
-        });
-      } else {
-        const errorMsg =
-          typeof result.payload === 'string'
-            ? result.payload
-            : result.payload?.message || 'Invalid email or password.';
-        setSubmitError(errorMsg);
-        if (Platform.OS !== 'web') {
-          Alert.alert('Sign In Failed', errorMsg);
-        }
+      const errorMsg =
+        typeof result.payload === 'string'
+          ? result.payload
+          : result.payload?.message || 'Invalid email or password.';
+      setSubmitError(errorMsg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Sign In Failed', errorMsg);
       }
     }
   };
@@ -222,39 +202,22 @@ export const LoginScreen = ({ navigation, route }) => {
                 />
               </View>
 
-              {unverifiedNotice ? (
-                <AtelierCard style={styles.unverifiedCard}>
-                  <View style={styles.unverifiedHeader}>
-                    <Ionicons
-                      name="mail-unread-outline"
-                      size={20}
-                      color={theme.colors.gold}
-                      style={styles.unverifiedIcon}
-                    />
-                    <AtelierText
-                      variant="cardTitle"
-                      style={styles.unverifiedTitle}
-                    >
-                      Email Verification Required
-                    </AtelierText>
-                  </View>
-
-                  <AtelierText
-                    variant="bodySmall"
-                    color={theme.colors.inkSecondary}
-                    style={styles.unverifiedBody}
-                  >
-                    {unverifiedNotice.message}
-                  </AtelierText>
-
-                  <AtelierButton
-                    title={resending ? 'Resending Link...' : 'Resend Confirmation Link'}
-                    variant="secondary"
-                    loading={resending}
-                    onPress={handleResendFromLogin}
-                    style={styles.resendButton}
-                  />
-                </AtelierCard>
+              {verifiedBannerVisible ? (
+                <AtelierErrorBanner
+                  tone="success"
+                  message="Your email is confirmed. Sign in to continue."
+                  style={styles.errorBanner}
+                />
+              ) : unverifiedNotice ? (
+                <EmailVerificationNotice
+                  mode="inline"
+                  email={unverifiedNotice.email}
+                  message={unverifiedNotice.message}
+                  resending={resending}
+                  cooldownSeconds={cooldownSeconds}
+                  onResend={() => handleResend(unverifiedNotice.email)}
+                  style={styles.verificationBanner}
+                />
               ) : (
                 <AtelierErrorBanner
                   message={submitError}
@@ -307,13 +270,6 @@ export const LoginScreen = ({ navigation, route }) => {
           )}
         </Formik>
       </ScrollView>
-
-      <AtelierToast
-        visible={toastState.visible}
-        toastKey={toastState.key}
-        message={toastState.message}
-        onDismiss={() => setToastState((prev) => ({ ...prev, visible: false }))}
-      />
     </View>
   );
 };
@@ -342,30 +298,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginBottom: theme.spacing.md,
   },
-  unverifiedCard: {
-    backgroundColor: theme.colors.surfaceSubtle,
-    borderColor: theme.colors.goldBorder,
-    padding: theme.spacing.md,
+  verificationBanner: {
     marginBottom: theme.spacing.md,
-  },
-  unverifiedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  unverifiedIcon: {
-    marginRight: theme.spacing.xs,
-  },
-  unverifiedTitle: {
-    color: theme.colors.inkPrimary,
-  },
-  unverifiedBody: {
-    marginBottom: theme.spacing.md,
-    lineHeight: 18,
-  },
-  resendButton: {
-    minHeight: 40,
-    paddingVertical: theme.spacing.sm,
   },
   switchRow: {
     flexDirection: 'row',

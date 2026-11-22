@@ -1,9 +1,34 @@
+const fs = require('fs');
+const path = require('path');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { sendVerificationEmail } = require('../utils/emailService');
+
+let cachedLogoDataUri = null;
+
+const getLogoDataUri = () => {
+  if (cachedLogoDataUri !== null) {
+    return cachedLogoDataUri;
+  }
+  try {
+    const logoBuffer = fs.readFileSync(path.join(__dirname, '../assets/logo-mark.png'));
+    cachedLogoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+  } catch (e) {
+    cachedLogoDataUri = '';
+  }
+  return cachedLogoDataUri;
+};
+
+const escapeHtml = (value) =>
+  String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 const getAppBaseUrl = (req) => {
   if (process.env.APP_BASE_URL) {
@@ -12,8 +37,12 @@ const getAppBaseUrl = (req) => {
   if (process.env.API_URL) {
     return process.env.API_URL.replace(/\/+$/, '');
   }
+  const forwardedProto = typeof req.headers['x-forwarded-proto'] === 'string'
+    ? req.headers['x-forwarded-proto'].split(',')[0].trim()
+    : '';
+  const protocol = forwardedProto || req.protocol;
   const host = req.get('host') || 'localhost:5000';
-  return `${req.protocol}://${host}`;
+  return `${protocol}://${host}`;
 };
 
 const generateToken = (id) => {
@@ -83,7 +112,7 @@ const attachDevicePushToken = async (user, pushToken, device) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { email, password, displayName, username, photoURL, pushToken, device } = req.body;
+    const { email, password, displayName, username, photoURL } = req.body;
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
     if (!cleanEmail || !password) {
@@ -92,7 +121,14 @@ const registerUser = async (req, res) => {
 
     const userExists = await User.findOne({ email: cleanEmail });
     if (userExists) {
-      return res.status(400).json({ message: 'User with this email already exists' });
+      if (!userExists.isEmailVerified) {
+        return res.status(409).json({
+          message: 'An account with this email is already registered and awaiting email verification.',
+          isEmailVerified: false,
+          email: userExists.email,
+        });
+      }
+      return res.status(400).json({ message: 'An account with this email already exists.' });
     }
 
     let cleanUsername;
@@ -115,6 +151,10 @@ const registerUser = async (req, res) => {
       typeof displayName === 'string' && displayName.trim()
         ? displayName.trim()
         : formatFallbackNameFromEmail(cleanEmail);
+    const greetingName =
+      typeof displayName === 'string' && displayName.trim()
+        ? displayName.trim()
+        : '';
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -132,6 +172,7 @@ const registerUser = async (req, res) => {
       isEmailVerified: false,
       emailVerificationToken: hashedToken,
       emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      emailVerificationSentAt: new Date(),
       profileCompleted: Boolean(cleanUsername),
       pushTokens: [],
     };
@@ -140,19 +181,24 @@ const registerUser = async (req, res) => {
     }
 
     const user = await User.create(userData);
-    if (await attachDevicePushToken(user, pushToken, device)) {
-      await user.save();
-    }
 
     const verificationUrl = `${getAppBaseUrl(req)}/api/users/verify-email?token=${rawToken}`;
-    await sendVerificationEmail(cleanEmail, verificationUrl, cleanDisplayName);
+    const emailSent = await sendVerificationEmail(cleanEmail, verificationUrl, greetingName);
+
+    if (!emailSent) {
+      user.emailVerificationSentAt = undefined;
+      await user.save();
+    }
 
     res.status(201).json({
       requiresVerification: true,
       isEmailVerified: false,
+      emailSent,
       email: user.email,
       displayName: user.displayName,
-      message: 'Account registered successfully. Please check your email to verify your account before signing in.',
+      message: emailSent
+        ? 'Account created. Please check your email to confirm your account before signing in.'
+        : 'Account created, but we could not deliver the confirmation email right now. Please tap Resend below.',
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -440,19 +486,36 @@ const checkUsernameAvailability = async (req, res) => {
 };
 
 const renderVerificationPage = ({ success, title, subtitle, email = '' }) => {
+  const safeTitle = escapeHtml(title);
+  const safeSubtitle = escapeHtml(subtitle);
+  const safeEmail = email ? escapeHtml(email) : '';
+  const logoDataUri = getLogoDataUri();
+  const deepLinkHref =
+    success && email
+      ? `saturationpoint://login?prefillEmail=${encodeURIComponent(email)}&verified=true`
+      : 'saturationpoint://login';
+
   const iconSvg = success
-    ? `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CA8A04" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
-    : `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+    ? `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1F6B45" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
+    : `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#991B1B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+
+  const iconFrameClass = success ? 'icon-frame icon-success' : 'icon-frame icon-error';
+  const brandLogoMarkup = logoDataUri
+    ? `<img src="${logoDataUri}" alt="The Saturation Point" class="brand-logo" width="26" height="26">`
+    : '';
+  const emailBoxMarkup = safeEmail
+    ? `<div class="email-box">${safeEmail}</div>`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - The Saturation Point</title>
+  <title>${safeTitle} - The Saturation Point</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,400&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -470,63 +533,92 @@ const renderVerificationPage = ({ success, title, subtitle, email = '' }) => {
       background: #FFFFFF;
       max-width: 460px;
       width: 100%;
-      border-radius: 12px;
-      border: 1px solid #E7E5E4;
-      border-top: 4px solid #CA8A04;
-      box-shadow: 0 10px 25px -5px rgba(28, 25, 23, 0.05), 0 8px 10px -6px rgba(28, 25, 23, 0.04);
-      padding: 44px 32px 36px;
+      border-radius: 8px;
+      border: 1px solid rgba(28, 25, 23, 0.08);
+      border-top: 2px solid #CA8A04;
+      box-shadow: 0 2px 8px rgba(28, 25, 23, 0.06);
+      padding: 28px 28px 32px;
       text-align: center;
     }
-    .icon-wrapper {
-      width: 68px;
-      height: 68px;
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding-bottom: 20px;
+      margin-bottom: 28px;
+      border-bottom: 1px solid rgba(28, 25, 23, 0.08);
+    }
+    .brand-logo {
+      display: block;
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+    }
+    .brand-name {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1C1917;
+      letter-spacing: -0.1px;
+    }
+    .icon-frame {
+      width: 64px;
+      height: 64px;
       margin: 0 auto 20px;
-      border-radius: 50%;
-      background-color: #FAF9F6;
-      border: 1px solid #E7E5E4;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .brand-eyebrow {
-      font-size: 10.5px;
-      font-weight: 600;
-      color: #A16207;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      margin-bottom: 8px;
+    .icon-success {
+      background-color: #EFF6F1;
+      border: 1px solid #B9DBC4;
+    }
+    .icon-error {
+      background-color: #FEF2F2;
+      border: 1px solid #FCA5A5;
     }
     h1 {
       font-family: 'Lora', Georgia, serif;
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 600;
       color: #1C1917;
-      letter-spacing: -0.3px;
-      margin-bottom: 14px;
+      letter-spacing: -0.2px;
+      margin-bottom: 10px;
     }
-    p {
-      font-size: 14.5px;
+    .subtitle {
+      font-size: 14px;
       line-height: 1.6;
-      color: #57534E;
-      margin-bottom: 28px;
+      color: #44403C;
+      margin-bottom: 20px;
     }
-    .email-highlight {
+    .email-box {
+      background-color: #F4F2EC;
+      border: 1px solid rgba(28, 25, 23, 0.08);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 24px;
+      font-size: 13px;
       font-weight: 600;
       color: #1C1917;
       word-break: break-all;
     }
     .btn {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
+      min-height: 48px;
       background-color: #1C1917;
       color: #FFFFFF;
       font-family: 'Montserrat', sans-serif;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
-      letter-spacing: 1px;
-      text-transform: uppercase;
+      letter-spacing: 0.2px;
+      text-transform: none;
       text-decoration: none;
-      padding: 15px 24px;
+      padding: 12px 24px;
       border-radius: 6px;
       transition: background-color 0.2s ease;
     }
@@ -535,21 +627,25 @@ const renderVerificationPage = ({ success, title, subtitle, email = '' }) => {
     }
     .footer-note {
       font-size: 12px;
-      color: #A8A29E;
-      margin-top: 24px;
+      color: #57534E;
+      margin-top: 20px;
       margin-bottom: 0;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="icon-wrapper">
+    <div class="brand-row">
+      ${brandLogoMarkup}
+      <span class="brand-name">The Saturation Point</span>
+    </div>
+    <div class="${iconFrameClass}">
       ${iconSvg}
     </div>
-    <div class="brand-eyebrow">The Saturation Point</div>
-    <h1>${title}</h1>
-    <p>${subtitle}${email ? `<br><span class="email-highlight">${email}</span>` : ''}</p>
-    <a href="saturationpoint://login" class="btn">Open Saturation Point App</a>
+    <h1>${safeTitle}</h1>
+    <p class="subtitle">${safeSubtitle}</p>
+    ${emailBoxMarkup}
+    <a href="${deepLinkHref}" class="btn">Open Saturation Point App</a>
     <p class="footer-note">You can also return to the app manually.</p>
   </div>
 </body>
@@ -597,6 +693,7 @@ const verifyEmail = async (req, res) => {
     user.isEmailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
+    user.emailVerificationSentAt = undefined;
     await user.save();
 
     if (req.headers.accept?.includes('application/json')) {
@@ -628,6 +725,8 @@ const verifyEmail = async (req, res) => {
   }
 };
 
+const RESEND_COOLDOWN_MS = 30 * 1000;
+
 const resendVerificationEmail = async (req, res) => {
   try {
     const rawInput = req.body.email || req.body.identifier;
@@ -638,7 +737,7 @@ const resendVerificationEmail = async (req, res) => {
 
     const user = await User.findOne({
       $or: [{ email: cleanInput }, { username: cleanInput }],
-    });
+    }).select('+emailVerificationSentAt');
 
     if (!user) {
       return res.status(404).json({ message: 'No account found with this email address' });
@@ -651,17 +750,40 @@ const resendVerificationEmail = async (req, res) => {
       });
     }
 
+    if (user.emailVerificationSentAt) {
+      const elapsed = Date.now() - new Date(user.emailVerificationSentAt).getTime();
+      if (elapsed < RESEND_COOLDOWN_MS) {
+        const retryAfterSeconds = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
+        return res.status(429).json({
+          message: `Please wait ${retryAfterSeconds} seconds before requesting another confirmation link.`,
+          retryAfterSeconds,
+        });
+      }
+    }
+
+    const previousSentAt = user.emailVerificationSentAt;
     const rawToken = crypto.randomBytes(32).toString('hex');
     user.emailVerificationToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.emailVerificationSentAt = new Date();
     await user.save();
 
     const verificationUrl = `${getAppBaseUrl(req)}/api/users/verify-email?token=${rawToken}`;
-    await sendVerificationEmail(user.email, verificationUrl, user.displayName);
+    const greetingName = user.profileCompleted ? user.displayName : '';
+    const emailSent = await sendVerificationEmail(user.email, verificationUrl, greetingName);
+
+    if (!emailSent) {
+      user.emailVerificationSentAt = previousSentAt;
+      await user.save();
+      return res.status(503).json({
+        message: 'Unable to deliver the confirmation email right now. Please try again in a moment.',
+      });
+    }
 
     res.json({
-      message: 'A fresh confirmation link has been sent to your email.',
+      message: 'A new confirmation link has been sent to your email.',
       email: user.email,
+      cooldownSeconds: 60,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

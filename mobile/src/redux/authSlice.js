@@ -37,6 +37,7 @@ export const register = createAsyncThunk(
       if (response.data?.requiresVerification) {
         return {
           requiresVerification: true,
+          emailSent: response.data.emailSent !== false,
           email: response.data.email,
           message: response.data.message,
         };
@@ -46,6 +47,15 @@ export const register = createAsyncThunk(
       await saveAuthUser(user);
       return { token, user };
     } catch (error) {
+      if (error.response?.data?.isEmailVerified === false) {
+        return rejectWithValue({
+          message:
+            error.response.data.message ||
+            'This email is already registered and awaiting verification.',
+          isEmailVerified: false,
+          email: error.response.data.email || credentials.email,
+        });
+      }
       return rejectWithValue(
         error.response?.data?.message || error.message || 'Registration failed'
       );
@@ -91,6 +101,14 @@ export const resendVerification = createAsyncThunk(
       });
       return response.data;
     } catch (error) {
+      if (error.response?.data?.retryAfterSeconds) {
+        return rejectWithValue({
+          message:
+            error.response.data.message ||
+            `Please wait ${error.response.data.retryAfterSeconds} seconds before requesting another confirmation link.`,
+          retryAfterSeconds: error.response.data.retryAfterSeconds,
+        });
+      }
       return rejectWithValue(
         error.response?.data?.message ||
           error.message ||
@@ -198,6 +216,19 @@ const authSlice = createSlice({
     clearAuthNotice: (state) => {
       state.authNotice = null;
     },
+    showAuthNotice: (state, action) => {
+      const payload =
+        typeof action.payload === 'string'
+          ? { message: action.payload, tone: 'success' }
+          : action.payload || {};
+      if (payload.message) {
+        state.authNotice = {
+          key: Date.now(),
+          message: payload.message,
+          tone: payload.tone || 'success',
+        };
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -228,7 +259,10 @@ const authSlice = createSlice({
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error =
+          typeof action.payload === 'object' && action.payload?.message
+            ? action.payload.message
+            : action.payload;
       })
       .addCase(login.pending, (state) => {
         state.loading = true;
@@ -297,6 +331,7 @@ export const {
   requestSignOut,
   cancelSignOut,
   clearAuthNotice,
+  showAuthNotice,
 } = authSlice.actions;
 
 export default authSlice.reducer;
