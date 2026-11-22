@@ -48,12 +48,9 @@ export const LoginScreen = ({ navigation, route }) => {
   const [verifiedBannerVisible, setVerifiedBannerVisible] = useState(isVerifiedParam);
 
   const navigateToProfile = useRedirectIfAuthenticated(navigation);
-  const {
-    resending,
-    cooldownSeconds,
-    resetCooldown,
-    handleResend,
-  } = useVerificationResend();
+  const { resending, cooldownSeconds, handleResend } = useVerificationResend(
+    unverifiedNotice?.email || ''
+  );
 
   useEffect(() => {
     if (isVerifiedParam) {
@@ -92,13 +89,15 @@ export const LoginScreen = ({ navigation, route }) => {
       typeof result.payload === 'object' &&
       result.payload.isEmailVerified === false
     ) {
+      const accountEmail = result.payload.email || cleanIdentifier;
+      const typedOwnEmail =
+        accountEmail.toLowerCase() === cleanIdentifier.toLowerCase();
       setUnverifiedNotice({
-        email: result.payload.email || cleanIdentifier,
-        message:
-          result.payload.message ||
-          'Please verify your email address before signing in.',
+        email: accountEmail,
+        message: typedOwnEmail
+          ? 'Confirm your email address before signing in.'
+          : `Confirm the link sent to ${accountEmail} before signing in.`,
       });
-      resetCooldown();
     } else {
       const errorMsg =
         typeof result.payload === 'string'
@@ -211,7 +210,6 @@ export const LoginScreen = ({ navigation, route }) => {
               ) : unverifiedNotice ? (
                 <EmailVerificationNotice
                   mode="inline"
-                  email={unverifiedNotice.email}
                   message={unverifiedNotice.message}
                   resending={resending}
                   cooldownSeconds={cooldownSeconds}

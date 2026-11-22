@@ -49,13 +49,10 @@ export const RegisterScreen = ({ navigation }) => {
   const [unverifiedExisting, setUnverifiedExisting] = useState(null);
 
   const navigateToProfile = useRedirectIfAuthenticated(navigation);
-  const {
-    resending,
-    cooldownSeconds,
-    startCooldown,
-    resetCooldown,
-    handleResend,
-  } = useVerificationResend();
+  const activeVerificationEmail =
+    pendingVerification?.email || unverifiedExisting?.email || '';
+  const { resending, cooldownSeconds, handleResend } =
+    useVerificationResend(activeVerificationEmail);
 
   useEffect(() => {
     if (!pendingVerification || Platform.OS === 'web') {
@@ -93,11 +90,6 @@ export const RegisterScreen = ({ navigation }) => {
           email: targetEmail,
           emailSent,
         });
-        if (emailSent) {
-          startCooldown(60);
-        } else {
-          resetCooldown();
-        }
         return;
       }
       const signedInUser = result.payload?.user;
@@ -114,11 +106,8 @@ export const RegisterScreen = ({ navigation }) => {
     ) {
       setUnverifiedExisting({
         email: result.payload.email || cleanEmail,
-        message:
-          result.payload.message ||
-          'An account with this email is already registered and awaiting email verification.',
+        message: 'This email is already registered, but not yet confirmed.',
       });
-      resetCooldown();
     } else {
       const errorMsg =
         typeof result.payload === 'string'
@@ -275,7 +264,6 @@ export const RegisterScreen = ({ navigation }) => {
               {unverifiedExisting ? (
                 <EmailVerificationNotice
                   mode="inline"
-                  email={unverifiedExisting.email}
                   message={unverifiedExisting.message}
                   resending={resending}
                   cooldownSeconds={cooldownSeconds}
@@ -357,7 +345,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.xl,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.section,
   },
   formContainer: {
     marginTop: theme.spacing.xs,

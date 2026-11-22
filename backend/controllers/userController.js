@@ -110,6 +110,19 @@ const attachDevicePushToken = async (user, pushToken, device) => {
   return true;
 };
 
+const RESEND_COOLDOWN_MS = 60 * 1000;
+
+const getRemainingCooldownSeconds = (user) => {
+  if (!user?.emailVerificationSentAt) {
+    return 0;
+  }
+  const elapsed = Date.now() - new Date(user.emailVerificationSentAt).getTime();
+  if (elapsed >= RESEND_COOLDOWN_MS) {
+    return 0;
+  }
+  return Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
+};
+
 const registerUser = async (req, res) => {
   try {
     const { email, password, displayName, username, photoURL } = req.body;
@@ -119,13 +132,14 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const userExists = await User.findOne({ email: cleanEmail });
+    const userExists = await User.findOne({ email: cleanEmail }).select('+emailVerificationSentAt');
     if (userExists) {
       if (!userExists.isEmailVerified) {
         return res.status(409).json({
-          message: 'An account with this email is already registered and awaiting email verification.',
+          message: 'This email is already registered, but not yet confirmed.',
           isEmailVerified: false,
           email: userExists.email,
+          retryAfterSeconds: getRemainingCooldownSeconds(userExists),
         });
       }
       return res.status(400).json({ message: 'An account with this email already exists.' });
@@ -194,11 +208,12 @@ const registerUser = async (req, res) => {
       requiresVerification: true,
       isEmailVerified: false,
       emailSent,
+      cooldownSeconds: emailSent ? 60 : 0,
       email: user.email,
       displayName: user.displayName,
       message: emailSent
-        ? 'Account created. Please check your email to confirm your account before signing in.'
-        : 'Account created, but we could not deliver the confirmation email right now. Please tap Resend below.',
+        ? 'Account created. Check your inbox to confirm your email before signing in.'
+        : 'Account created, but the confirmation email could not be sent yet. Tap Resend below.',
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -226,7 +241,7 @@ const loginUser = async (req, res) => {
         { email: normalizedIdentifier },
         { username: normalizedIdentifier },
       ],
-    }).select('+password');
+    }).select('+password +emailVerificationSentAt');
     if (!user) {
       return res.status(401).json({ message: 'Invalid email, username, or password' });
     }
@@ -242,9 +257,10 @@ const loginUser = async (req, res) => {
 
     if (!user.isEmailVerified) {
       return res.status(403).json({
-        message: 'Please verify your email address before logging in.',
+        message: 'Confirm your email address before signing in.',
         isEmailVerified: false,
         email: user.email,
+        retryAfterSeconds: getRemainingCooldownSeconds(user),
       });
     }
 
@@ -594,10 +610,12 @@ const renderVerificationPage = ({ success, title, subtitle, email = '' }) => {
       margin-bottom: 20px;
     }
     .email-box {
+      display: inline-block;
+      max-width: 100%;
       background-color: #F4F2EC;
       border: 1px solid rgba(28, 25, 23, 0.08);
       border-radius: 6px;
-      padding: 10px 14px;
+      padding: 8px 16px;
       margin-bottom: 24px;
       font-size: 13px;
       font-weight: 600;
@@ -663,7 +681,7 @@ const verifyEmail = async (req, res) => {
         renderVerificationPage({
           success: false,
           title: 'Verification Token Missing',
-          subtitle: 'No verification token was provided in this confirmation link.',
+          subtitle: 'This confirmation link is missing a verification token.',
         })
       );
     }
@@ -685,7 +703,7 @@ const verifyEmail = async (req, res) => {
         renderVerificationPage({
           success: false,
           title: 'Link Expired or Already Used',
-          subtitle: 'This confirmation link is invalid or has expired. Please sign in or request a new confirmation link from the app.',
+          subtitle: 'This link has expired or was already used. Request a new one from the app.',
         })
       );
     }
@@ -707,7 +725,7 @@ const verifyEmail = async (req, res) => {
       renderVerificationPage({
         success: true,
         title: 'Email Confirmed',
-        subtitle: 'Your email has been verified successfully. Your Saturation Point account is now active.',
+        subtitle: 'Your account is now active and ready for sign-in.',
         email: user.email,
       })
     );
@@ -719,13 +737,11 @@ const verifyEmail = async (req, res) => {
       renderVerificationPage({
         success: false,
         title: 'Verification Error',
-        subtitle: 'An unexpected error occurred while verifying your email. Please try again later.',
+        subtitle: 'Unable to verify your email right now. Please try again shortly.',
       })
     );
   }
 };
-
-const RESEND_COOLDOWN_MS = 30 * 1000;
 
 const resendVerificationEmail = async (req, res) => {
   try {
@@ -750,15 +766,12 @@ const resendVerificationEmail = async (req, res) => {
       });
     }
 
-    if (user.emailVerificationSentAt) {
-      const elapsed = Date.now() - new Date(user.emailVerificationSentAt).getTime();
-      if (elapsed < RESEND_COOLDOWN_MS) {
-        const retryAfterSeconds = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
-        return res.status(429).json({
-          message: `Please wait ${retryAfterSeconds} seconds before requesting another confirmation link.`,
-          retryAfterSeconds,
-        });
-      }
+    const retryAfterSeconds = getRemainingCooldownSeconds(user);
+    if (retryAfterSeconds > 0) {
+      return res.status(429).json({
+        message: `Please wait ${retryAfterSeconds} seconds before requesting another confirmation link.`,
+        retryAfterSeconds,
+      });
     }
 
     const previousSentAt = user.emailVerificationSentAt;

@@ -13,6 +13,22 @@ import {
   registerForPushNotificationsAsync,
 } from '../services/pushNotificationService';
 
+const normalizeEmailKey = (email) =>
+  typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+const applyVerificationCooldown = (state, email, seconds) => {
+  const key = normalizeEmailKey(email);
+  const numericSeconds = Number(seconds) || 0;
+  if (!key || numericSeconds <= 0) {
+    return;
+  }
+  const nextExpiry = Date.now() + Math.ceil(numericSeconds) * 1000;
+  const prevExpiry = state.verificationCooldowns[key] || 0;
+  if (nextExpiry > prevExpiry) {
+    state.verificationCooldowns[key] = nextExpiry;
+  }
+};
+
 export const loadStoredAuth = createAsyncThunk(
   'auth/loadStoredAuth',
   async (_, { rejectWithValue }) => {
@@ -35,9 +51,16 @@ export const register = createAsyncThunk(
     try {
       const response = await apiClient.post('/users/register', credentials);
       if (response.data?.requiresVerification) {
+        const emailSent = response.data.emailSent !== false;
         return {
           requiresVerification: true,
-          emailSent: response.data.emailSent !== false,
+          emailSent,
+          cooldownSeconds:
+            typeof response.data.cooldownSeconds === 'number'
+              ? response.data.cooldownSeconds
+              : emailSent
+                ? 60
+                : 0,
           email: response.data.email,
           message: response.data.message,
         };
@@ -51,9 +74,10 @@ export const register = createAsyncThunk(
         return rejectWithValue({
           message:
             error.response.data.message ||
-            'This email is already registered and awaiting verification.',
+            'This email is already registered, but not yet confirmed.',
           isEmailVerified: false,
           email: error.response.data.email || credentials.email,
+          retryAfterSeconds: Number(error.response.data.retryAfterSeconds) || 0,
         });
       }
       return rejectWithValue(
@@ -77,12 +101,13 @@ export const login = createAsyncThunk(
         return rejectWithValue({
           message:
             error.response.data.message ||
-            'Please verify your email address before signing in.',
+            'Confirm your email address before signing in.',
           isEmailVerified: false,
           email:
             error.response.data.email ||
             credentials.email ||
             credentials.identifier,
+          retryAfterSeconds: Number(error.response.data.retryAfterSeconds) || 0,
         });
       }
       return rejectWithValue(
@@ -107,6 +132,7 @@ export const resendVerification = createAsyncThunk(
             error.response.data.message ||
             `Please wait ${error.response.data.retryAfterSeconds} seconds before requesting another confirmation link.`,
           retryAfterSeconds: error.response.data.retryAfterSeconds,
+          email,
         });
       }
       return rejectWithValue(
@@ -201,6 +227,7 @@ const authSlice = createSlice({
     signingOut: false,
     signOutPromptVisible: false,
     authNotice: null,
+    verificationCooldowns: {},
     error: null,
   },
   reducers: {
@@ -229,6 +256,13 @@ const authSlice = createSlice({
         };
       }
     },
+    setVerificationCooldown: (state, action) => {
+      applyVerificationCooldown(
+        state,
+        action.payload?.email,
+        action.payload?.seconds
+      );
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -252,6 +286,13 @@ const authSlice = createSlice({
         if (action.payload?.requiresVerification) {
           state.token = null;
           state.user = null;
+          if (action.payload.emailSent !== false) {
+            applyVerificationCooldown(
+              state,
+              action.payload.email,
+              action.payload.cooldownSeconds || 60
+            );
+          }
         } else {
           state.token = action.payload.token;
           state.user = action.payload.user;
@@ -259,6 +300,18 @@ const authSlice = createSlice({
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
+        if (
+          action.payload &&
+          typeof action.payload === 'object' &&
+          action.payload.isEmailVerified === false &&
+          action.payload.retryAfterSeconds > 0
+        ) {
+          applyVerificationCooldown(
+            state,
+            action.payload.email,
+            action.payload.retryAfterSeconds
+          );
+        }
         state.error =
           typeof action.payload === 'object' && action.payload?.message
             ? action.payload.message
@@ -275,10 +328,42 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
+        if (
+          action.payload &&
+          typeof action.payload === 'object' &&
+          action.payload.isEmailVerified === false &&
+          action.payload.retryAfterSeconds > 0
+        ) {
+          applyVerificationCooldown(
+            state,
+            action.payload.email,
+            action.payload.retryAfterSeconds
+          );
+        }
         state.error =
           typeof action.payload === 'object' && action.payload?.message
             ? action.payload.message
             : action.payload;
+      })
+      .addCase(resendVerification.fulfilled, (state, action) => {
+        applyVerificationCooldown(
+          state,
+          action.payload?.email || action.meta.arg?.email,
+          action.payload?.cooldownSeconds || 60
+        );
+      })
+      .addCase(resendVerification.rejected, (state, action) => {
+        if (
+          action.payload &&
+          typeof action.payload === 'object' &&
+          action.payload.retryAfterSeconds > 0
+        ) {
+          applyVerificationCooldown(
+            state,
+            action.payload.email || action.meta.arg?.email,
+            action.payload.retryAfterSeconds
+          );
+        }
       })
       .addCase(socialLogin.pending, (state) => {
         state.loading = true;
@@ -332,6 +417,7 @@ export const {
   cancelSignOut,
   clearAuthNotice,
   showAuthNotice,
+  setVerificationCooldown,
 } = authSlice.actions;
 
 export default authSlice.reducer;

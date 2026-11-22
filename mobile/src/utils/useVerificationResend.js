@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import * as Haptics from 'expo-haptics';
-import { resendVerification, showAuthNotice } from '../redux/authSlice';
+import {
+  resendVerification,
+  showAuthNotice,
+  setVerificationCooldown,
+} from '../redux/authSlice';
 
 export const formatCooldownTime = (seconds) => {
   const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -11,42 +15,65 @@ export const formatCooldownTime = (seconds) => {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 };
 
-export const useVerificationResend = () => {
+const normalizeKey = (email) =>
+  typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+const computeRemaining = (expiresAt) =>
+  expiresAt > Date.now() ? Math.ceil((expiresAt - Date.now()) / 1000) : 0;
+
+export const useVerificationResend = (targetEmail = '') => {
   const dispatch = useDispatch();
   const [resending, setResending] = useState(false);
-  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const emailKey = normalizeKey(targetEmail);
+  const cooldowns = useSelector((state) => state.auth.verificationCooldowns);
+  const expiresAt = emailKey ? cooldowns?.[emailKey] || 0 : 0;
+
+  const [cooldownSeconds, setCooldownSeconds] = useState(() =>
+    computeRemaining(expiresAt)
+  );
 
   useEffect(() => {
-    if (cooldownSeconds <= 0) {
+    const initial = computeRemaining(expiresAt);
+    setCooldownSeconds(initial);
+    if (initial <= 0) {
       return undefined;
     }
-    const timer = setTimeout(() => {
-      setCooldownSeconds((prev) => Math.max(0, prev - 1));
+    const interval = setInterval(() => {
+      const next = computeRemaining(expiresAt);
+      setCooldownSeconds(next);
+      if (next <= 0) {
+        clearInterval(interval);
+      }
     }, 1000);
-    return () => clearTimeout(timer);
-  }, [cooldownSeconds]);
-
-  const startCooldown = useCallback((seconds = 60) => {
-    setCooldownSeconds(Math.max(0, Math.ceil(Number(seconds) || 0)));
-  }, []);
-
-  const resetCooldown = useCallback(() => {
-    setCooldownSeconds(0);
-  }, []);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
 
   const handleResend = useCallback(
-    async (email) => {
-      if (!email || resending || cooldownSeconds > 0) {
+    async (emailOverride) => {
+      const resolvedEmail =
+        typeof emailOverride === 'string' && emailOverride.trim()
+          ? emailOverride.trim()
+          : targetEmail.trim();
+      const key = normalizeKey(resolvedEmail);
+      const activeExpiry = key ? cooldowns?.[key] || 0 : 0;
+      if (!key || resending || computeRemaining(activeExpiry) > 0) {
         return;
       }
       setResending(true);
       try {
-        const result = await dispatch(resendVerification({ email }));
+        const result = await dispatch(
+          resendVerification({ email: resolvedEmail })
+        );
         if (resendVerification.fulfilled.match(result)) {
-          startCooldown(result.payload?.cooldownSeconds || 60);
+          dispatch(
+            setVerificationCooldown({
+              email: resolvedEmail,
+              seconds: result.payload?.cooldownSeconds || 60,
+            })
+          );
           dispatch(
             showAuthNotice({
-              message: 'Confirmation link sent. Please check your inbox.',
+              message: 'Confirmation link sent. Check your inbox.',
               tone: 'success',
             })
           );
@@ -58,8 +85,13 @@ export const useVerificationResend = () => {
             } catch (e) {}
           }
         } else {
-          if (result.payload?.retryAfterSeconds) {
-            startCooldown(result.payload.retryAfterSeconds);
+          if (result.payload?.retryAfterSeconds > 0) {
+            dispatch(
+              setVerificationCooldown({
+                email: resolvedEmail,
+                seconds: result.payload.retryAfterSeconds,
+              })
+            );
           }
           const errorMessage =
             typeof result.payload === 'string'
@@ -76,14 +108,12 @@ export const useVerificationResend = () => {
         setResending(false);
       }
     },
-    [dispatch, resending, cooldownSeconds, startCooldown]
+    [dispatch, targetEmail, cooldowns, resending]
   );
 
   return {
     resending,
     cooldownSeconds,
-    startCooldown,
-    resetCooldown,
     handleResend,
   };
 };

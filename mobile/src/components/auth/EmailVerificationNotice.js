@@ -32,21 +32,21 @@ export const EmailVerificationNotice = ({
 }) => {
   if (mode === 'screen') {
     const description = emailSent
-      ? 'Open the confirmation link we sent to activate your account. Check your spam or promotions folder if it does not arrive shortly.'
-      : 'Your account was created, but we could not deliver the confirmation email just yet. Tap resend below to send a new link.';
+      ? 'Open the link sent to your inbox to activate your account. Check spam if it isn\u2019t there.'
+      : 'Your account was created, but we couldn\u2019t send the link yet. Tap Resend below.';
 
     return (
       <View style={[styles.screenContainer, style]}>
         <View style={styles.iconFrame}>
           <Ionicons
             name="mail-unread-outline"
-            size={32}
+            size={30}
             color={theme.colors.goldText}
           />
         </View>
 
         <AtelierText
-          variant="overline"
+          variant="caption"
           color={theme.colors.goldText}
           style={styles.screenEyebrow}
         >
@@ -163,16 +163,6 @@ export const EmailVerificationNotice = ({
         {message}
       </AtelierText>
 
-      {email ? (
-        <AtelierText
-          variant="bodySmall"
-          color={theme.colors.inkPrimary}
-          style={styles.inlineEmail}
-        >
-          {email}
-        </AtelierText>
-      ) : null}
-
       <AtelierButton
         title={getResendLabel(resending, cooldownSeconds, true)}
         variant="outline"
@@ -219,12 +209,7 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.xs,
   },
   inlineBody: {
-    lineHeight: 18,
-    marginBottom: theme.spacing.xs,
-  },
-  inlineEmail: {
-    fontFamily: 'Montserrat_600SemiBold',
-    lineHeight: 18,
+    lineHeight: 19,
     marginBottom: theme.spacing.md,
   },
   inlineButton: {
@@ -240,21 +225,22 @@ const styles = StyleSheet.create({
   screenContainer: {
     width: '100%',
     alignItems: 'center',
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
   },
   iconFrame: {
-    width: 72,
-    height: 72,
+    width: 68,
+    height: 68,
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   screenEyebrow: {
     textAlign: 'center',
+    letterSpacing: 0.5,
     marginBottom: theme.spacing.xs,
   },
   screenTitle: {
@@ -264,8 +250,8 @@ const styles = StyleSheet.create({
   screenDescription: {
     textAlign: 'center',
     lineHeight: 22,
+    maxWidth: 310,
     marginBottom: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.xs,
   },
   detailsCard: {
     width: '100%',
@@ -303,7 +289,7 @@ const styles = StyleSheet.create({
   },
   secondaryAction: {
     width: '100%',
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   editEmailLink: {
     minHeight: theme.touchTarget.minHeight,
