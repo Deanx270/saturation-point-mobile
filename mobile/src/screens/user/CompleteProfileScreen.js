@@ -121,13 +121,14 @@ export const CompleteProfileScreen = () => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
             setFieldValue,
-            validateForm,
+            setErrors,
+            setSubmitting,
             setTouched,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => {
             const usernameFeedback = getUsernameFeedback(
               errors.username,
@@ -194,18 +195,32 @@ export const CompleteProfileScreen = () => {
                 />
 
                 <AtelierButton
-                  title={loading && !skipping ? 'Saving...' : 'Continue'}
+                  title={
+                    (loading || isSubmitting) && !skipping
+                      ? 'Saving...'
+                      : 'Continue'
+                  }
                   onPress={() =>
                     submitFormWithScroll({
-                      validateForm,
+                      schema: CompleteProfileSchema,
+                      values,
+                      setErrors,
                       setTouched,
-                      handleSubmit,
+                      setSubmitting,
+                      onSubmit: handleCompleteSubmit,
                       scrollViewRef,
                       yPositions: fieldYRef.current,
                       fieldOrder: ['displayName', 'username'],
+                      onBeforeValidate: () => {
+                        if (availabilityState.status === 'taken') {
+                          setSubmitError('Please choose another username.');
+                          return { username: 'That username is already taken.' };
+                        }
+                        return {};
+                      },
                     })
                   }
-                  loading={loading && !skipping}
+                  loading={(loading || isSubmitting) && !skipping}
                   disabled={
                     skipping ||
                     availabilityState.status === 'checking' ||
@@ -218,14 +233,14 @@ export const CompleteProfileScreen = () => {
                   title={skipping ? 'Continuing...' : 'Skip for Now'}
                   variant="outline"
                   loading={skipping}
-                  disabled={loading && !skipping}
+                  disabled={(loading || isSubmitting) && !skipping}
                   onPress={handleSkipOnboarding}
                 />
 
                 <AtelierPressable
                   tone="subtle"
                   hitSlop={8}
-                  disabled={loading || skipping}
+                  disabled={loading || isSubmitting || skipping}
                   onPress={() => dispatch(requestSignOut())}
                   style={styles.signOutLink}
                 >

@@ -17,8 +17,7 @@ import AtelierPressable from '../../components/common/AtelierPressable';
 import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import SocialAuthSection from '../../components/auth/SocialAuthSection';
 import EmailVerificationNotice from '../../components/auth/EmailVerificationNotice';
-import { login } from '../../redux/authSlice';
-import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
+import { login, syncPushToken } from '../../redux/authSlice';
 import { useRedirectIfAuthenticated } from '../../utils/authNavigation';
 import { useVerificationResend } from '../../utils/useVerificationResend';
 import {
@@ -63,18 +62,17 @@ export const LoginScreen = ({ navigation, route }) => {
     setUnverifiedNotice(null);
     setVerifiedBannerVisible(false);
     const cleanIdentifier = values.identifier.trim();
-    const pushToken = await registerForPushNotificationsAsync();
     const result = await dispatch(
       login({
         identifier: cleanIdentifier,
         email: cleanIdentifier,
         password: values.password,
-        pushToken,
       })
     );
 
     if (login.fulfilled.match(result)) {
       formikHelpers.resetForm();
+      dispatch(syncPushToken({ requestPermission: true }));
       const signedInUser = result.payload?.user;
       const requiresOnboarding = Boolean(
         signedInUser && !signedInUser.username && !signedInUser.profileCompleted
@@ -137,12 +135,14 @@ export const LoginScreen = ({ navigation, route }) => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
-            validateForm,
+            setErrors,
+            setSubmitting,
+            resetForm,
             setTouched,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => (
             <View
               style={styles.formContainer}
@@ -219,18 +219,22 @@ export const LoginScreen = ({ navigation, route }) => {
               )}
 
               <AtelierButton
-                title={loading ? 'Signing In...' : 'Sign In'}
+                title={loading || isSubmitting ? 'Signing In...' : 'Sign In'}
                 onPress={() =>
                   submitFormWithScroll({
-                    validateForm,
+                    schema: LoginSchema,
+                    values,
+                    setErrors,
                     setTouched,
-                    handleSubmit,
+                    setSubmitting,
+                    resetForm,
+                    onSubmit: handleLoginSubmit,
                     scrollViewRef,
                     yPositions: fieldYRef.current,
                     fieldOrder: ['identifier', 'password'],
                   })
                 }
-                loading={loading}
+                loading={loading || isSubmitting}
                 style={styles.submitButton}
               />
 

@@ -111,7 +111,7 @@ export const CheckoutScreen = ({ navigation }) => {
             if (active && res.data?._id) {
               dispatch(syncCartProductPricing(res.data));
             }
-          } catch (e) {}
+          } catch (e) { }
         })
       );
       return () => {
@@ -190,8 +190,7 @@ export const CheckoutScreen = ({ navigation }) => {
 
             if (Math.abs(pricing.effectivePrice - Number(item.price)) > 0.01) {
               notices.push(
-                `${item.name} price updated to ${formatPrice(pricing.effectivePrice)} (${
-                  pricing.hasPromo ? 'promotion updated' : 'promotion ended'
+                `${item.name} price updated to ${formatPrice(pricing.effectivePrice)} (${pricing.hasPromo ? 'promotion updated' : 'promotion ended'
                 }).`
               );
             }
@@ -220,7 +219,7 @@ export const CheckoutScreen = ({ navigation }) => {
 
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {}
+    } catch (e) { }
 
     const orderPayload = {
       orderItems: syncedItems.map((i) => ({
@@ -277,13 +276,14 @@ export const CheckoutScreen = ({ navigation }) => {
         {({
           handleChange,
           handleBlur,
-          handleSubmit,
           setFieldValue,
-          validateForm,
+          setErrors,
           setTouched,
+          setSubmitting,
           values,
           errors,
           touched,
+          isSubmitting,
         }) => (
           <KeyboardAvoidingView
             style={styles.flexBody}
@@ -487,21 +487,24 @@ export const CheckoutScreen = ({ navigation }) => {
             <View style={styles.footerBar}>
               <AtelierButton
                 title={
-                  loading || verifyingCheckout
+                  loading || verifyingCheckout || isSubmitting
                     ? 'Placing Order...'
                     : `Place Order (${formatPrice(total)})`
                 }
                 onPress={() =>
                   submitFormWithScroll({
-                    validateForm,
+                    schema: CheckoutSchema,
+                    values,
+                    setErrors,
                     setTouched,
-                    handleSubmit,
+                    setSubmitting,
+                    onSubmit: handleOrderSubmit,
                     scrollViewRef,
                     yPositions: fieldYRef.current,
                     fieldOrder: ['street', 'city', 'postalCode', 'country'],
                   })
                 }
-                loading={loading || verifyingCheckout}
+                loading={loading || verifyingCheckout || isSubmitting}
                 style={styles.submitButton}
               />
             </View>

@@ -598,12 +598,13 @@ export const ProfileScreen = ({ navigation }) => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
-            validateForm,
+            setErrors,
+            setSubmitting,
             setTouched,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => (
             <View
               onLayout={(e) => {
@@ -627,19 +628,24 @@ export const ProfileScreen = ({ navigation }) => {
               />
 
               <AtelierButton
-                title={savingProfile ? 'Saving...' : 'Save Changes'}
+                title={
+                  savingProfile || isSubmitting ? 'Saving...' : 'Save Changes'
+                }
                 onPress={() =>
                   submitFormWithScroll({
-                    validateForm,
+                    schema: ProfileSchema,
+                    values,
+                    setErrors,
                     setTouched,
-                    handleSubmit,
+                    setSubmitting,
+                    onSubmit: handleProfileSubmit,
                     scrollViewRef,
                     yPositions: { displayName: editSectionTopRef.current },
                     fieldOrder: ['displayName'],
                   })
                 }
-                loading={savingProfile}
-                disabled={uploadingPhoto || savingProfile}
+                loading={savingProfile || isSubmitting}
+                disabled={uploadingPhoto || savingProfile || isSubmitting}
                 style={styles.saveButton}
               />
 
@@ -647,7 +653,7 @@ export const ProfileScreen = ({ navigation }) => {
                 title="Sign Out"
                 onPress={handleLogout}
                 variant="outline"
-                disabled={savingProfile}
+                disabled={savingProfile || isSubmitting}
                 style={styles.logoutButton}
               />
             </View>
@@ -699,11 +705,14 @@ export const ProfileScreen = ({ navigation }) => {
         >
           {({
             handleBlur,
-            handleSubmit,
             setFieldValue,
+            setErrors,
+            setTouched,
+            setSubmitting,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => {
             const usernameFeedback = getUsernameFeedback(
               errors.username,
@@ -738,11 +747,33 @@ export const ProfileScreen = ({ navigation }) => {
                 />
 
                 <AtelierButton
-                  title={savingUsername ? 'Saving...' : 'Save Username'}
-                  onPress={handleSubmit}
-                  loading={savingUsername}
+                  title={
+                    savingUsername || isSubmitting
+                      ? 'Saving...'
+                      : 'Save Username'
+                  }
+                  onPress={() =>
+                    submitFormWithScroll({
+                      schema: SetUsernameSchema,
+                      values,
+                      setErrors,
+                      setTouched,
+                      setSubmitting,
+                      onSubmit: handleSetUsernameSubmit,
+                      fieldOrder: ['username'],
+                      onBeforeValidate: () => {
+                        if (availabilityState.status === 'taken') {
+                          setUsernameErrorMsg('That username is already taken.');
+                          return { username: 'That username is already taken.' };
+                        }
+                        return {};
+                      },
+                    })
+                  }
+                  loading={savingUsername || isSubmitting}
                   disabled={
                     savingUsername ||
+                    isSubmitting ||
                     availabilityState.status === 'checking' ||
                     availabilityState.status === 'taken'
                   }
@@ -778,10 +809,14 @@ export const ProfileScreen = ({ navigation }) => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
+            setErrors,
+            setTouched,
+            setSubmitting,
+            resetForm,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => (
             <ScrollView
               keyboardShouldPersistTaps="handled"
@@ -851,15 +886,28 @@ export const ProfileScreen = ({ navigation }) => {
 
                 <AtelierButton
                   title={
-                    savingPassword
+                    savingPassword || isSubmitting
                       ? 'Saving...'
                       : hasExistingPassword
                       ? 'Save Password'
                       : 'Set Password'
                   }
-                  onPress={handleSubmit}
-                  loading={savingPassword}
-                  disabled={savingPassword}
+                  onPress={() =>
+                    submitFormWithScroll({
+                      schema: passwordSchema,
+                      values,
+                      setErrors,
+                      setTouched,
+                      setSubmitting,
+                      resetForm,
+                      onSubmit: handlePasswordSubmit,
+                      fieldOrder: hasExistingPassword
+                        ? ['currentPassword', 'newPassword', 'confirmPassword']
+                        : ['newPassword', 'confirmPassword'],
+                    })
+                  }
+                  loading={savingPassword || isSubmitting}
+                  disabled={savingPassword || isSubmitting}
                   style={styles.sheetSaveButton}
                 />
               </View>

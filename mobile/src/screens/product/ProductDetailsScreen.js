@@ -812,13 +812,15 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                   {({
                     handleChange,
                     handleBlur,
-                    handleSubmit,
                     setFieldValue,
-                    validateForm,
+                    setErrors,
                     setTouched,
+                    setSubmitting,
+                    resetForm,
                     values,
                     errors,
                     touched,
+                    isSubmitting,
                   }) => (
                     <View>
                       <View style={styles.starPickerRow}>
@@ -860,12 +862,22 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                           />
                         ) : null}
                         <AtelierButton
-                          title={editingReview ? 'Update Review' : 'Submit Review'}
+                          title={
+                            submitting || isSubmitting
+                              ? 'Saving...'
+                              : editingReview
+                              ? 'Update Review'
+                              : 'Submit Review'
+                          }
                           onPress={() =>
                             submitFormWithScroll({
-                              validateForm,
+                              schema: ReviewSchema,
+                              values,
+                              setErrors,
                               setTouched,
-                              handleSubmit,
+                              setSubmitting,
+                              resetForm,
+                              onSubmit: handleReviewSubmit,
                               scrollViewRef,
                               yPositions: {
                                 comment:
@@ -875,7 +887,7 @@ export const ProductDetailsScreen = ({ route, navigation }) => {
                               fieldOrder: ['rating', 'comment'],
                             })
                           }
-                          loading={submitting}
+                          loading={submitting || isSubmitting}
                           variant="primary"
                           style={styles.submitReviewButton}
                         />

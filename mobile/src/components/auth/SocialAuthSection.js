@@ -8,8 +8,7 @@ import { theme } from '../../theme';
 import AtelierText from '../common/AtelierText';
 import AtelierButton from '../common/AtelierButton';
 import AtelierErrorBanner from '../common/AtelierErrorBanner';
-import { socialLogin } from '../../redux/authSlice';
-import { registerForPushNotificationsAsync } from '../../services/pushNotificationService';
+import { socialLogin, syncPushToken } from '../../redux/authSlice';
 import {
   getSocialAuthConfig,
   isFirebaseConfigured,
@@ -60,12 +59,38 @@ const getMissingGoogleEnvKey = () => {
   return 'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID';
 };
 
-const GoogleNativeAuthButton = ({ clientIds, busy, onToken, onError }) => {
+const GoogleNativeAuthButton = ({
+  clientIds,
+  busy,
+  onLaunchingChange,
+  onToken,
+  onError,
+}) => {
+  const [launching, setLaunching] = useState(false);
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: clientIds.iosClientId,
     androidClientId: clientIds.androidClientId,
     webClientId: clientIds.webClientId,
   });
+
+  const handleGooglePress = async () => {
+    if (launching || !request || busy) {
+      return;
+    }
+    setLaunching(true);
+    onLaunchingChange?.(true);
+    try {
+      const authResult = await promptAsync();
+      if (authResult?.type !== 'success') {
+        setLaunching(false);
+        onLaunchingChange?.(false);
+      }
+    } catch (err) {
+      setLaunching(false);
+      onLaunchingChange?.(false);
+      onError(err?.message || 'Unable to sign in with Google.');
+    }
+  };
 
   useEffect(() => {
     const completeGoogle = async () => {
@@ -73,6 +98,8 @@ const GoogleNativeAuthButton = ({ clientIds, busy, onToken, onError }) => {
         const googleIdToken =
           response.authentication?.idToken || response.params?.id_token;
         if (!googleIdToken) {
+          setLaunching(false);
+          onLaunchingChange?.(false);
           onError('Google sign-in did not return an ID token.');
           return;
         }
@@ -83,9 +110,17 @@ const GoogleNativeAuthButton = ({ clientIds, busy, onToken, onError }) => {
           await onToken(firebaseIdToken);
         } catch (err) {
           onError(err.message || 'Unable to sign in with Google.');
+        } finally {
+          setLaunching(false);
+          onLaunchingChange?.(false);
         }
       } else if (response?.type === 'error') {
+        setLaunching(false);
+        onLaunchingChange?.(false);
         onError(response.error?.message || 'Google sign-in failed.');
+      } else if (response?.type) {
+        setLaunching(false);
+        onLaunchingChange?.(false);
       }
     };
     completeGoogle();
@@ -96,15 +131,23 @@ const GoogleNativeAuthButton = ({ clientIds, busy, onToken, onError }) => {
       title="Continue with Google"
       variant="outline"
       iconAlign="left"
-      disabled={!request || busy}
-      onPress={() => promptAsync()}
+      loading={launching}
+      disabled={!request || busy || launching}
+      onPress={handleGooglePress}
       style={styles.socialButton}
       icon={<GoogleMark />}
     />
   );
 };
 
-const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
+const FacebookNativeAuthButton = ({
+  appId,
+  busy,
+  onLaunchingChange,
+  onToken,
+  onError,
+}) => {
+  const [launching, setLaunching] = useState(false);
   const [request, response, promptAsync] = Facebook.useAuthRequest({
     clientId: appId,
     extraParams: {
@@ -113,20 +156,40 @@ const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
   });
 
   const handleFacebookPress = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const browsers = await WebBrowser.getCustomTabsSupportingBrowsersAsync();
-        const preferred =
-          browsers?.preferredBrowserPackage ||
-          browsers?.defaultBrowserPackage ||
-          browsers?.browserPackages?.[0];
-        if (preferred) {
-          await promptAsync({ browserPackage: preferred });
-          return;
-        }
-      } catch (e) {}
+    if (launching || !request || busy) {
+      return;
     }
-    await promptAsync();
+    setLaunching(true);
+    onLaunchingChange?.(true);
+    try {
+      let authResult;
+      if (Platform.OS === 'android') {
+        try {
+          const browsers = await WebBrowser.getCustomTabsSupportingBrowsersAsync();
+          const preferred =
+            browsers?.preferredBrowserPackage ||
+            browsers?.defaultBrowserPackage ||
+            browsers?.browserPackages?.[0];
+          if (preferred) {
+            authResult = await promptAsync({ browserPackage: preferred });
+          } else {
+            authResult = await promptAsync();
+          }
+        } catch (e) {
+          authResult = await promptAsync();
+        }
+      } else {
+        authResult = await promptAsync();
+      }
+      if (authResult?.type !== 'success') {
+        setLaunching(false);
+        onLaunchingChange?.(false);
+      }
+    } catch (err) {
+      setLaunching(false);
+      onLaunchingChange?.(false);
+      onError(err?.message || 'Unable to sign in with Facebook.');
+    }
   };
 
   useEffect(() => {
@@ -135,6 +198,8 @@ const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
         const accessToken =
           response.authentication?.accessToken || response.params?.access_token;
         if (!accessToken) {
+          setLaunching(false);
+          onLaunchingChange?.(false);
           onError('Facebook sign-in did not return an access token.');
           return;
         }
@@ -145,9 +210,17 @@ const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
           await onToken(firebaseIdToken);
         } catch (err) {
           onError(err.message || 'Unable to sign in with Facebook.');
+        } finally {
+          setLaunching(false);
+          onLaunchingChange?.(false);
         }
       } else if (response?.type === 'error') {
+        setLaunching(false);
+        onLaunchingChange?.(false);
         onError(response.error?.message || 'Facebook sign-in failed.');
+      } else if (response?.type) {
+        setLaunching(false);
+        onLaunchingChange?.(false);
       }
     };
     completeFacebook();
@@ -158,7 +231,8 @@ const FacebookNativeAuthButton = ({ appId, busy, onToken, onError }) => {
       title="Continue with Facebook"
       variant="outline"
       iconAlign="left"
-      disabled={!request || busy}
+      loading={launching}
+      disabled={!request || busy || launching}
       onPress={handleFacebookPress}
       style={styles.socialButton}
       icon={<FacebookMark />}
@@ -192,15 +266,14 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
     setSocialBusy(true);
     setErrorMessage('');
     try {
-      const pushToken = await registerForPushNotificationsAsync();
       const result = await dispatch(
         socialLogin({
           idToken,
-          pushToken,
           device: Platform.OS,
         })
       );
       if (socialLogin.fulfilled.match(result)) {
+        dispatch(syncPushToken({ requestPermission: true }));
         const signedInUser = result.payload?.user;
         const requiresOnboarding = Boolean(
           signedInUser && !signedInUser.username && !signedInUser.profileCompleted
@@ -267,6 +340,7 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
           <GoogleNativeAuthButton
             clientIds={authConfig.googleClientIds}
             busy={busy}
+            onLaunchingChange={setSocialBusy}
             onToken={submitFirebaseIdToken}
             onError={(msg) => reportError('Google Sign-In Failed', msg)}
           />
@@ -294,6 +368,7 @@ export const SocialAuthSection = ({ onAuthenticated }) => {
           <FacebookNativeAuthButton
             appId={authConfig.facebookAppId}
             busy={busy}
+            onLaunchingChange={setSocialBusy}
             onToken={submitFirebaseIdToken}
             onError={(msg) => reportError('Facebook Sign-In Failed', msg)}
           />

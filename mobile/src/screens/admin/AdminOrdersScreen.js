@@ -478,6 +478,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
           label: option.label,
           icon: option.icon,
           destructive: Boolean(option.destructive),
+          immediate: option.key !== 'cancelled',
           onPress: () => handleSelectTransition(selectedOrder, option.key),
         }))}
       />
@@ -498,6 +499,7 @@ export const AdminOrdersScreen = ({ navigation }) => {
             label: 'Cancel Order',
             icon: 'close-circle-outline',
             destructive: true,
+            immediate: true,
             onPress: () => handleStatusChange(cancelConfirmOrder, 'cancelled'),
           },
           {

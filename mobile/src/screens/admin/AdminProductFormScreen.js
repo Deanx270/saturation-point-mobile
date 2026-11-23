@@ -311,14 +311,15 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
             setFieldValue,
             setFieldTouched,
-            validateForm,
+            setErrors,
             setTouched,
+            setSubmitting: setFormSubmitting,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => {
             const normalizedBrandQuery = normalizeLabel(brandQuery);
             const filteredBrands = brandOptions.filter((b) =>
@@ -502,12 +503,21 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                 </View>
 
                 <AtelierButton
-                  title={submitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Product'}
+                  title={
+                    submitting || isSubmitting
+                      ? 'Saving...'
+                      : isEditing
+                      ? 'Save Changes'
+                      : 'Add Product'
+                  }
                   onPress={() =>
                     submitFormWithScroll({
-                      validateForm,
+                      schema: ProductSchema,
+                      values,
+                      setErrors,
                       setTouched,
-                      handleSubmit,
+                      setSubmitting: setFormSubmitting,
+                      onSubmit: handleFormSubmit,
                       scrollViewRef,
                       yPositions: fieldYRef.current,
                       fieldOrder: [
@@ -519,7 +529,7 @@ export const AdminProductFormScreen = ({ route, navigation }) => {
                       ],
                     })
                   }
-                  loading={submitting}
+                  loading={submitting || isSubmitting}
                   style={styles.submitButton}
                 />
 

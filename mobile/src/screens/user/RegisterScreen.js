@@ -182,12 +182,14 @@ export const RegisterScreen = ({ navigation }) => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
-            validateForm,
+            setErrors,
+            setSubmitting,
+            resetForm,
             setTouched,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => (
             <View
               style={styles.formContainer}
@@ -279,18 +281,26 @@ export const RegisterScreen = ({ navigation }) => {
               )}
 
               <AtelierButton
-                title={loading ? 'Creating Account...' : 'Create Account'}
+                title={
+                  loading || isSubmitting
+                    ? 'Creating Account...'
+                    : 'Create Account'
+                }
                 onPress={() =>
                   submitFormWithScroll({
-                    validateForm,
+                    schema: RegisterSchema,
+                    values,
+                    setErrors,
                     setTouched,
-                    handleSubmit,
+                    setSubmitting,
+                    resetForm,
+                    onSubmit: handleRegisterSubmit,
                     scrollViewRef,
                     yPositions: fieldYRef.current,
                     fieldOrder: ['email', 'password', 'confirmPassword'],
                   })
                 }
-                loading={loading}
+                loading={loading || isSubmitting}
                 style={styles.submitButton}
               />
 

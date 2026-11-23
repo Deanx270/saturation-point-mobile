@@ -30,6 +30,7 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierToast from '../../components/common/AtelierToast';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const BrandSchema = Yup.object().shape({
   name: Yup.string()
@@ -298,10 +299,14 @@ const AdminBrandsScreen = ({ navigation }) => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
+            setErrors,
+            setTouched,
+            setSubmitting,
+            resetForm,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => (
             <View>
               <AtelierInput
@@ -339,9 +344,26 @@ const AdminBrandsScreen = ({ navigation }) => {
               />
 
               <AtelierButton
-                title={submitting ? 'Saving...' : editingBrand ? 'Save Changes' : 'Add Brand'}
-                onPress={handleSubmit}
-                loading={submitting}
+                title={
+                  submitting || isSubmitting
+                    ? 'Saving...'
+                    : editingBrand
+                    ? 'Save Changes'
+                    : 'Add Brand'
+                }
+                onPress={() =>
+                  submitFormWithScroll({
+                    schema: BrandSchema,
+                    values,
+                    setErrors,
+                    setTouched,
+                    setSubmitting,
+                    resetForm,
+                    onSubmit: handleSaveBrand,
+                    fieldOrder: ['name', 'origin', 'description'],
+                  })
+                }
+                loading={submitting || isSubmitting}
               />
             </View>
           )}

@@ -285,13 +285,15 @@ export const AdminPromotionsScreen = ({ navigation }) => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
             setFieldValue,
-            validateForm,
+            setErrors,
             setTouched,
+            setSubmitting,
+            resetForm,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => (
             <View
               style={styles.formContainer}
@@ -538,12 +540,20 @@ export const AdminPromotionsScreen = ({ navigation }) => {
               </View>
 
               <AtelierButton
-                title={broadcasting ? 'Sending...' : 'Send Notification'}
+                title={
+                  broadcasting || isSubmitting
+                    ? 'Sending...'
+                    : 'Send Notification'
+                }
                 onPress={() =>
                   submitFormWithScroll({
-                    validateForm,
+                    schema: PromoSchema,
+                    values,
+                    setErrors,
                     setTouched,
-                    handleSubmit,
+                    setSubmitting,
+                    resetForm,
+                    onSubmit: handleBroadcast,
                     scrollViewRef,
                     yPositions: fieldYRef.current,
                     fieldOrder: [
@@ -563,7 +573,7 @@ export const AdminPromotionsScreen = ({ navigation }) => {
                     },
                   })
                 }
-                loading={broadcasting}
+                loading={broadcasting || isSubmitting}
                 style={styles.submitButton}
               />
             </View>

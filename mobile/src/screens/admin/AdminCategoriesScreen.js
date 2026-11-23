@@ -30,6 +30,7 @@ import AtelierErrorBanner from '../../components/common/AtelierErrorBanner';
 import AtelierBottomSheet from '../../components/common/AtelierBottomSheet';
 import AtelierHeader from '../../components/common/AtelierHeader';
 import AtelierToast from '../../components/common/AtelierToast';
+import { submitFormWithScroll } from '../../utils/formScroll';
 
 const CategorySchema = Yup.object().shape({
   name: Yup.string()
@@ -280,10 +281,14 @@ const AdminCategoriesScreen = ({ navigation }) => {
           {({
             handleChange,
             handleBlur,
-            handleSubmit,
+            setErrors,
+            setTouched,
+            setSubmitting,
+            resetForm,
             values,
             errors,
             touched,
+            isSubmitting,
           }) => (
             <View>
               <AtelierInput
@@ -310,9 +315,26 @@ const AdminCategoriesScreen = ({ navigation }) => {
               />
 
               <AtelierButton
-                title={submitting ? 'Saving...' : editingCategory ? 'Save Changes' : 'Add Category'}
-                onPress={handleSubmit}
-                loading={submitting}
+                title={
+                  submitting || isSubmitting
+                    ? 'Saving...'
+                    : editingCategory
+                    ? 'Save Changes'
+                    : 'Add Category'
+                }
+                onPress={() =>
+                  submitFormWithScroll({
+                    schema: CategorySchema,
+                    values,
+                    setErrors,
+                    setTouched,
+                    setSubmitting,
+                    resetForm,
+                    onSubmit: handleSaveCategory,
+                    fieldOrder: ['name', 'description'],
+                  })
+                }
+                loading={submitting || isSubmitting}
               />
             </View>
           )}

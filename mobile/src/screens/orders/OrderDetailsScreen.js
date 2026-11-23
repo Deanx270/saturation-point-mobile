@@ -612,6 +612,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
           label: option.label,
           icon: option.icon,
           destructive: Boolean(option.destructive),
+          immediate: option.key !== 'cancelled',
           onPress: () => handleSelectAdminTransition(option.key),
         }))}
       />
@@ -632,6 +633,7 @@ export const OrderDetailsScreen = ({ route, navigation }) => {
             label: 'Cancel Order',
             icon: 'close-circle-outline',
             destructive: true,
+            immediate: true,
             onPress: () =>
               cancelSheetMode === 'admin'
                 ? handleAdminStatusChange('cancelled')
